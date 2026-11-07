@@ -1,7 +1,7 @@
 ---
 title: Pleasure Systems Archive
 slug: pleasure-systems-archive
-order: 24
+order: 22
 years: '2018'
 year_start: 2018
 year_end: 2018
@@ -12,13 +12,19 @@ role:
 client: ""
 parent: null
 published: true
-cover: ""
+cover: /images/projects/pleasure-systems-archive/pleasure-systems-archive-cover.jpg
 cover_style: polaroid
 cover_focus:
 - 50
 - 50
 cover_zoom: 1
-images: []
-hover_image: ""
+images:
+- image: /images/projects/pleasure-systems-archive/pleasure-systems-01.jpg
+  alt: "The full Pleasure Systems Archive print: clusters of numbered circular image crops with source notes below"
+- image: /images/projects/pleasure-systems-archive/pleasure-systems-02.jpg
+  alt: Detail of numbered circular crops, 101 to 140
+- image: /images/projects/pleasure-systems-archive/pleasure-systems-03.jpg
+  alt: Detail of numbered circular crops, 91 to 115
+hover_image: /images/projects/pleasure-systems-archive/pleasure-systems-01.jpg
 photo_links: []
 ---

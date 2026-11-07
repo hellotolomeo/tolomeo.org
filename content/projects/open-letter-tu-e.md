@@ -19,7 +19,9 @@ cover_focus:
 - 50
 - 50
 cover_zoom: 1
-images: []
+images:
+- image: /images/projects/open-letter-tu-e/open-letter-01.jpg
+  alt: Sign the Open Letter graphic
 hover_image: ""
 photo_links: []
 ---

@@ -18,7 +18,9 @@ cover_focus:
 - 50
 - 87
 cover_zoom: 1.02
-images: []
+images:
+- image: /images/projects/on-queer-liberation/queer-liberation-01.jpg
+  alt: Where Does Pride Come From? poster
 hover_image: ""
 photo_links: []
 ---

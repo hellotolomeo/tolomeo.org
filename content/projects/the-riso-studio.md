@@ -2,7 +2,7 @@
 title: The RISO Studio
 slug: the-riso-studio
 order: 2
-years: 2023–2026
+years: 2023 - 2026
 year_start: 2023
 year_end: 2026
 tags:
@@ -20,8 +20,14 @@ cover_focus:
 - 50
 - 14
 cover_zoom: 1.02
-images: []
-hover_image: ""
+images:
+- image: /images/projects/the-riso-studio/riso-studio-01.jpg
+  alt: Tolomeo, in a red shirt, laughing in front of a wall of risoprinted colour-test posters at Onomatopee
+- image: /images/projects/the-riso-studio/riso-studio-02.jpg
+  alt: Two people at work in the riso studio, binding prints in front of shelves of risograph drums
+- image: /images/projects/the-riso-studio/riso-studio-03.jpg
+  alt: A tattooed hand reaching toward the open drum bay of a risograph
+hover_image: /images/projects/the-riso-studio/riso-studio-02.jpg
 photo_links: []
 ---
 

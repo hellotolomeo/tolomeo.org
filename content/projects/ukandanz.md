@@ -19,7 +19,9 @@ cover_focus:
 - 50
 - 41
 cover_zoom: 1.04
-images: []
+images:
+- image: /images/projects/ukandanz/ukandanz-01.jpg
+  alt: Ukandanz gig poster
 hover_image: ""
 photo_links: []
 ---

@@ -16,13 +16,21 @@ role:
 client: Onomatopee
 parent: the-riso-studio
 published: true
-cover: ""
-cover_style: polaroid
+cover: /images/projects/print-for-palestine/print-for-palestine-cover.jpg
+cover_style: small
 cover_focus:
 - 50
 - 50
 cover_zoom: 1
-images: []
-hover_image: ""
+images:
+- image: /images/projects/print-for-palestine/print-for-palestine-01.jpg
+  alt: Print for Palestine workshop poster in red, black and green
+- image: /images/projects/print-for-palestine/print-for-palestine-02.jpg
+  alt: Protest Poster Support poster in red and white on green
+- image: /images/projects/print-for-palestine/print-for-palestine-03.jpg
+  alt: Risoprinted Free Palestine art print on a yellow background
+hover_image: /images/projects/print-for-palestine/print-for-palestine-02.jpg
 photo_links: []
 ---
+
+As a way to show solidarity and extend material support towards anti-genocide initiatives in the Netherlands, I set up three projects for the riso studio: 1) providing pro-bono printing services towards grassroots organizations and activist groups wanting protest posters; 2) putting on a solidarity workshop for folks to come and design and print Palestine posters to sell for mutual aid donations for Gaza, and 3) collaborating on an art risoprinted edition with Netherlands-based artist of Palestinian descent Susanne Khalil Yusef, to sell in the Onomatopee shop, with proceeds going towards the charitable foundation Stichting Olijfboom.

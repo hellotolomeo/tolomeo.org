@@ -18,11 +18,11 @@ cover_focus:
 - 50
 - 63
 cover_zoom: 1.02
-images: []
+images:
+- image: /images/projects/landline-study-lab/landline-01.jpg
+  alt: A yellow ball on the floor of an empty white studio
 hover_image: ""
 photo_links: []
 ---
 
-A research library, book shop and print laboratory at De Fabriek, Eindhoven.
-
-The Study Lab helps facilitate research into coloniality, builds community resilience, supports De Fabriek artists-in-residence, and gives activists and agitators the means to print and self-publish. It’s also headquarters to the independent publishing project Landline.
+A research library, book shop and print laboratory at De Fabriek, Eindhoven. The Study Lab helps facilitate research into coloniality, builds community resilience, supports De Fabriek artists-in-residence, and gives activists and agitators the means to print and self-publish. It’s also headquarters to the independent publishing project Landline.

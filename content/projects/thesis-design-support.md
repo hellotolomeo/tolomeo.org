@@ -20,7 +20,11 @@ cover_focus:
 - 50
 - 46
 cover_zoom: 1
-images: []
+images:
+- image: /images/projects/thesis-design-support/thesis-01.jpg
+  alt: "Open call poster: Thesis Publication Support at Onomatopee"
 hover_image: ""
 photo_links: []
 ---
+
+Half-year mentorship program I designed to support 3 talented Design Academy masters students with the design and production of their printed thesis through risography. Starting with a private open call application, coordinating with the Masters department heads to reach students, and selected three students from 3 separate departments. Culminating in 3 thesis risoprinted books, one was part of the thesis project which won the Gijs Bakker Award in 2025.

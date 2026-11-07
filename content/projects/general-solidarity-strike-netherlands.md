@@ -21,7 +21,13 @@ cover_focus:
 - 25
 - 38
 cover_zoom: 1.02
-images: []
-hover_image: ""
+images:
+- image: /images/projects/general-solidarity-strike-netherlands/solidarity-strike-01.jpg
+  alt: "Februaristaking Herdenking poster: a red figure scattering leaflets over a crowd, 24 February, Amsterdam"
+- image: /images/projects/general-solidarity-strike-netherlands/solidarity-strike-02.jpg
+  alt: Square version of the Februaristaking Herdenking poster
+- image: /images/projects/general-solidarity-strike-netherlands/solidarity-strike-03.jpg
+  alt: Februaristaking Herdenking posters being pasted on a wall
+hover_image: /images/projects/general-solidarity-strike-netherlands/solidarity-strike-02.jpg
 photo_links: []
 ---

@@ -20,8 +20,20 @@ cover_focus:
 - 50
 - 55
 cover_zoom: 1.48
-images: []
-hover_image: ""
+images:
+- image: /images/projects/does-marxism-support-decolonization/marxism-01.jpg
+  alt: Does Marxism Support Decolonization?, image 1
+- image: /images/projects/does-marxism-support-decolonization/marxism-02.jpg
+  alt: Does Marxism Support Decolonization?, image 2
+- image: /images/projects/does-marxism-support-decolonization/marxism-03.jpg
+  alt: Does Marxism Support Decolonization?, image 3
+- image: /images/projects/does-marxism-support-decolonization/marxism-04.jpg
+  alt: Does Marxism Support Decolonization?, image 4
+- image: /images/projects/does-marxism-support-decolonization/marxism-05.jpg
+  alt: Does Marxism Support Decolonization?, image 5
+- image: /images/projects/does-marxism-support-decolonization/marxism-06.jpg
+  alt: Does Marxism Support Decolonization?, image 6
+hover_image: /images/projects/does-marxism-support-decolonization/marxism-02.jpg
 photo_links: []
 ---
 

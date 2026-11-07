@@ -136,8 +136,13 @@ function shape(p, { images, warn }) {
     // Only the grid needs an image where one is missing; elsewhere a missing photo is left out.
     const cover = p.coverStyle === 'none' ? null : pic(p.cover, '', true);
     const gallery = p.images.map(({ image, alt }) => pic(image, alt || p.title)).filter(Boolean);
-    // pair: the cover on the left, the first of `images` on the right.
-    const pairWith = p.coverStyle === 'pair' ? (gallery.find(g => g.key !== cover?.key) ?? null) : null;
+    // pair: the cover on the left; on the right the hover photo if there is one (the design's
+    // Chapter Symbols pair is cover + spread, and the spread is its hover photo), else the
+    // first project photo that isn't the cover.
+    const hoverPic = p.hoverImage ? pic(p.hoverImage) : null;
+    const pairWith = p.coverStyle === 'pair'
+        ? ((hoverPic && hoverPic.key !== cover?.key ? hoverPic : null) ?? gallery.find(g => g.key !== cover?.key) ?? null)
+        : null;
     const style = !cover ? 'none' : p.coverStyle === 'pair' && !pairWith ? 'polaroid' : p.coverStyle;
     return {
         slug: p.slug,

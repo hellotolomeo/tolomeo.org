@@ -1,21 +1,29 @@
-{#- The project page's contents (provisional: BRIEF §5.2). The final design replaces this file and project-detail.css only. `project` is the project, as server/content.js shapes it. -#}
-<article class="project-detail">
-<header class="head">
-<span class="years">{{ project.years }}</span>
-<span class="what"><h1>{{ project.title }}</h1>{% if project.tagLinks | length %}<span class="tags">{% for t in project.tagLinks %}<a href="{{ t.href }}">{{ t.label }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}</span>
+{#- The project page (README §4): header band, title row, description and role / for, then the image strip. `project` is the project, as server/content.js shapes it. -#}
+<header class="project-head">
+<p class="back">&lt;----- <a href="/">back</a></p>
+<p class="home"><a href="/">Index</a></p>
 </header>
-{% if project.body %}
+<main class="project-detail">
+<div class="title-row">
+<span class="years">{{ project.years }}</span>
+<div class="what"><h1>{{ project.title }}</h1>{% if project.tags | length %}<span class="type">{{ project.tags | join(', ') }}</span>{% endif %}</div>
+</div>
+{% if project.body or project.role or project.client %}
 <div class="text">
+{% if project.body %}
+<div class="description">
 {{ project.body | safe }}
 </div>
 {% endif %}
 {% if project.role or project.client %}
 <div class="meta">
 {% if project.role %}
-<p>role: {{ project.role }}</p>
+<p><span class="label">role:</span> {{ project.role }}</p>
 {% endif %}
 {% if project.client %}
-<p>for: {{ project.client }}</p>
+<p><span class="label">for:</span> {{ project.client }}</p>
+{% endif %}
+</div>
 {% endif %}
 </div>
 {% endif %}
@@ -24,7 +32,7 @@
   class="strip"
   tabindex="0"
   role="region"
-  aria-label="Photos"
+  aria-label="Photos of {{ project.title }}"
 >
 {% for g in project.images %}
 <picture>{% if g.webp %}<source
@@ -53,14 +61,4 @@
 {% endfor %}
 </ul>
 {% endif %}
-{% if project.prev or project.next %}
-<nav class="prevnext" aria-label="More projects">
-{% if project.prev %}
-<a href="{{ project.prev.href }}" rel="prev">&lt;- {{ project.prev.title }}</a>
-{% endif %}
-{% if project.next %}
-<a href="{{ project.next.href }}" rel="next">{{ project.next.title }} -&gt;</a>
-{% endif %}
-</nav>
-{% endif %}
-</article>
+</main>

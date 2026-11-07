@@ -13,14 +13,16 @@ role:
 - book maker
 client: Eleni Ploumi, United Cowboys
 parent: null
-published: false
-cover: ""
-cover_style: polaroid
+published: true
+cover: /images/projects/misslightenment/misslightenment-cover.jpg
+cover_style: small
 cover_focus:
 - 50
 - 50
 cover_zoom: 1
-images: []
+images:
+- image: /images/projects/misslightenment/misslightenment-01.jpg
+  alt: Misslightenment performance poster
 hover_image: ""
 photo_links: []
 ---

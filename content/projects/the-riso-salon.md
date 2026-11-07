@@ -20,7 +20,13 @@ cover_focus:
 - 48
 - 51
 cover_zoom: 1.33
-images: []
-hover_image: ""
+images:
+- image: /images/projects/the-riso-salon/riso-salon-01.jpg
+  alt: Save the Tsukumogami! risoprinted poster
+- image: /images/projects/the-riso-salon/riso-salon-02.jpg
+  alt: "The RISO Salon: risoprinted art prints hung on wire grids on a white brick wall"
+hover_image: /images/projects/the-riso-salon/riso-salon-02.jpg
 photo_links: []
 ---
+
+Pop-up exhibition set up to sell a curated selection of 18 different risoprinted art prints from international, national, and Eindhoven-based artists and illustrators. Open call invitation to invite artists.

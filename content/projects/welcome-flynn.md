@@ -13,7 +13,7 @@ role:
 - risoprinter
 client: Private
 parent: null
-published: true
+published: false
 cover: ""
 cover_style: polaroid
 cover_focus:

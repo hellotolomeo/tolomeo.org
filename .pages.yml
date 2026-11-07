@@ -181,7 +181,7 @@ content:
             - value: small
               label: "Small — narrow and centred, no border (good for posters)"
             - value: pair
-              label: "Pair — the thumbnail and the first project photo side by side"
+              label: "Pair — the thumbnail and the hover photo (or else the first project photo) side by side"
             - value: none
               label: "None — leave the box empty"
         description: "How the thumbnail sits in its box on the home page."
@@ -217,7 +217,7 @@ content:
         options:
           path: images/projects
           extensions: [jpg, jpeg, png, webp, avif, gif, svg, heic, heif, tif, tiff, JPG, JPEG, PNG, WEBP, HEIC, HEIF, TIF, TIFF]
-        description: "Optional. Shown instead of the thumbnail when someone points at the project. Leave empty for none."
+        description: "Optional. Shown in place of the thumbnail while someone points at the thumbnail. Usually one of the project's photos. Leave empty for none."
 
       - name: images
         label: Project photos

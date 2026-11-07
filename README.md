@@ -42,13 +42,10 @@ Optional bulk tool for many photos at once: makes 2000px web copies named `the-r
 in `images/projects/the-riso-salon/` and prints the `images:` list to paste. Never touches the
 originals. Uploading through the CMS works too; CI resizes and converts anything large or HEIC.
 
-```bash
-python3 scripts/import-projects.py content/source/Tolomeo_org_Project_List.xlsx
-```
-Re-import the spreadsheet (needs `openpyxl` and `pyyaml`). Keeps image fields and edited
-descriptions; `--overwrite-bodies` takes the sheet's text instead.
-
-## How it fits together
+The project text and photos were imported once from Claude Design's site update
+(`site-data.json`) with `scripts/import-site-data.js`; since then `content/` (edited in Pages CMS)
+is the source of truth. The old spreadsheet importer, `scripts/import-projects.py`, is superseded:
+don't run it, it would bring back the spreadsheet's typos and old titles.
 
 ```
 content/            Markdown + YAML front matter: projects/, site/index.md, site/info.md
@@ -62,7 +59,7 @@ components/         project-index (the home page: grid + list + filter), thumbna
                     project-detail/ (the project page partial — the one file a final design replaces)
 client/             browser only: main.js, tuner.js, template-env.js, lib/ (BaseComponent), site.css
 lib/                vendor/ (nunjucks, idiomorph), filters.js, zeldman/ (upstream docs + UPSTREAM hash)
-scripts/            prepare-images, normalize-images (CI), import-covers (one-off), import-projects, verify
+scripts/            prepare-images, normalize-images (CI), import-covers and import-site-data (one-off), import-projects (superseded), verify
 ```
 
 Built with [the Zeldman Pattern](https://github.com/erikswedberg/zeldman): a component is a Nunjucks
