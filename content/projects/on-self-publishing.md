@@ -1,0 +1,26 @@
+---
+title: On Self-publishing
+slug: on-self-publishing
+order: 2.1
+years: 2025, 2026
+year_start: 2025
+year_end: 2026
+tags:
+- workshop
+role:
+- instructor
+client: Onomatopee
+parent: the-riso-studio
+published: true
+cover: ""
+cover_style: polaroid
+cover_focus:
+- 50
+- 50
+cover_zoom: 1
+images: []
+hover_image: ""
+photo_links: []
+---
+
+A full-day workshop leading students through the history and political context of dupicator printing, including zines and small-scale pubilshing, followed by demonstrations on the inner workings of the risograph. After lectures and demos, the class gets into a dirty process session (with their own from-home visual experiments) where students get hands-on creative support as they design a publication around their own research question and position. After choosing a limited color palette as a group, students will one-by-one begin the process of risoprinting elements for their project. At the end of class, the group spreads out their finished work on display for a group critique.

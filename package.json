@@ -1,0 +1,25 @@
+{
+  "name": "tolomeo.org",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Portfolio site for Tolomeo: static, pre-rendered with the Zeldman Pattern, edited in Pages CMS.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.9"
+  },
+  "scripts": {
+    "dev": "node server.js",
+    "build": "node build.js",
+    "images": "node scripts/prepare-images.js",
+    "verify": "node scripts/verify.js"
+  },
+  "dependencies": {
+    "gray-matter": "4.0.3",
+    "marked": "18.1.3",
+    "nunjucks": "3.2.4",
+    "sharp": "0.35.5"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}
