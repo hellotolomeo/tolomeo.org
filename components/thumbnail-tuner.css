@@ -22,13 +22,13 @@ thumbnail-tuner button {
   font: inherit;
   color: var(--text);
   background: var(--ground);
-  border: 1px solid var(--line);
+  border: var(--hair) solid var(--line);
   padding: 2px 6px;
 }
 
 thumbnail-tuner .stage {
-  border-top: 1px solid var(--line);
-  border-left: 1px solid var(--line);
+  border-top: var(--hair) solid var(--line);
+  border-left: var(--hair) solid var(--line);
 }
 
 thumbnail-tuner .values {

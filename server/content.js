@@ -15,9 +15,7 @@ import matter from 'gray-matter';
 import { markdown, markdownInline } from './markdown.js';
 
 const STYLES = ['polaroid', 'polaroid-tall', 'fill', 'small', 'pair', 'none'];
-// Grid cells take the 600px file; the strip is this tall (CSS: min(560px, 70vh)).
-const STRIP_HEIGHT = 560;
-const STRIP_VH = 70;
+// Grid cells take the 600px file; the project page's strip is clamp(240px, 30vw, 400px) tall.
 
 /**
  * @param {{ root: string, images: Map<string, object>, config: object, log?: Function }} options
@@ -222,10 +220,12 @@ function relPath(value, slug) {
     return v.replace(/^\/+/, '');
 }
 
-// The strip shows each image at the strip's height, so its width is height × aspect.
+// The strip shows each image at the strip's height (clamp(240px, 30vw, 400px)), so its
+// width is that height × its aspect ratio.
 function stripSizes(g) {
-    const aspect = g.width && g.height ? g.width / g.height : 1.5;
-    return `(min-height: ${Math.round(STRIP_HEIGHT / (STRIP_VH / 100))}px) ${Math.round(STRIP_HEIGHT * aspect)}px, ${Math.round(STRIP_VH * aspect)}vh`;
+    const a = g.width && g.height ? g.width / g.height : 1.5;
+    const px = (n) => `${Math.round(n * a)}px`;
+    return `(max-width: 800px) ${px(240)}, (min-width: 1334px) ${px(400)}, ${Math.round(30 * a * 100) / 100}vw`;
 }
 
 // --- Cover placement: one rule per cover, in a generated stylesheet, never inline.

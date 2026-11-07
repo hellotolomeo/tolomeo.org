@@ -13,15 +13,10 @@ project-index section {
   min-width: 0;
 }
 
-project-index .index {
-  margin-left: -1px;
-}
-
 project-index .band {
-  min-height: 193px;
+  min-height: 192px;
   box-sizing: border-box;
-  background: var(--ground);
-  border-bottom: 1px solid var(--line);
+  box-shadow: inset 0 calc(-1 * var(--hair)) 0 var(--line);
 }
 
 project-index .intro {
@@ -35,7 +30,6 @@ project-index .intro p {
 project-index .index .band {
   padding: 42px 40px 24px 16px;
   text-align: right;
-  border-left: 1px solid var(--line);
 }
 
 project-index h1 {
@@ -45,6 +39,10 @@ project-index h1 {
   font-weight: 300;
 }
 
+project-index h1 a {
+  text-decoration: none;
+}
+
 project-index .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -52,18 +50,31 @@ project-index .grid {
 }
 
 :is(project-index, thumbnail-tuner) .cell {
+  --rule-right: var(--hair);
+  --rule-bottom: var(--hair);
   position: relative;
   display: block;
   aspect-ratio: 331.4 / 191.6;
   overflow: hidden;
   container-type: inline-size;
-  border-right: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+}
+
+:is(project-index, thumbnail-tuner) .cell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  box-shadow: inset calc(-1 * var(--rule-right)) calc(-1 * var(--rule-bottom)) 0 var(--line);
+  pointer-events: none;
+}
+
+project-index .cell:nth-child(even) {
+  --rule-right: 0px;
 }
 
 project-index .cell:last-child,
 project-index .cell:nth-last-child(2):nth-child(odd) {
-  border-bottom: none;
+  --rule-bottom: 0px;
 }
 
 :is(project-index, thumbnail-tuner) .cell:focus-visible {
@@ -132,6 +143,34 @@ project-index .cell:nth-last-child(2):nth-child(odd) {
   aspect-ratio: var(--b, 1.5);
 }
 
+:is(project-index, thumbnail-tuner) .swap {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 94%;
+  height: 86%;
+  margin: auto;
+  visibility: hidden;
+}
+
+:is(project-index, thumbnail-tuner) .swap img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: contain;
+}
+
+project-index .cell.swapped .box {
+  visibility: hidden;
+}
+
+project-index .cell.swapped .swap {
+  visibility: visible;
+}
+
 :is(project-index, thumbnail-tuner) .box img {
   position: absolute;
   inset: 0;
@@ -156,8 +195,7 @@ project-index .row {
   min-height: 38px;
   box-sizing: border-box;
   padding: 9px 16px 9px clamp(16px, 3.1vw, 41px);
-  border-left: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  box-shadow: inset 0 calc(-1 * var(--hair)) 0 var(--line);
 }
 
 project-index .marker {
@@ -218,19 +256,6 @@ project-index .track {
   project-index section {
     flex-basis: 100%;
   }
-
-  project-index .index {
-    margin-left: 0;
-  }
-
-  project-index .cell:nth-child(even) {
-    border-right: none;
-  }
-
-  project-index .index .band,
-  project-index .row {
-    border-left: none;
-  }
 }
 
 @media (min-width: 720px) {
@@ -246,6 +271,10 @@ project-index .track {
     flex-direction: column;
     height: 100vh;
     timeline-scope: --column;
+  }
+
+  project-index .index {
+    box-shadow: inset var(--hair) 0 0 var(--line);
   }
 
   project-index .band {
@@ -267,7 +296,7 @@ project-index .track {
 
   project-index .track {
     position: absolute;
-    top: 193px;
+    top: 192px;
     bottom: 0;
     z-index: 2;
     width: 8px;
@@ -275,7 +304,7 @@ project-index .track {
   }
 
   project-index .images .track {
-    right: -3.5px;
+    right: calc(-4px - var(--hair) / 2);
     --thumb-height: min(123px, 40%);
   }
 

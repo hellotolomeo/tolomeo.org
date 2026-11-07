@@ -14,7 +14,20 @@
   --tag: #b5b7b7;
   --frame: #f5f7eb;
   --thumb: rgba(242, 142, 193, 0.49);
+  --hair: 1px;
   color-scheme: dark;
+}
+
+@media (min-resolution: 2dppx) {
+  :root {
+    --hair: 0.5px;
+  }
+}
+
+@media (min-resolution: 3dppx) {
+  :root {
+    --hair: 0.3334px;
+  }
 }
 
 html {

@@ -2,13 +2,14 @@
 {#- `shown` and `hover` exist only in the browser; the server renders every project with nothing pointed at. -#}
 {% set shown = shown | default(projects) %}
 {% set hover = hover | default('') %}
+{% set swap = swap | default('') %}
 <section class="images" aria-label="Project images">
 <div class="band intro" data-content>{{ content | safe }}</div>
 <div class="scroll"><div class="grid">
 {% for p in shown %}
 <a
   id="cell-{{ p.slug }}"
-  class="cell {{ p.style }}"
+  class="cell {{ p.style }}{% if swap == p.slug %} swapped{% endif %}"
   href="{{ p.href }}"
   aria-label="{{ p.title }}"
   data-slug="{{ p.slug }}"
@@ -18,7 +19,7 @@
 <div class="track" aria-hidden="true"><span class="thumb"></span></div>
 </section>
 <section class="index" aria-label="Index">
-<div class="band"><h1 tabindex="-1">Index</h1></div>
+<div class="band"><h1><a href="/">Index</a></h1></div>
 <ul class="rows">
 {% for p in shown %}
 <li

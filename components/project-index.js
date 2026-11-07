@@ -15,16 +15,18 @@ class ProjectIndex extends BaseComponent {
         projects: [], // every published project in list order, as server/content.js shapes it (JSON)
         filter: [], // the active tags; static pages leave it empty and the URL sets it
         match: 'any', // 'any': a project shows with at least one active tag; 'all': with every one
-        'hover-swap': false, // show a project's hover image while it is pointed at
+        'hover-swap': false, // show a project's hover image while the pointer is over its cell
     };
     static events = [];
-    state = { hover: '' };
+    // hover: the project whose row shows the marker (pointer on its cell or row, or focus);
+    // swap: the project whose cell the pointer is over, which shows its hover image.
+    state = { hover: '', swap: '' };
 
     connectedCallback() {
         this.addEventListener('click', e => this.click(e), { signal: this.signal });
-        this.addEventListener('mouseover', e => this.point(e.target), { signal: this.signal });
+        this.addEventListener('mouseover', e => this.point(e.target, true), { signal: this.signal });
         this.addEventListener('mouseleave', () => this.pointAt(''), { signal: this.signal });
-        this.addEventListener('focusin', e => this.point(e.target), { signal: this.signal });
+        this.addEventListener('focusin', e => this.point(e.target, false), { signal: this.signal });
         // After the event: a morph that removes the focused row fires focusout mid-morph,
         // and a render must never start inside another.
         this.addEventListener('focusout', () => queueMicrotask(() => { if (!this.contains(document.activeElement)) this.pointAt(''); }), { signal: this.signal });
@@ -56,19 +58,21 @@ class ProjectIndex extends BaseComponent {
             const { filter } = this.state;
             this.go(filter.includes(t) ? filter.filter(x => x !== t) : [...filter, t], 'push');
             // The row holding the button can stop matching; keep keyboard focus in the list.
-            if (!tag.isConnected) (this.querySelector('.tag.on') ?? this.querySelector('.index h1'))?.focus();
+            if (!tag.isConnected) (this.querySelector('.tag.on') ?? this.querySelector('.index h1 a'))?.focus();
             return;
         }
         // Leaving for a project page: remember the filter, so its "index" link can bring it back.
         if (e.target.closest('a[href^="/projects/"]')) remember(this.state.filter);
     }
 
-    point(target) {
-        this.pointAt(target.closest?.('[data-slug]')?.dataset.slug ?? '');
+    point(target, pointer) {
+        const el = target.closest?.('[data-slug]');
+        const slug = el?.dataset.slug ?? '';
+        this.pointAt(slug, pointer && el?.classList.contains('cell') ? slug : '');
     }
 
-    pointAt(slug) {
-        if (slug !== this.state.hover) this.setState({ hover: slug });
+    pointAt(hover, swap = '') {
+        if (hover !== this.state.hover || swap !== this.state.swap) this.setState({ hover, swap });
     }
 
     // Apply a filter: the URL first, then state.

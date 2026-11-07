@@ -6,10 +6,11 @@ export default {
     PROJECT_VIEW: 'page',
     // 'any': a project shows when it has at least one active tag (OR); 'all': every active tag (AND).
     FILTER_MATCH: 'any',
-    // Swap a grid cell to its hover_image while the cell or its row is pointed at.
+    // Swap a grid cell to its hover_image while the pointer is over that cell.
     HOVER_SWAP: true,
     // Polaroid frames sit slightly off-grid, offset deterministically from the slug.
-    FRAME_JITTER: true,
+    // Off: the design now centres every thumbnail exactly.
+    FRAME_JITTER: false,
     // The intro reads "Tolomeo is…": that is content, in content/site/index.md.
     // The colour of the tags in the index list.
     TAG_COLOR: '#b5b7b7',
