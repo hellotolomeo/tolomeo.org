@@ -20,9 +20,11 @@ cover_focus:
 cover_zoom: 1.02
 images:
 - image: /images/projects/on-self-publishing/self-publishing-01.jpg
-  alt: A participant loading the ink drum into a risograph
+  alt: A participant in a bleached denim jacket lifting a fresh print from the drying rack
 - image: /images/projects/on-self-publishing/self-publishing-02.jpg
   alt: A participant folding yellow printed sheets at a workshop table
+- image: /images/projects/on-self-publishing/self-publishing-03.jpg
+  alt: The group standing around their risoprints laid out on the gallery floor for the final critique
 hover_image: /images/projects/on-self-publishing/self-publishing-01.jpg
 photo_links: []
 ---
