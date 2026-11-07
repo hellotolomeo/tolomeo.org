@@ -12,12 +12,12 @@ role:
 client: Onomatopee
 parent: the-riso-studio
 published: true
-cover: ""
+cover: /images/projects/on-self-publishing/on-self-publishing-cover.jpg
 cover_style: polaroid
 cover_focus:
 - 50
-- 50
-cover_zoom: 1
+- 14
+cover_zoom: 1.02
 images: []
 hover_image: ""
 photo_links: []

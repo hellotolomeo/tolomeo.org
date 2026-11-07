@@ -1,0 +1,305 @@
+# Pages CMS configuration for tolomeo.org (https://app.pagescms.org).
+# Field names must match the front matter in content/ and what server/content.js reads.
+# Editing guide for Tolomeo: EDITING.md.
+#
+# To add a tag category: add one line under `tags` -> options -> values below
+# (keep the spelling lower case; the site picks it up on the next build).
+
+media:
+  input: images
+  output: /images
+  # Uploads get safe file names (lower case, no spaces: "IMG 0042.JPG" -> "img-0042.jpg").
+  # A file with the same name as an existing one is never overwritten: Pages CMS saves it
+  # as name-1.jpg, name-2.jpg, ... instead.
+  rename: safe
+  # Upper-case variants keep older files with upper-case extensions valid on save.
+  extensions: [jpg, jpeg, png, webp, avif, gif, svg, heic, heif, tif, tiff, JPG, JPEG, PNG, WEBP, HEIC, HEIF, TIF, TIFF]
+
+settings:
+  content:
+    # Keep any front matter key this file doesn't describe when a file is saved.
+    merge: true
+
+content:
+  - name: projects
+    label: Projects
+    description: "Every project on the site, one per file. Guide: https://github.com/hellotolomeo/tolomeo.org/blob/main/EDITING.md"
+    type: collection
+    path: content/projects
+    format: yaml-frontmatter
+    filename: "{fields.slug}.md"
+    operations:
+      # The file name comes from the slug; renaming the file alone would only confuse things.
+      rename: false
+    view:
+      primary: title
+      fields: [title, years, order, published]
+      sort: [order, title, year_start]
+      search: [title, slug]
+      default:
+        sort: order
+        order: asc
+    fields:
+      - name: title
+        label: Title
+        type: string
+        required: true
+        description: "The project's name, exactly as it should appear on the site."
+
+      - name: slug
+        label: Slug (web address)
+        type: string
+        required: true
+        pattern:
+          regex: '^[a-z0-9]+(-[a-z0-9]+)*$'
+          message: "Lower case letters and numbers only, words joined by hyphens (for example: the-riso-studio)."
+        description: "Used in the web address and as the photo folder name. Lower case, words joined by hyphens. Don't change it after publishing."
+
+      - name: published
+        label: Published
+        type: boolean
+        default: true
+        description: "Off = hidden everywhere, including its page."
+
+      - name: order
+        label: Order
+        type: number
+        required: true
+        options:
+          step: any
+          min: 0
+        description: "Position in the list. Whole numbers are projects; 2.1, 2.2 … sit under project 2 (use 2.01…2.10 if you need ten or more)."
+
+      - name: parent
+        label: Part of (parent project)
+        type: reference
+        options:
+          collection: projects
+          value: "{fields.slug}"
+          label: "{fields.title}"
+          search: "fields.title,fields.slug"
+        description: "Only for sub-projects: pick the main project this belongs under, and give it an order like 2.1. Leave empty for a main project."
+
+      - name: years
+        label: Years
+        type: string
+        description: "Shown exactly as typed, e.g. 2023–2026, 2025, 2026 or 2023 –"
+
+      - name: year_start
+        label: Start year
+        type: number
+        options:
+          min: 1900
+          max: 2100
+        description: "Only used for sorting; leave year_end empty if ongoing."
+
+      - name: year_end
+        label: End year
+        type: number
+        options:
+          min: 1900
+          max: 2100
+        description: "Only used for sorting; leave year_end empty if ongoing."
+
+      - name: tags
+        label: Tags
+        type: select
+        options:
+          multiple: true
+          placeholder: "Choose categories"
+          # The closed list of filter categories. Add a new one as one more line, in
+          # alphabetical order, lower case. See EDITING.md, "Add a tag category".
+          values:
+            - art print
+            - book
+            - booklet
+            - boycott
+            - collaboration
+            - commission
+            - department
+            - digital designs
+            - digital graphic
+            - editorial illustration
+            - exhibition
+            - graphic illustration
+            - installation
+            - logo
+            - mentorship
+            - performance
+            - printed banner
+            - printed card
+            - printed flyer
+            - product
+            - program
+            - public program
+            - service
+            - wallpaper
+            - workshop
+        description: "Categories people can filter by. To add a new one, ask for it to be added to the list (one line in .pages.yml — see EDITING.md)."
+
+      - name: role
+        label: Role
+        type: string
+        list: true
+        description: "What you did, one per line, e.g. illustrator, risoprinter. Shown as 'role:'."
+
+      - name: client
+        label: Client
+        type: string
+        description: "Shown as 'for:'."
+
+      - name: body
+        label: Description
+        type: rich-text
+        options:
+          format: markdown
+          media: false
+        description: "Paragraphs and links only; other formatting is simplified on the site."
+
+      - name: cover
+        label: Thumbnail photo (cover)
+        type: image
+        options:
+          path: images/projects
+        description: "The photo in the grid on the home page. Upload into images/projects/<slug> — use 'New folder' with the project's slug the first time. Empty = an empty box."
+
+      - name: cover_style
+        label: Thumbnail style
+        type: select
+        default: polaroid
+        options:
+          values:
+            - value: polaroid
+              label: "Polaroid — a landscape print with a white border"
+            - value: polaroid-tall
+              label: "Polaroid, tall — a portrait print with a white border"
+            - value: fill
+              label: "Fill — the photo fills the whole box"
+            - value: small
+              label: "Small — narrow and centred, no border (good for posters)"
+            - value: pair
+              label: "Pair — the thumbnail and the first project photo side by side"
+            - value: none
+              label: "None — leave the box empty"
+        description: "How the thumbnail sits in its box on the home page."
+
+      - name: cover_focus
+        label: Thumbnail focus (across, down)
+        type: number
+        # No list.min: a new project starts with an empty list, and min would block its
+        # first save. Empty or one number is fine; the site fills in 50 for what's missing.
+        list:
+          max: 2
+          collapsible: false
+        options:
+          min: 0
+          max: 100
+          step: any
+        description: "Which part of the photo stays in view: 50, 50 is the centre; 50, 20 keeps the top. Easiest: use the thumbnail tuner at tolomeo.org/tools/thumbnail/ and copy its numbers."
+
+      - name: cover_zoom
+        label: Thumbnail zoom
+        type: number
+        options:
+          min: 1
+          max: 4
+          step: any
+        description: "1 = the photo just fills its frame; 1.5 = closer."
+
+      - name: hover_image
+        label: Hover photo
+        type: image
+        options:
+          path: images/projects
+        description: "Optional. Shown instead of the thumbnail when someone points at the project. Leave empty for none."
+
+      - name: images
+        label: Project photos
+        type: object
+        list:
+          collapsible:
+            collapsed: false
+            summary: "{index}. {fields.alt}"
+        fields:
+          - name: image
+            label: Photo
+            type: image
+            options:
+              path: images/projects
+          - name: alt
+            label: Description of the photo
+            type: string
+            description: "Describe the photo for people who can't see it."
+        description: "The photos on the project page, in this order. Drag to reorder. Keep them in images/projects/<slug>."
+
+      - name: photo_links
+        label: Links to more photos
+        type: object
+        list:
+          collapsible:
+            collapsed: false
+            summary: "{fields.label}"
+        fields:
+          - name: label
+            label: Link text
+            type: string
+            description: "What the link says, e.g. Photos by Jane Doe."
+          - name: url
+            label: Web address
+            type: string
+            pattern:
+              regex: '^https?://'
+              message: "Start with https:// (copy the whole address from the browser)."
+        description: "Folders of photos somewhere else (Google Drive, Dropbox, Flickr …), shown as links on the project page."
+
+  - name: index
+    label: Home page intro
+    description: "The text at the top of the home page. Guide: https://github.com/hellotolomeo/tolomeo.org/blob/main/EDITING.md"
+    type: file
+    path: content/site/index.md
+    format: yaml-frontmatter
+    operations:
+      create: false
+      rename: false
+      delete: false
+    fields:
+      - name: title
+        label: Title
+        type: string
+        hidden: true
+      - name: intro
+        label: Intro
+        type: text
+        description: "The sentence at the top left of the home page."
+      - name: contact_line
+        label: Contact line
+        type: string
+        description: "Markdown with the two links: [hello@tolomeo.org](mailto:hello@tolomeo.org) and [info](/info/). Keep the [square] and (round) brackets as they are; change only the words."
+      - name: email
+        label: Email
+        type: string
+        description: "Your public email address."
+
+  - name: info
+    label: Info page
+    description: "The Info page. Guide: https://github.com/hellotolomeo/tolomeo.org/blob/main/EDITING.md"
+    type: file
+    path: content/site/info.md
+    format: yaml-frontmatter
+    operations:
+      create: false
+      rename: false
+      delete: false
+    fields:
+      - name: title
+        label: Title
+        type: string
+        readonly: true
+        description: "Fixed by the design."
+      - name: body
+        label: Text
+        type: rich-text
+        options:
+          format: markdown
+          media: false
+        description: "Paragraphs and links only; other formatting is simplified on the site."

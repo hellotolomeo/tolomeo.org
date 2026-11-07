@@ -13,12 +13,12 @@ role:
 client: ""
 parent: null
 published: true
-cover: ""
+cover: /images/projects/revolting-cinema/revolting-cinema-cover.jpg
 cover_style: polaroid
 cover_focus:
 - 50
-- 50
-cover_zoom: 1
+- 13
+cover_zoom: 1.02
 images: []
 hover_image: ""
 photo_links: []

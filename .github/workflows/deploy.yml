@@ -1,0 +1,102 @@
+# Build and deploy tolomeo.org to GitHub Pages (BRIEF §2, §6).
+#
+# push to main / workflow_dispatch on main: normalize uploaded images (HEIC/TIFF -> JPEG,
+#   > 2000px -> 2000px), commit the web copies back as github-actions[bot] with [skip ci],
+#   build dist/ from that normalized tree in this same run, deploy to Pages.
+# pull_request: normalize + build only (no commit-back, no deploy).
+#
+# A commit pushed with GITHUB_TOKEN never triggers another workflow run; [skip ci] is
+# belt-and-braces. dist/images is cached so unchanged photos are not re-encoded.
+
+name: Build and deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write # commit-back of normalized images
+  pages: write
+  id-token: write
+
+# One deploy at a time, never cancelled mid-run. Pull requests get their own group so a
+# PR push can never replace a pending main deploy.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.ref) || 'pages' }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # heif-convert decodes HEIC (sharp's prebuilt libvips cannot decode HEVC).
+      # Only installed when the tree holds HEIC/HEIF files.
+      - name: Install libheif tools
+        run: |
+          if find images -type f \( -iname '*.heic' -o -iname '*.heif' \) | grep -q .; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends libheif-examples libheif-plugin-libde265 \
+              || sudo apt-get install -y --no-install-recommends libheif-examples
+            command -v heif-convert
+          else
+            echo "No HEIC/HEIF files; skipping libheif."
+          fi
+
+      - name: Normalize images
+        run: node scripts/normalize-images.js
+
+      - name: Commit normalized images
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        run: |
+          if [ -z "$(git status --porcelain -- images content)" ]; then
+            echo "Nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
+          git add -A -- images content
+          git commit -m "Normalize uploaded images [skip ci]"
+          if ! git push origin HEAD:main; then
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+
+      - name: Cache processed images
+        uses: actions/cache@v6
+        with:
+          path: dist/images
+          key: img-v1-${{ runner.os }}-${{ hashFiles('images/**', 'server/images.js', 'package-lock.json') }}
+          restore-keys: img-v1-${{ runner.os }}-
+
+      - run: npm run build
+
+      - if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/configure-pages@v6
+
+      - if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+          include-hidden-files: true # ship .nojekyll
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

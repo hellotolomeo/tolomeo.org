@@ -12,12 +12,12 @@ role:
 client: De Fabriek
 parent: null
 published: true
-cover: ""
+cover: /images/projects/landline-study-lab/landline-study-lab-cover.jpg
 cover_style: polaroid
 cover_focus:
 - 50
-- 50
-cover_zoom: 1
+- 63
+cover_zoom: 1.02
 images: []
 hover_image: ""
 photo_links: []

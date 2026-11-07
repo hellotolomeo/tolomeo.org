@@ -1,0 +1,191 @@
+# Editing tolomeo.org
+
+A short guide for Tolomeo. Everything here is done in Pages CMS, in a web browser.
+No terminal, no scripts.
+
+## What this is
+
+- The website is built from the text and photos stored in this repository.
+- Pages CMS is the editing screen for them. When you press **Save**, the change is stored
+  and the site rebuilds itself.
+- The live site updates about **1–2 minutes** after you save.
+- Every save and every photo upload is one update. If you upload 20 photos, the updates
+  queue up and run one after another. The site catches up a few minutes after the last one.
+  Nothing is lost; it just takes a little while.
+- If Pages CMS says *"File has changed since you last loaded it"*, the site changed the file
+  in the meantime (for example after converting a photo). Reload the page and save again.
+
+## Logging in
+
+1. Go to **app.pagescms.org**.
+2. Sign in with **GitHub**, or with the **email invite** you were sent (it sends you a code).
+3. Open **tolomeo.org**. On the left you see **Projects**, **Home page intro**, **Info page**
+   and **Media** (all the photos).
+
+## Edit the intro or the Info page
+
+- **Home page intro**: the sentence at the top of the home page, the contact line and your
+  email. The contact line uses links written like this:
+  `[hello@tolomeo.org](mailto:hello@tolomeo.org)` and `[info](/info/)`. Change the words
+  around them freely; keep the square and round brackets as they are.
+- **Info page**: the text of the Info page. Write normal paragraphs. To add a link, select
+  the words and use the link button.
+- Only paragraphs and links show on the site. Bold, headings, lists and so on are turned
+  into plain text.
+
+Press **Save** when you're done.
+
+## Add a project
+
+1. Open **Projects** and press **Add an entry**.
+2. Fill in:
+   - **Title**: the name, as it should appear.
+   - **Slug (web address)**: the project's address and photo folder name, for example
+     `the-riso-studio` gives `tolomeo.org/projects/the-riso-studio/`. Lower case letters
+     and numbers only, words joined by hyphens. Choose it once; **don't change it after
+     publishing** (old links would break and the photos would be in the wrong folder).
+   - **Order**: where it sits in the list (see below).
+   - **Years**: shown exactly as you type it: `2026`, `2023–2026`, `2025, 2026`, `2023 –`.
+   - **Start year / End year**: only used for sorting. Leave End year empty if it's ongoing.
+   - **Tags**: the categories people can filter by. Pick from the list.
+   - **Role**: what you did, one per line (**Add an item** for another). Shown as `role:`.
+   - **Client**: shown as `for:`.
+   - **Description**: paragraphs and links.
+3. Press **Save**.
+
+**Drafts.** Turn **Published** off to keep a project hidden while you work on it. It is
+then not on the home page and has no page of its own. Turn it on when it's ready.
+
+**Order numbers.** The list is sorted by **Order**, smallest first.
+
+- Whole numbers are main projects: `1`, `2`, `3` …
+- Sub-projects sit under a main project: `2.1`, `2.2`, `2.3` sit under project `2`.
+- Need ten or more under one project? Use `2.01`, `2.02` … `2.10` (because `2.10` is the
+  same number as `2.1`).
+- To fit a project in between, decimals are fine: `4.5` sits between `4` and `5`.
+
+**Sub-projects.** Set **Part of (parent project)** to the main project, and give it an
+order like `2.1`. It then shows with a `•` under its main project. Leave it empty for a
+main project.
+
+## Add photos
+
+Photos live in **Media**, in one folder per project: `images/projects/<slug>`.
+
+**The first time, make the folder:**
+
+1. Open **Media**, then the folder **projects**.
+2. Press the folder button (**Create folder**) and name it exactly like the project's slug.
+
+**Upload:**
+
+- On a computer, **drag many photos at once** from your computer onto the open folder.
+- The **Upload** button adds one photo at a time (handy on a phone).
+- Photos straight from a phone are fine, including iPhone **HEIC** files, and large files.
+  The site converts and resizes them automatically. You never need to resize anything.
+- File names are tidied on upload (lower case, no spaces).
+- If a file with the same name is already there, the new one is saved as `name-1.jpg`,
+  `name-2.jpg` … Nothing is ever overwritten.
+
+**Put them on the project page:**
+
+1. Open the project. Under **Project photos**, press **Add an item** for each photo.
+2. In each item, press **Select**, open `projects` → your project's folder, pick the photo.
+   (You can also upload from here: open the folder first, then upload or drag photos in.)
+3. Fill in **Description of the photo**: say what is in it, for people who can't see it,
+   e.g. "Three risograph posters pinned to a white wall". If you leave it empty, the
+   project title is used.
+4. **Drag** the handle on the left of an item to change the order. The page shows them
+   left to right in this order.
+5. Press **Save**.
+
+## Set a thumbnail
+
+The thumbnail is the photo in the grid on the home page.
+
+1. **Thumbnail photo (cover)**: press **Select** and pick a photo from the project's folder.
+   Empty = an empty box in the grid.
+2. **Thumbnail style**:
+   - **Polaroid**: a landscape print with a white border, slightly off-grid.
+   - **Polaroid, tall**: the same, portrait.
+   - **Fill**: the photo fills the whole box.
+   - **Small**: narrow and centred, no border. Good for posters.
+   - **Pair**: the thumbnail plus the first project photo, side by side.
+   - **None**: leave the box empty.
+3. **Thumbnail focus** and **Thumbnail zoom** decide which part of the photo shows:
+   - Focus is two numbers from 0 to 100: across, then down. `50, 50` is the centre;
+     `50, 20` keeps the top; `20, 50` keeps the left side.
+   - Zoom: `1` = the photo just fills its frame; `1.5` = closer.
+4. Optional: **Hover photo** is shown instead of the thumbnail when someone points at it.
+
+**The easy way: the thumbnail tuner.** Go to **tolomeo.org/tools/thumbnail/**.
+
+1. Pick the project. It shows the thumbnail in a real grid box.
+2. Drag the photo to move it. Scroll, pinch or use the slider to zoom.
+3. Copy the three values it shows (style, focus, zoom) into the project in Pages CMS:
+   style into **Thumbnail style**, the two focus numbers into **Thumbnail focus** (one per
+   line; **Add an item** for the second), zoom into **Thumbnail zoom**.
+4. Press **Save**.
+
+The tuner works with photos already on the live site, so save a new thumbnail photo first
+and wait a couple of minutes before tuning it.
+
+## Replace a photo
+
+1. Upload the new photo into the project's folder (see *Add photos*).
+2. In the project, press **Select** on the thumbnail or photo item and pick the new photo.
+3. Press **Save**.
+4. Then, in **Media**, open the old file's menu (the three dots) and **Delete** it.
+
+Delete the old file only **after** saving, otherwise the site briefly shows a placeholder.
+
+## Hide a project
+
+Open the project, turn **Published** off, press **Save**. It disappears from the home page
+and its page is removed. Turn it back on to bring it back. Prefer this to deleting.
+
+## Add a tag category
+
+The tag list is fixed on purpose, so filters keep the same spelling. Adding one is a
+one-line change in the file `.pages.yml` (ask for it, or do it yourself):
+
+1. In Pages CMS, open **Settings** (or open `.pages.yml` on GitHub and press the pencil).
+2. Find the `tags` field and its list of `values`:
+
+   ```yaml
+         - name: tags
+           ...
+             values:
+               - art print
+               - book
+               ...
+               - wallpaper
+               - workshop
+   ```
+
+3. Add one line in the same style, for example `- risograph`: lower case, in alphabetical
+   order, with the dash lined up exactly under the others.
+4. Save. The new tag now appears in the **Tags** list of every project.
+
+The site picks it up automatically: as soon as a project uses the tag, it shows on that
+project and becomes a filter on the home page.
+
+## Links to more photos
+
+If photos are somewhere else (Google Drive, Dropbox, Flickr …), add them under
+**Links to more photos** with **Add an item**:
+
+- **Link text**: what the link says, e.g. `Photos by Jane Doe`.
+- **Web address**: the whole address, starting with `https://`.
+
+They show as links on the project page, below the photos.
+
+## What not to touch
+
+- **Slugs after publishing.** Changing one breaks links and separates the project from its
+  photo folder.
+- **Folder names in `images/projects`.** Don't rename or move them; the projects point at
+  them.
+- **The file `.pages.yml`**, except for adding a tag as described above.
+- Anything outside **Projects**, **Home page intro**, **Info page** and **Media**. If you
+  see something you don't recognise, leave it and ask.

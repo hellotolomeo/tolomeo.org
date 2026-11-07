@@ -13,12 +13,12 @@ role:
 client: Threshold
 parent: null
 published: true
-cover: ""
-cover_style: polaroid
+cover: /images/projects/ukandanz/ukandanz-cover.jpg
+cover_style: small
 cover_focus:
 - 50
-- 50
-cover_zoom: 1
+- 41
+cover_zoom: 1.04
 images: []
 hover_image: ""
 photo_links: []

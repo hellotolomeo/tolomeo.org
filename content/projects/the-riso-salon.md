@@ -14,17 +14,13 @@ role:
 client: Onomatopee
 parent: the-riso-studio
 published: true
-cover: /images/projects/the-riso-salon/salon-01.jpg
-cover_style: fill
+cover: /images/projects/the-riso-salon/the-riso-salon-cover.jpg
+cover_style: small
 cover_focus:
-- 40
-- 60
-cover_zoom: 1
-images:
-- image: /images/projects/the-riso-salon/salon-02.jpg
-  alt: Visitors at the salon
+- 48
+- 51
+cover_zoom: 1.33
+images: []
 hover_image: ""
 photo_links: []
 ---
-
-Edited in the CMS.

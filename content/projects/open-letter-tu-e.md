@@ -13,8 +13,8 @@ role:
 client: Eindhoven Students for Palestine
 parent: null
 published: true
-cover: ""
-cover_style: polaroid
+cover: /images/projects/open-letter-tu-e/open-letter-tu-e-cover.jpg
+cover_style: small
 cover_focus:
 - 50
 - 50

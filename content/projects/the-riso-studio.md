@@ -14,12 +14,12 @@ role:
 client: Onomatopee
 parent: null
 published: true
-cover: ""
+cover: /images/projects/the-riso-studio/the-riso-studio-cover.jpg
 cover_style: polaroid
 cover_focus:
 - 50
-- 50
-cover_zoom: 1
+- 14
+cover_zoom: 1.02
 images: []
 hover_image: ""
 photo_links: []

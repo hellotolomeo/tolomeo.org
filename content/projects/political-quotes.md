@@ -12,12 +12,12 @@ role:
 client: ""
 parent: null
 published: true
-cover: ""
-cover_style: polaroid
+cover: /images/projects/political-quotes/political-quotes-cover.jpg
+cover_style: small
 cover_focus:
 - 50
-- 50
-cover_zoom: 1
+- 64
+cover_zoom: 1.09
 images: []
 hover_image: ""
 photo_links: []

@@ -12,12 +12,12 @@ role:
 client: Landline, Onomatopee
 parent: not-my-sister
 published: true
-cover: ""
+cover: /images/projects/defining-the-battle-lines/defining-the-battle-lines-cover.jpg
 cover_style: polaroid
 cover_focus:
 - 50
-- 50
-cover_zoom: 1
+- 23
+cover_zoom: 1.02
 images: []
 hover_image: ""
 photo_links: []

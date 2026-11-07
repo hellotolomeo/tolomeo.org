@@ -12,12 +12,12 @@ role:
 client: ""
 parent: null
 published: true
-cover: ""
-cover_style: polaroid
+cover: /images/projects/for-sila-ahmed-sally-and-farouk/for-sila-ahmed-sally-and-farouk-cover.jpg
+cover_style: polaroid-tall
 cover_focus:
 - 50
-- 50
-cover_zoom: 1
+- 57
+cover_zoom: 1.03
 images: []
 hover_image: ""
 photo_links: []

@@ -13,11 +13,11 @@ role:
 client: Temporary Art Centre
 parent: null
 published: true
-cover: ""
-cover_style: polaroid
+cover: /images/projects/points-of-transition/points-of-transition-cover.jpg
+cover_style: fill
 cover_focus:
 - 50
-- 50
+- 37
 cover_zoom: 1
 images: []
 hover_image: ""

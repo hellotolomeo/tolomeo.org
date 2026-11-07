@@ -14,11 +14,11 @@ role:
 client: Onomatopee
 parent: the-riso-studio
 published: true
-cover: ""
-cover_style: polaroid
+cover: /images/projects/thesis-design-support/thesis-design-support-cover.jpg
+cover_style: fill
 cover_focus:
 - 50
-- 50
+- 46
 cover_zoom: 1
 images: []
 hover_image: ""

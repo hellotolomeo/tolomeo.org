@@ -13,12 +13,12 @@ role:
 client: Van Abbemuseum, Office of Queer Affairs
 parent: null
 published: true
-cover: ""
+cover: /images/projects/love-letters/love-letters-cover.jpg
 cover_style: polaroid
 cover_focus:
 - 50
-- 50
-cover_zoom: 1
+- 76
+cover_zoom: 1.01
 images: []
 hover_image: ""
 photo_links: []

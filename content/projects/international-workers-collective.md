@@ -13,8 +13,8 @@ role:
 client: IWC
 parent: null
 published: true
-cover: ""
-cover_style: polaroid
+cover: /images/projects/international-workers-collective/international-workers-collective-cover.jpg
+cover_style: small
 cover_focus:
 - 50
 - 50

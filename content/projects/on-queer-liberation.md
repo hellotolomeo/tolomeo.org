@@ -12,12 +12,12 @@ role:
 client: Queerhoven
 parent: null
 published: true
-cover: ""
+cover: /images/projects/on-queer-liberation/on-queer-liberation-cover.jpg
 cover_style: polaroid
 cover_focus:
 - 50
-- 50
-cover_zoom: 1
+- 87
+cover_zoom: 1.02
 images: []
 hover_image: ""
 photo_links: []

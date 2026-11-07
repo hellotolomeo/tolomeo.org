@@ -12,13 +12,15 @@ role:
 client: Landline
 parent: does-marxism-support-decolonization
 published: true
-cover: ""
-cover_style: polaroid
+cover: /images/projects/chapter-symbols/chapter-symbols-cover.jpg
+cover_style: pair
 cover_focus:
-- 50
+- 51
 - 50
 cover_zoom: 1
-images: []
+images:
+- image: /images/projects/chapter-symbols/chapter-symbols-02.jpg
+  alt: Spread from Does Marxism Support Decolonization? with a chapter symbol
 hover_image: ""
 photo_links: []
 ---

@@ -13,8 +13,8 @@ role:
 client: Jet Rebel
 parent: null
 published: true
-cover: ""
-cover_style: polaroid
+cover: /images/projects/jet-rebels-greenfest/jet-rebels-greenfest-cover.jpg
+cover_style: small
 cover_focus:
 - 50
 - 50

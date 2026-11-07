@@ -14,12 +14,12 @@ role:
 client: Landline, Onomatopee
 parent: null
 published: true
-cover: ""
-cover_style: polaroid
+cover: /images/projects/not-my-sister/not-my-sister-cover.jpg
+cover_style: fill
 cover_focus:
-- 50
-- 50
-cover_zoom: 1
+- 39
+- 21
+cover_zoom: 1.02
 images: []
 hover_image: ""
 photo_links: []

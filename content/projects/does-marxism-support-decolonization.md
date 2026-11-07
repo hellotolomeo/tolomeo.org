@@ -14,12 +14,12 @@ role:
 client: Landline
 parent: null
 published: true
-cover: ""
+cover: /images/projects/does-marxism-support-decolonization/does-marxism-support-decolonization-cover.jpg
 cover_style: polaroid
 cover_focus:
 - 50
-- 50
-cover_zoom: 1
+- 55
+cover_zoom: 1.48
 images: []
 hover_image: ""
 photo_links: []
