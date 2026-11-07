@@ -80,9 +80,14 @@ Photos live in **Media**, in one folder per project: `images/projects/<slug>`.
 **Upload:**
 
 - On a computer, **drag many photos at once** from your computer onto the open folder.
-- The **Upload** button adds one photo at a time (handy on a phone).
+- The **Upload** button adds one photo at a time (handy on a phone). Use it inside the
+  project's folder: the Upload button next to **Select** in a project puts photos in
+  `images/projects` instead, outside the folder.
 - Photos straight from a phone are fine, including iPhone **HEIC** files, and large files.
   The site converts and resizes them automatically. You never need to resize anything.
+  A HEIC photo becomes a `.jpg` a couple of minutes after you save; the project is updated
+  to point at the `.jpg` for you. If Pages CMS then says the file "has changed since you
+  last loaded it", reload the page and save again.
 - File names are tidied on upload (lower case, no spaces).
 - If a file with the same name is already there, the new one is saved as `name-1.jpg`,
   `name-2.jpg` … Nothing is ever overwritten.
@@ -114,14 +119,16 @@ The thumbnail is the photo in the grid on the home page.
    - **None**: leave the box empty.
 3. **Thumbnail focus** and **Thumbnail zoom** decide which part of the photo shows:
    - Focus is two numbers from 0 to 100: across, then down. `50, 50` is the centre;
-     `50, 20` keeps the top; `20, 50` keeps the left side.
+     `50, 20` keeps the top; `20, 50` keeps the left side. Always fill both numbers:
+     an empty first box would turn the second number into the first.
    - Zoom: `1` = the photo just fills its frame; `1.5` = closer.
 4. Optional: **Hover photo** is shown instead of the thumbnail when someone points at it.
 
 **The easy way: the thumbnail tuner.** Go to **tolomeo.org/tools/thumbnail/**.
 
 1. Pick the project. It shows the thumbnail in a real grid box.
-2. Drag the photo to move it. Scroll, pinch or use the slider to zoom.
+2. Drag the photo to move it. Scroll over it, or use the slider, to zoom (on a phone,
+   use the slider).
 3. Copy the three values it shows (style, focus, zoom) into the project in Pages CMS:
    style into **Thumbnail style**, the two focus numbers into **Thumbnail focus** (one per
    line; **Add an item** for the second), zoom into **Thumbnail zoom**.
@@ -133,11 +140,13 @@ and wait a couple of minutes before tuning it.
 ## Replace a photo
 
 1. Upload the new photo into the project's folder (see *Add photos*).
-2. In the project, press **Select** on the thumbnail or photo item and pick the new photo.
+2. In the project, on the current photo (the thumbnail, or the photo in a Project photos
+   item), press the bin icon (**Remove**). Then press **Select** and pick the new photo.
 3. Press **Save**.
 4. Then, in **Media**, open the old file's menu (the three dots) and **Delete** it.
 
-Delete the old file only **after** saving, otherwise the site briefly shows a placeholder.
+Delete the old file only **after** saving, otherwise the thumbnail briefly shows a grey
+placeholder (a missing project photo is simply left out).
 
 ## Hide a project
 
@@ -149,7 +158,9 @@ and its page is removed. Turn it back on to bring it back. Prefer this to deleti
 The tag list is fixed on purpose, so filters keep the same spelling. Adding one is a
 one-line change in the file `.pages.yml` (ask for it, or do it yourself):
 
-1. In Pages CMS, open **Settings** (or open `.pages.yml` on GitHub and press the pencil).
+1. If you signed in with GitHub: in Pages CMS, open **Configuration** in the left sidebar,
+   or open `.pages.yml` on github.com and press the pencil. If you signed in with the email
+   invite, you can't change this file: ask for the tag to be added.
 2. Find the `tags` field and its list of `values`:
 
    ```yaml

@@ -45,6 +45,9 @@ const COPY_EXT = new Set(['gif', 'svg']);
 const HEIF_EXT = new Set(['heic', 'heif']);
 const MANIFEST = 'manifest.json';
 const MANIFEST_VERSION = 1;
+// What the outputs depend on besides the source bytes: change any of it and every image is
+// re-encoded (a cache restored in CI from an older key included).
+const SETTINGS = JSON.stringify({ widths: TARGET_WIDTHS, max: MAX_WIDTH, jpeg: 80, webp: 80, vips: sharp.versions.vips });
 const CONCURRENCY = Math.max(1, Math.min(4, availableParallelism()));
 
 let chain = Promise.resolve();
@@ -201,7 +204,7 @@ async function outputsExist(out, rel, entry) {
 async function readManifest(outDir) {
   try {
     const data = JSON.parse(await readFile(path.join(outDir, MANIFEST), 'utf8'));
-    if (data && data.version === MANIFEST_VERSION && data.entries && typeof data.entries === 'object') {
+    if (data && data.version === MANIFEST_VERSION && data.settings === SETTINGS && data.entries && typeof data.entries === 'object') {
       return data.entries;
     }
   } catch {
@@ -213,7 +216,7 @@ async function readManifest(outDir) {
 async function writeManifest(outDir, entries) {
   const sorted = {};
   for (const k of Object.keys(entries).sort()) sorted[k] = entries[k];
-  const json = JSON.stringify({ version: MANIFEST_VERSION, entries: sorted }, null, 2) + '\n';
+  const json = JSON.stringify({ version: MANIFEST_VERSION, settings: SETTINGS, entries: sorted }, null, 2) + '\n';
   await writeAtomic(path.join(outDir, MANIFEST), json);
 }
 

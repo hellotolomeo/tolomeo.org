@@ -27,9 +27,16 @@ export function loadContent({ root, images, config, log = () => {} }) {
     const index = readFront(join(root, 'content/site/index.md'));
     const info = readFront(join(root, 'content/site/info.md'));
 
+    const seen = new Set();
     const raw = readdirSync(join(root, 'content/projects'))
         .filter(name => name.endsWith('.md') && !name.startsWith('.'))
-        .map(name => normalize(readFront(join(root, 'content/projects', name)), name, warn));
+        .sort()
+        .map(name => normalize(readFront(join(root, 'content/projects', name)), name, warn))
+        .filter(p => {
+            if (seen.has(p.slug)) { warn(`${p.slug}: another file already uses this slug; ignoring the later file`); return false; }
+            seen.add(p.slug);
+            return true;
+        });
 
     const projects = order(raw.filter(p => p.published), warn)
         .map(p => shape(p, { images, warn }));
@@ -59,7 +66,8 @@ function readFront(path) {
     return matter(readFileSync(path, 'utf8'), {});
 }
 
-const str = (v) => (v === null || v === undefined ? '' : String(v)).trim();
+// js-yaml reads date-like text (2024-05-01) as a Date; the site wants the text as written.
+const str = (v) => (v === null || v === undefined ? '' : v instanceof Date ? v.toISOString().slice(0, 10) : String(v)).trim();
 const list = (v) => (Array.isArray(v) ? v : v === null || v === undefined || v === '' ? [] : [v]);
 const num = (v, fallback) => (Number.isFinite(Number(v)) && v !== '' && v !== null ? Number(v) : fallback);
 
@@ -103,12 +111,16 @@ function order(published, warn) {
     const byOrder = (a, b) => a.order - b.order || a.title.localeCompare(b.title);
     const children = new Map();
     const top = [];
+    // Only one level of nesting: a child's parent must itself be top-level. A grandchild,
+    // a project that is its own parent and every member of a cycle stand on their own.
+    const topLevel = (q) => !q.parent || !bySlug.has(q.parent) || q.parent === q.slug;
     for (const p of published) {
-        if (p.parent && bySlug.has(p.parent) && p.parent !== p.slug) {
+        const parent = p.parent ? bySlug.get(p.parent) : null;
+        if (parent && parent !== p && topLevel(parent)) {
             if (!children.has(p.parent)) children.set(p.parent, []);
             children.get(p.parent).push(p);
         } else {
-            if (p.parent) warn(`${p.slug}: parent "${p.parent}" is not a published project; listed on its own`);
+            if (p.parent) warn(`${p.slug}: parent "${p.parent}" is not a published top-level project; listed on its own`);
             p.parent = null;
             top.push(p);
         }
@@ -122,8 +134,9 @@ function order(published, warn) {
 }
 
 function shape(p, { images, warn }) {
-    const pic = (value, alt = '') => picture(value, p.slug, alt, images, warn);
-    const cover = p.coverStyle === 'none' ? null : pic(p.cover);
+    const pic = (value, alt = '', placeholder = false) => picture(value, p.slug, alt, images, warn, placeholder);
+    // Only the grid needs an image where one is missing; elsewhere a missing photo is left out.
+    const cover = p.coverStyle === 'none' ? null : pic(p.cover, '', true);
     const gallery = p.images.map(({ image, alt }) => pic(image, alt || p.title)).filter(Boolean);
     // pair: the cover on the left, the first of `images` on the right.
     const pairWith = p.coverStyle === 'pair' ? (gallery.find(g => g.key !== cover?.key) ?? null) : null;
@@ -133,6 +146,7 @@ function shape(p, { images, warn }) {
         title: p.title,
         years: p.years,
         tags: p.tags,
+        tagLinks: p.tags.map(t => ({ label: t, href: `/?filter=${encodeURIComponent(t)}` })),
         role: p.role.join(', '),
         client: p.client,
         child: Boolean(p.parent),
@@ -170,19 +184,21 @@ function lean(p) {
 }
 
 // An image value → { key, src, srcset, webp, small, smallWebp, width, height, alt }, or null.
-function picture(value, slug, alt, images, warn) {
+function picture(value, slug, alt, images, warn, placeholder) {
     if (!value) return null;
     const rel = relPath(value, slug);
     let info = images.get(rel);
     if (!info) {
         warn(`${slug}: image not found: ${value}`);
-        info = images.get('placeholder.png');
+        info = placeholder ? images.get('placeholder.png') : null;
         if (!info) return null;
     }
     if (info.type !== 'raster' || !info.variants?.length) {
-        return { key: rel, src: info.src, srcset: '', webp: '', small: info.src, smallWebp: '', width: info.width ?? '', height: info.height ?? '', alt };
+        const src = encodeURI(info.src);
+        return { key: rel, src, srcset: '', webp: '', small: src, smallWebp: '', width: info.width ?? '', height: info.height ?? '', alt };
     }
-    const v = info.variants;
+    // Encoded, so a file name with a space or a comma can't break a srcset.
+    const v = info.variants.map(x => ({ width: x.width, jpg: encodeURI(x.jpg), webp: encodeURI(x.webp) }));
     const smallest = v[0];
     return {
         key: rel,
@@ -198,7 +214,8 @@ function picture(value, slug, alt, images, warn) {
 }
 
 function relPath(value, slug) {
-    const v = value.trim().replace(/\\/g, '/');
+    let v = value.trim().replace(/\\/g, '/');
+    try { v = decodeURIComponent(v); } catch { /* not encoded */ }
     if (v.startsWith('/images/')) return v.slice('/images/'.length);
     if (v.startsWith('images/')) return v.slice('images/'.length);
     if (!v.includes('/')) return `projects/${slug}/${v}`;

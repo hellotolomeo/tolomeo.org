@@ -25,14 +25,24 @@ class ProjectIndex extends BaseComponent {
         this.addEventListener('mouseover', e => this.point(e.target), { signal: this.signal });
         this.addEventListener('mouseleave', () => this.pointAt(''), { signal: this.signal });
         this.addEventListener('focusin', e => this.point(e.target), { signal: this.signal });
-        this.addEventListener('focusout', e => { if (!this.contains(e.relatedTarget)) this.pointAt(''); }, { signal: this.signal });
-        window.addEventListener('popstate', () => this.setState({ filter: this.fromUrl() }), { signal: this.signal });
+        // After the event: a morph that removes the focused row fires focusout mid-morph,
+        // and a render must never start inside another.
+        this.addEventListener('focusout', () => queueMicrotask(() => { if (!this.contains(document.activeElement)) this.pointAt(''); }), { signal: this.signal });
+        window.addEventListener('popstate', () => {
+            const filter = this.fromUrl();
+            remember(filter);
+            this.setState({ filter });
+        }, { signal: this.signal });
         super.connectedCallback();
     }
 
     onConnected() {
-        const filter = this.fromUrl().length ? this.fromUrl() : this.returning();
-        if (filter.length) this.go(filter, 'replace');
+        // ?filter= in the URL wins (unknown tags are dropped from it); else the filter a
+        // project page's index link brings back; else nothing.
+        const named = new URLSearchParams(location.search).has('filter');
+        const filter = named ? this.fromUrl() : this.returning();
+        if (filter.length || named) this.go(filter, 'replace');
+        else remember([]);
     }
 
     getTemplateContext() {
@@ -45,6 +55,8 @@ class ProjectIndex extends BaseComponent {
             const t = tag.dataset.tag;
             const { filter } = this.state;
             this.go(filter.includes(t) ? filter.filter(x => x !== t) : [...filter, t], 'push');
+            // The row holding the button can stop matching; keep keyboard focus in the list.
+            if (!tag.isConnected) (this.querySelector('.tag.on') ?? this.querySelector('.index h1'))?.focus();
             return;
         }
         // Leaving for a project page: remember the filter, so its "index" link can bring it back.
@@ -63,6 +75,7 @@ class ProjectIndex extends BaseComponent {
     go(filter, how) {
         const url = location.pathname + query(filter);
         if (url !== location.pathname + location.search) history[`${how}State`](null, '', url);
+        remember(filter);
         this.setState({ filter });
     }
 
@@ -88,7 +101,7 @@ class ProjectIndex extends BaseComponent {
         const nav = performance.getEntriesByType('navigation')[0]?.type ?? 'navigate';
         const from = document.referrer ? new URL(document.referrer) : null;
         const stored = recall();
-        if (nav !== 'navigate' || from?.origin !== location.origin || !from.pathname.startsWith('/projects/')) return [];
+        if (nav !== 'navigate' || from?.origin !== location.origin || !/^\/projects\/[^/]+\/$/.test(from.pathname)) return [];
         const known = new Set(this.state.projects.flatMap(p => p.tags));
         return stored.filter(t => known.has(t));
     }
@@ -106,7 +119,6 @@ function remember(filter) {
 function recall() {
     try {
         const value = JSON.parse(sessionStorage.getItem(KEY) ?? '[]');
-        sessionStorage.removeItem(KEY);
         return Array.isArray(value) ? value.map(String) : [];
     } catch { return []; }
 }

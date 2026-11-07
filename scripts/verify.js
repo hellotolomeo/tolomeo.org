@@ -171,6 +171,29 @@ try {
         }, [tagA, tagB]);
         const cleared = await page.evaluate(() => ({ url: location.search, rows: document.querySelectorAll('project-index .row').length }));
         check('2. removing the last active tag restores everything', cleared.url === '' && cleared.rows === published.length, JSON.stringify(cleared));
+        // Turning off a tag with the keyboard while its row is about to drop out: no error,
+        // and focus stays in the list.
+        await page.goto(`${base}/?filter=${both}`);
+        await page.waitForTimeout(100);
+        const lone = await page.evaluate((t) => {
+            const btn = [...document.querySelectorAll(`project-index .tag.on[data-tag="${CSS.escape(t)}"]`)]
+                .find(b => b.closest('.row').querySelectorAll('.tag.on').length === 1);
+            if (!btn) return false;
+            btn.focus();
+            return true;
+        }, tagA);
+        if (lone) {
+            await page.keyboard.press('Enter');
+            await page.waitForTimeout(100);
+            const focus = await page.evaluate(() => document.activeElement?.closest('project-index .index') !== null);
+            check('2. removing a focused row keeps keyboard focus in the list (errors are checked below)', focus);
+        }
+        await page.goto(`${base}/?filter=${both}`);
+        await page.waitForTimeout(100);
+        await page.evaluate(async (tags) => {
+            for (const t of tags) document.querySelector(`project-index .tag.on[data-tag="${CSS.escape(t)}"]`)?.click();
+            await new Promise(r => setTimeout(r, 50));
+        }, [tagA, tagB]);
         await page.goBack();
         await page.waitForTimeout(100);
         const back = await page.evaluate(() => ({ url: location.search, rows: document.querySelectorAll('project-index .row').length }));

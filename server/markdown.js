@@ -20,7 +20,14 @@ const md = new Marked({
         paragraph({ tokens }) { return wrap(this.parser.parseInline(tokens)); },
         heading({ tokens }) { return wrap(this.parser.parseInline(tokens)); },
         blockquote({ tokens }) { return this.parser.parse(tokens); },
-        list({ items }) { return items.map(item => paragraphs(this.parser.parse(item.tokens))).join(''); },
+        list({ items }) {
+            // An item's own text, then any nested list's paragraphs after it: never a <p> in a <p>.
+            return items.map((item) => {
+                const html = this.parser.parse(item.tokens);
+                const i = html.indexOf('<p>');
+                return i <= 0 ? paragraphs(html) : wrap(html.slice(0, i)) + html.slice(i);
+            }).join('');
+        },
         code({ text }) { return wrap(escape(text)); },
         table({ header, rows }) {
             return [header, ...rows].map(row => wrap(row.map(cell => this.parser.parseInline(cell.tokens)).join(' '))).join('');

@@ -2,7 +2,7 @@ import BaseComponent from '../client/lib/BaseComponent.js';
 
 /**
  * The thumbnail tuner (/tools/thumbnail/): a real grid cell for one project's
- * cover. Drag to move the photo, scroll or pinch to zoom, or use the sliders;
+ * cover. Drag to move the photo, scroll to zoom, or use the sliders;
  * the three values to copy into the CMS (cover_style, cover_focus,
  * cover_zoom) follow. The preview's placement is a <style> the template
  * prints from state, so nothing is set on an element from script.
@@ -38,7 +38,7 @@ class ThumbnailTuner extends BaseComponent {
     }
 
     pick(slug) {
-        const p = this.state.projects.find(q => q.slug === slug);
+        const p = this.state.projects.find(q => q.slug === slug && q.cover);
         const s = this.state.start.find(q => q.slug === slug) ?? { focus: [50, 50], zoom: 1 };
         this.setState({ slug: p ? slug : '', style: p?.style ?? 'polaroid', x: s.focus[0], y: s.focus[1], zoom: s.zoom, copied: false });
     }
@@ -57,7 +57,7 @@ class ThumbnailTuner extends BaseComponent {
         const cell = e.target.closest('[data-action="drag"]');
         if (!cell || e.button !== 0) return;
         e.preventDefault();
-        const box = cell.querySelector('.box');
+        const box = e.target.closest('.box') ?? cell.querySelector('.box');
         const img = box?.querySelector('img');
         if (!img) return;
         const { width: bw, height: bh } = box.getBoundingClientRect();

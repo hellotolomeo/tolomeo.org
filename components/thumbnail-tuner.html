@@ -7,17 +7,26 @@
 {% set zoom = zoom | default(1) %}
 <div class="controls">
 <label class="field">project <select data-action="pick">
-<option value=""{% if not slug %} selected{% endif %}>choose…</option>
+<option
+  value=""
+  {{ 'selected' if not slug }}
+>choose…</option>
 {% for p in projects %}
 {% if p.cover %}
-<option value="{{ p.slug }}"{% if p.slug == slug %} selected{% endif %}>{{ p.title }}</option>
+<option
+  value="{{ p.slug }}"
+  {{ 'selected' if p.slug == slug }}
+>{{ p.title }}</option>
 {% endif %}
 {% endfor %}
 </select></label>
 {% if slug %}
 <label class="field">style <select data-action="style">
 {% for s in ['polaroid', 'polaroid-tall', 'fill', 'small', 'pair'] %}
-<option value="{{ s }}"{% if s == style %} selected{% endif %}>{{ s }}</option>
+<option
+  value="{{ s }}"
+  {{ 'selected' if s == style }}
+>{{ s }}</option>
 {% endfor %}
 </select></label>
 <label class="field">across <input
@@ -51,12 +60,12 @@
 <div class="stage">
 <div class="cell {{ cell.style }}" data-action="drag">{% set p = cell %}{% set hover = '' %}{% set hoverSwap = false %}{% include 'components/project-index/cell.html' %}</div>
 </div>
-<p class="hint">Drag the photo to move it; scroll (or pinch) over it to zoom.</p>
+<p class="hint">Drag the photo to move it. To zoom, scroll over it or use the zoom slider (on a phone, the slider).</p>
 <pre class="values" aria-label="Values for the CMS">cover_style: {{ style }}
 cover_focus:
   - {{ x }}
   - {{ y }}
 cover_zoom: {{ zoom }}</pre>
 <p><button type="button" data-action="copy">{{ 'copied' if copied else 'copy these values' }}</button></p>
-<p class="hint">In Pages CMS, open the project and set <b>Thumbnail style</b>, <b>Focus</b> (the two numbers) and <b>Zoom</b> to these values, then save.</p>
+<p class="hint">In Pages CMS, open the project and copy these into Thumbnail style, Thumbnail focus (across, then down: always fill both) and Thumbnail zoom, then save.</p>
 {% endif %}

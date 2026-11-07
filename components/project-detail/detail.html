@@ -2,7 +2,7 @@
 <article class="project-detail">
 <header class="head">
 <span class="years">{{ project.years }}</span>
-<span class="what"><h1>{{ project.title }}</h1>{% if project.tags | length %}<span class="tags">{% for t in project.tags %}<a href="/?filter={{ t | urlencode }}">{{ t }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}</span>
+<span class="what"><h1>{{ project.title }}</h1>{% if project.tagLinks | length %}<span class="tags">{% for t in project.tagLinks %}<a href="{{ t.href }}">{{ t.label }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}</span>
 </header>
 {% if project.body %}
 <div class="text">
@@ -20,11 +20,23 @@
 </div>
 {% endif %}
 {% if project.images | length %}
-<div class="strip" tabindex="0" role="region" aria-label="Photos">
+<div
+  class="strip"
+  tabindex="0"
+  role="region"
+  aria-label="Photos"
+>
 {% for g in project.images %}
-<picture>{% if g.webp %}<source type="image/webp" srcset="{{ g.webp }}" sizes="{{ g.sizes }}">{% endif %}<img
+<picture>{% if g.webp %}<source
+  type="image/webp"
+  srcset="{{ g.webp }}"
+  sizes="{{ g.sizes }}"
+>{% endif %}<img
   src="{{ g.src }}"
-  {% if g.srcset %} srcset="{{ g.srcset }}" sizes="{{ g.sizes }}"{% endif %}
+{% if g.srcset %}
+  srcset="{{ g.srcset }}"
+  sizes="{{ g.sizes }}"
+{% endif %}
   width="{{ g.width }}"
   height="{{ g.height }}"
   alt="{{ g.alt }}"

@@ -21,6 +21,7 @@ project-index .band {
   min-height: 192px;
   box-sizing: border-box;
   background: var(--ground);
+  box-shadow: 0 1px 0 var(--line);
 }
 
 project-index .intro {
@@ -59,6 +60,20 @@ project-index .grid {
   overflow: hidden;
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
+}
+
+:is(project-index, thumbnail-tuner) .cell:focus-visible {
+  outline: none;
+}
+
+:is(project-index, thumbnail-tuner) .cell:focus-visible::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  outline: 2px solid var(--line);
+  outline-offset: -2px;
+  pointer-events: none;
 }
 
 :is(project-index, thumbnail-tuner) .box {
@@ -195,6 +210,12 @@ project-index .tag:hover {
   color: var(--hover);
 }
 
+@media (max-width: 719.98px) {
+  project-index section {
+    flex-basis: 100%;
+  }
+}
+
 @media (min-width: 720px) {
   project-index {
     height: 100vh;
@@ -207,8 +228,14 @@ project-index .tag:hover {
     height: 100vh;
     overflow-y: auto;
     overscroll-behavior: contain;
-    scrollbar-width: thin;
-    scrollbar-color: var(--thumb) transparent;
+    scroll-padding-top: 192px;
+  }
+
+  @supports not selector(::-webkit-scrollbar) {
+    project-index section {
+      scrollbar-width: thin;
+      scrollbar-color: var(--thumb) transparent;
+    }
   }
 
   project-index section::-webkit-scrollbar {

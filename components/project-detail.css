@@ -57,8 +57,13 @@
   padding-bottom: 14px;
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: var(--thumb) transparent;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .project-detail .strip {
+    scrollbar-width: thin;
+    scrollbar-color: var(--thumb) transparent;
+  }
 }
 
 .project-detail .strip::-webkit-scrollbar {

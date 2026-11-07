@@ -12,7 +12,9 @@ media:
   # A file with the same name as an existing one is never overwritten: Pages CMS saves it
   # as name-1.jpg, name-2.jpg, ... instead.
   rename: safe
-  # Upper-case variants keep older files with upper-case extensions valid on save.
+  # The upload picker's list. Image fields below repeat it in their own options.extensions,
+  # because a field's own list is what an entry is validated against on save: without heic
+  # there, a project holding an iPhone photo could not be saved before CI converts it to .jpg.
   extensions: [jpg, jpeg, png, webp, avif, gif, svg, heic, heif, tif, tiff, JPG, JPEG, PNG, WEBP, HEIC, HEIF, TIF, TIFF]
 
 settings:
@@ -161,7 +163,8 @@ content:
         type: image
         options:
           path: images/projects
-        description: "The photo in the grid on the home page. Upload into images/projects/<slug> — use 'New folder' with the project's slug the first time. Empty = an empty box."
+          extensions: [jpg, jpeg, png, webp, avif, gif, svg, heic, heif, tif, tiff, JPG, JPEG, PNG, WEBP, HEIC, HEIF, TIF, TIFF]
+        description: "The photo in the grid on the home page. Press Select, open projects, then your project's folder (the first time: Create folder, named like the slug) and upload or drag photos in there. Don't use the Upload button next to Select: it puts photos in images/projects, outside the project's folder. Empty = an empty box."
 
       - name: cover_style
         label: Thumbnail style
@@ -195,7 +198,7 @@ content:
           min: 0
           max: 100
           step: any
-        description: "Which part of the photo stays in view: 50, 50 is the centre; 50, 20 keeps the top. Easiest: use the thumbnail tuner at tolomeo.org/tools/thumbnail/ and copy its numbers."
+        description: "Which part of the photo stays in view. Always fill both numbers: across, then down (50, 50 is the centre; 50, 20 keeps the top). Easiest: use the thumbnail tuner at tolomeo.org/tools/thumbnail/ and copy its numbers."
 
       - name: cover_zoom
         label: Thumbnail zoom
@@ -211,6 +214,7 @@ content:
         type: image
         options:
           path: images/projects
+          extensions: [jpg, jpeg, png, webp, avif, gif, svg, heic, heif, tif, tiff, JPG, JPEG, PNG, WEBP, HEIC, HEIF, TIF, TIFF]
         description: "Optional. Shown instead of the thumbnail when someone points at the project. Leave empty for none."
 
       - name: images
@@ -226,11 +230,12 @@ content:
             type: image
             options:
               path: images/projects
+              extensions: [jpg, jpeg, png, webp, avif, gif, svg, heic, heif, tif, tiff, JPG, JPEG, PNG, WEBP, HEIC, HEIF, TIF, TIFF]
           - name: alt
             label: Description of the photo
             type: string
             description: "Describe the photo for people who can't see it."
-        description: "The photos on the project page, in this order. Drag to reorder. Keep them in images/projects/<slug>."
+        description: "The photos on the project page, in this order. Drag to reorder. Press Select and pick or upload photos inside your project's folder (images/projects/<slug>), not with the Upload button next to Select."
 
       - name: photo_links
         label: Links to more photos

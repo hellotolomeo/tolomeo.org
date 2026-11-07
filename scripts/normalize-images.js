@@ -114,16 +114,34 @@ async function freeName(dir, base, ext) {
   }
 }
 
-async function rewriteReferences(contentDir, from, to) {
-  const variants = [[from, to]];
-  if (encodeURI(from) !== from) variants.push([encodeURI(from), encodeURI(to)]);
+// Every way content can name the image (as server/content.js resolves them): the public
+// path, the path under images/, and, in its own project's file, the bare file name; each
+// also URL-encoded. Only whole values are replaced (x.tif never matches inside x.tiff).
+async function rewriteReferences(contentDir, fromRel, toRel) {
+  const forms = (a, b) => {
+    const list = [[a, b]];
+    if (encodeURI(a) !== a) list.push([encodeURI(a), encodeURI(b)]);
+    return list;
+  };
+  const everywhere = [...forms(`/images/${fromRel}`, `/images/${toRel}`), ...forms(`images/${fromRel}`, `images/${toRel}`)];
+  const bare = fromRel.match(/^projects\/([^/]+)\/([^/]+)$/);
+  const toName = toRel.split('/').pop();
+  const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const whole = (s) => new RegExp(`(?<=^|[\\s"':\\[(])${escape(s)}(?=$|[\\s"',\\])])`, 'gm');
   const changed = [];
   for (const rel of await walk(contentDir)) {
     if (!rel.toLowerCase().endsWith('.md')) continue;
     const file = path.join(contentDir, rel);
     const text = await readFile(file, 'utf8');
     let next = text;
-    for (const [a, b] of variants) next = next.split(a).join(b);
+    for (const [a, b] of everywhere) next = next.replace(whole(a), b);
+    // A bare file name only where it is a whole YAML value in its own project's file
+    // (`cover: x.jpg`, `- image: x.jpg`), never inside a sentence.
+    if (bare && rel === `projects/${bare[1]}.md`) {
+      for (const [a, b] of forms(bare[2], toName)) {
+        next = next.replace(new RegExp(`(?<=^\\s*(?:-\\s+)?(?:[\\w-]+:\\s*)?["']?)${escape(a)}(?=["']?\\s*$)`, 'gm'), b);
+      }
+    }
     if (next !== text) {
       await writeFile(file, next);
       changed.push(`content/${rel}`);
@@ -155,7 +173,7 @@ export async function normalize(root, log = console.log) {
           const name = await freeName(path.dirname(abs), base, outExt);
           await writeAtomic(path.join(path.dirname(abs), name), data);
           const newRel = dirRel === '.' ? name : `${dirRel}/${name}`;
-          const refs = await rewriteReferences(contentDir, `/images/${rel}`, `/images/${newRel}`);
+          const refs = await rewriteReferences(contentDir, rel, newRel);
           await rm(abs);
           normalized++;
           log(`converted ${rel} -> ${newRel}${refs.length ? ` (updated ${refs.join(', ')})` : ''}`);
@@ -173,6 +191,9 @@ export async function normalize(root, log = console.log) {
     } catch (err) {
       failed++;
       log(`error: ${rel}: ${err.message}`);
+      // In CI: an annotation on the run, not a failed step. One bad upload must not stop
+      // every later save from deploying; the build leaves an undecodable file out.
+      if (process.env.GITHUB_ACTIONS) console.log(`::warning file=images/${rel}::${String(err.message).split('\n')[0]}`);
     }
   }
   return { normalized, failed };
@@ -184,5 +205,5 @@ if (isMain) {
   const { normalized, failed } = await normalize(root);
   console.log(`${normalized} file(s) normalized${failed ? `, ${failed} failed (left untouched)` : ''}`);
   console.log(`normalized: ${normalized}`);
-  process.exitCode = failed ? 1 : 0;
+  process.exitCode = 0;
 }

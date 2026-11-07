@@ -66,12 +66,13 @@ function serveFile(req, res, path) {
 
 const server = createServer(async (req, res) => {
     try {
-        const { pathname } = new URL(req.url, 'http://localhost');
+        let pathname;
+        try { pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname); } catch { pathname = '/404.html#'; }
         if (pathname === '/client/covers.css') return send(res, 200, TYPES['.css'], (await load()).coversCss);
         for (const [prefix, dir] of STATIC) {
             if (!pathname.startsWith(prefix)) continue;
             if (prefix === '/lib/' && pathname.startsWith('/lib/zeldman/')) break;
-            const path = normalize(join(dir, decodeURIComponent(pathname.slice(prefix.length))));
+            const path = normalize(join(dir, pathname.slice(prefix.length)));
             if (path.startsWith(dir + sep) && serveFile(req, res, path)) return;
             break;
         }
