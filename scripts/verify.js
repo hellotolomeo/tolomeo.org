@@ -43,6 +43,11 @@ const projectsDir = join(root, 'content/projects');
 const fronts = readdirSync(projectsDir).filter(f => f.endsWith('.md'))
     .map(f => ({ file: f, ...matter(readFileSync(join(projectsDir, f), 'utf8'), {}) }));
 const published = fronts.filter(f => f.data.published === true);
+const html = (v) => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Two tags to filter by, taken from the content: the most used, and the most used of the rest.
+const counts = new Map();
+for (const p of published) for (const t of p.data.tags ?? []) counts.set(t, (counts.get(t) ?? 0) + 1);
+const [tagA, tagB] = [...counts].sort((a, b) => b[1] - a[1]).map(([t]) => t);
 
 // --- a static server for dist/, like GitHub Pages
 
@@ -78,16 +83,19 @@ try {
         let pageMisses = [];
         for (const p of published) {
             const res = await fetch(`${base}/projects/${p.data.slug}/`);
-            const html = await res.text();
-            const firstLine = p.content.trim().split('\n')[0]?.replace(/[*_`[\]]/g, '').slice(0, 30) ?? '';
-            const title = String(p.data.title).replace(/&/g, '&amp;').replace(/'/g, '&#39;');
-            if (res.status !== 200 || !html.includes(`<h1>${title}</h1>`) || (firstLine && !html.includes(firstLine.replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;')))) pageMisses.push(p.data.slug);
+            const firstWords = p.content.trim().split('\n')[0]?.replace(/[*_`[\]()#>]/g, '').trim().split(/\s+/).slice(0, 4).join(' ') ?? '';
+            const body = await res.text();
+            if (res.status !== 200 || !body.includes(`<h1>${html(p.data.title)}</h1>`) || (firstWords && !body.includes(html(firstWords)))) pageMisses.push(p.data.slug);
         }
         check('1+3. every project page answers 200 with its title and description in the HTML', pageMisses.length === 0, pageMisses.join(', '));
         const info = await (await fetch(`${base}/info/`)).text();
-        check('1. info HTML has its body', info.includes('My name is Tolomeo'));
-        const gone = await fetch(`${base}/projects/misslightenment/`);
-        check('3. an unpublished project has no page (404)', gone.status === 404);
+        const infoWords = matter(readFileSync(join(root, 'content/site/info.md'), 'utf8'), {}).content.trim().split(/\s+/).slice(0, 3).join(' ');
+        check('1. info HTML has its body', info.includes(html(infoWords)), infoWords);
+        const hidden = fronts.find(f => f.data.published !== true);
+        if (hidden) {
+            const gone = await fetch(`${base}/projects/${hidden.data.slug}/`);
+            check('3. an unpublished project has no page (404)', gone.status === 404, hidden.data.slug);
+        }
     }
 
     // zero mutations, console errors with JS on
@@ -129,10 +137,10 @@ try {
         await page.goto(base + '/');
         await page.waitForFunction(() => document.querySelector('project-index')?.rendered);
         const tagged = (t) => published.filter(p => (p.data.tags ?? []).includes(t)).map(p => p.data.slug).sort();
-        const click = await page.evaluate(async () => {
+        const click = await page.evaluate(async (tag) => {
             const before = new Map([...document.querySelectorAll('project-index .row, project-index .cell')].map(e => [e.id, e]));
             window.__mutations();
-            document.querySelector('project-index .tag[data-tag="workshop"]').click();
+            document.querySelector(`project-index .tag[data-tag="${CSS.escape(tag)}"]`).click();
             await new Promise(r => setTimeout(r, 50));
             const rows = [...document.querySelectorAll('project-index .row')];
             const cells = [...document.querySelectorAll('project-index .cell')];
@@ -144,28 +152,23 @@ try {
                 same: [...rows, ...cells].every(e => before.get(e.id) === e),
                 other: muts.filter(m => !m.startsWith('childList') && !/\[(class|aria-pressed)\]$/.test(m)),
                 buttons: muts.filter(m => m.startsWith('attributes')).every(m => m.startsWith('attributes BUTTON')),
-                active: [...document.querySelectorAll('project-index .tag.on')].every(b => b.dataset.tag === 'workshop'),
+                active: [...document.querySelectorAll('project-index .tag.on')].every(b => b.dataset.tag === tag),
             };
-        });
-        const want = tagged('workshop');
-        check('2. clicking a tag filters rows and cells (OR) and writes ?filter=', click.url === '?filter=workshop' && JSON.stringify(click.rows) === JSON.stringify(want) && JSON.stringify(click.cells) === JSON.stringify(want), `${click.url} rows=${click.rows.length} want=${want.length}`);
+        }, tagA);
+        const want = tagged(tagA);
+        check(`2. clicking a tag filters rows and cells (OR) and writes ?filter= (${tagA})`, click.url === `?filter=${encodeURIComponent(tagA)}` && JSON.stringify(click.rows) === JSON.stringify(want) && JSON.stringify(click.cells) === JSON.stringify(want), `${click.url} rows=${click.rows.length} want=${want.length}`);
         check('2. the morph keeps surviving rows/cells as the same nodes and touches only tag state', click.same && click.other.length === 0 && click.buttons, click.other.slice(0, 5).join('; '));
         check('2. active tags are marked', click.active);
-        const second = await page.evaluate(async () => {
-            document.querySelector('project-index .tag[data-tag="book"]')?.click() ?? null;
-            await new Promise(r => setTimeout(r, 50));
-            return { url: location.search, rows: [...document.querySelectorAll('project-index .row')].map(r => r.dataset.slug).sort() };
-        });
-        const either = [...new Set([...tagged('workshop'), ...tagged('book')])].sort();
-        // 'book' may only be clickable if a visible row carries it; drive it by URL below too.
-        await page.goto(`${base}/?filter=workshop,book`);
+        const either = [...new Set([...tagged(tagA), ...tagged(tagB)])].sort();
+        const both = `${encodeURIComponent(tagA)},${encodeURIComponent(tagB)}`;
+        await page.goto(`${base}/?filter=${both}`);
         await page.waitForTimeout(100);
         const fromUrl = await page.evaluate(() => [...document.querySelectorAll('project-index .row')].map(r => r.dataset.slug).sort());
-        check('2. ?filter=workshop,book shows projects with either tag', JSON.stringify(fromUrl) === JSON.stringify(either), `${fromUrl.length} vs ${either.length}`);
-        await page.evaluate(async () => {
-            for (const t of ['workshop', 'book']) document.querySelector(`project-index .tag.on[data-tag="${t}"]`)?.click();
+        check(`2. ?filter=${tagA},${tagB} shows projects with either tag`, JSON.stringify(fromUrl) === JSON.stringify(either), `${fromUrl.length} vs ${either.length}`);
+        await page.evaluate(async (tags) => {
+            for (const t of tags) document.querySelector(`project-index .tag.on[data-tag="${CSS.escape(t)}"]`)?.click();
             await new Promise(r => setTimeout(r, 50));
-        });
+        }, [tagA, tagB]);
         const cleared = await page.evaluate(() => ({ url: location.search, rows: document.querySelectorAll('project-index .row').length }));
         check('2. removing the last active tag restores everything', cleared.url === '' && cleared.rows === published.length, JSON.stringify(cleared));
         await page.goBack();
@@ -175,24 +178,23 @@ try {
         await page.goto(`${base}/`);
         const reset = await page.evaluate(() => document.querySelectorAll('project-index .row').length);
         check('2. / with no query shows everything', reset === published.length);
-        void second;
 
         // the project page's index link brings the filter back
-        await page.goto(`${base}/?filter=workshop`);
+        await page.goto(`${base}/?filter=${encodeURIComponent(tagA)}`);
         await page.waitForTimeout(100);
         await page.click('project-index .row .title');
         await page.waitForURL(/\/projects\/.+\//);
         await page.click('.back a');
         await page.waitForFunction(() => document.querySelector('project-index')?.rendered);
         await page.waitForTimeout(100);
-        check('2. the project page\'s index link keeps the filter', await page.evaluate(() => location.search === '?filter=workshop'));
+        check('2. the project page\'s index link keeps the filter', await page.evaluate(q => location.search === q, `?filter=${encodeURIComponent(tagA)}`));
 
         // 3. a project from the grid
         await page.goto(`${base}/`);
         const first = published.find(p => !p.data.parent) ?? published[0];
         await page.click(`#cell-${first.data.slug}`);
         await page.waitForURL(`**/projects/${first.data.slug}/`);
-        check('3. a grid cell opens its project page', (await page.textContent('h1')).trim() === String(first.data.title));
+        check('3. a grid cell opens its project page', (await page.textContent('h1')).trim() === String(first.data.title).trim());
 
         // 4. 390px
         await page.setViewportSize({ width: 390, height: 844 });

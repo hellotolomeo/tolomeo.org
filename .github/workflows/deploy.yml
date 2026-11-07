@@ -3,7 +3,8 @@
 # push to main / workflow_dispatch on main: normalize uploaded images (HEIC/TIFF -> JPEG,
 #   > 2000px -> 2000px), commit the web copies back as github-actions[bot] with [skip ci],
 #   build dist/ from that normalized tree in this same run, deploy to Pages.
-# pull_request: normalize + build only (no commit-back, no deploy).
+# pull_request and pushes to other branches: normalize + build + npm run verify (no commit-back,
+#   no deploy). verify is not run on main, so a content save in the CMS is never held back by it.
 #
 # A commit pushed with GITHUB_TOKEN never triggers another workflow run; [skip ci] is
 # belt-and-braces. dist/images is cached so unchanged photos are not re-encoded.
@@ -12,7 +13,6 @@ name: Build and deploy
 
 on:
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -21,10 +21,10 @@ permissions:
   pages: write
   id-token: write
 
-# One deploy at a time, never cancelled mid-run. Pull requests get their own group so a
-# PR push can never replace a pending main deploy.
+# One deploy at a time, never cancelled mid-run. Everything that is not main gets its own group,
+# so a branch or PR push can never replace a pending main deploy.
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.ref) || 'pages' }}
+  group: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && 'pages' || format('build-{0}', github.ref) }}
   cancel-in-progress: false
 
 jobs:
@@ -80,6 +80,12 @@ jobs:
           restore-keys: img-v1-${{ runner.os }}-
 
       - run: npm run build
+
+      - name: Verify (branches and pull requests)
+        if: github.ref != 'refs/heads/main' || github.event_name == 'pull_request'
+        run: |
+          npx playwright install --with-deps chromium
+          npm run verify
 
       - if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/configure-pages@v6
