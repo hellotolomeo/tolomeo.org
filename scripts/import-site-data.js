@@ -22,7 +22,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import matter from 'gray-matter';
-import yaml from 'js-yaml';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PROJECTS = path.join(ROOT, 'content/projects');
@@ -81,7 +80,7 @@ function scalar(v) {
   }
   const plain = !PY_BOOL.test(s) && !PY_NULL.test(s) && !PY_NUM.test(s) && !PY_DATE.test(s)
     && !/^[-?,\]}]/.test(s) && !/ #/.test(s) && !/[\n\t]/.test(s) && (() => {
-      try { return yaml.load(s) === s; } catch { return false; }
+      try { return matter.engines.yaml.parse(s) === s; } catch { return false; }
     })();
   return plain ? s : `'${s.replace(/'/g, "''")}'`;
 }

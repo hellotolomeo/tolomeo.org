@@ -27,8 +27,7 @@ thumbnail-tuner button {
 }
 
 thumbnail-tuner .stage {
-  border-top: var(--hair) solid var(--line);
-  border-left: var(--hair) solid var(--line);
+  box-shadow: inset var(--hair) var(--hair) 0 var(--line);
 }
 
 thumbnail-tuner .values {

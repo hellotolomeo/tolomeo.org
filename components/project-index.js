@@ -65,10 +65,15 @@ class ProjectIndex extends BaseComponent {
         if (e.target.closest('a[href^="/projects/"]')) remember(this.state.filter);
     }
 
+    // The marker follows the pointer (or focus) over a cell or row. The hover photo swaps in only
+    // while the pointer is over the thumbnail itself, in a cell that has one; focus arriving in a
+    // cell that is already swapped (a mouse press) keeps it.
     point(target, pointer) {
         const el = target.closest?.('[data-slug]');
         const slug = el?.dataset.slug ?? '';
-        this.pointAt(slug, pointer && el?.classList.contains('cell') ? slug : '');
+        const onImage = Boolean(el?.classList.contains('cell') && el.querySelector(':scope > .swap') && target.closest('.box, .swap'));
+        const swap = pointer ? (onImage ? slug : '') : (slug && slug === this.state.swap ? slug : '');
+        this.pointAt(slug, swap);
     }
 
     pointAt(hover, swap = '') {

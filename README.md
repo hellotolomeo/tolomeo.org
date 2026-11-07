@@ -47,6 +47,8 @@ The project text and photos were imported once from Claude Design's site update
 is the source of truth. The old spreadsheet importer, `scripts/import-projects.py`, is superseded:
 don't run it, it would bring back the spreadsheet's typos and old titles.
 
+## How it fits together
+
 ```
 content/            Markdown + YAML front matter: projects/, site/index.md, site/info.md
 images/projects/    photos, one folder per project (the CMS writes full /images/… paths)

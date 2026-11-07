@@ -18,9 +18,39 @@
   color-scheme: dark;
 }
 
+@media (min-resolution: 1.25dppx) {
+  :root {
+    --hair: 0.8px;
+  }
+}
+
+@media (min-resolution: 1.5dppx) {
+  :root {
+    --hair: 0.6667px;
+  }
+}
+
+@media (min-resolution: 1.75dppx) {
+  :root {
+    --hair: 0.5715px;
+  }
+}
+
 @media (min-resolution: 2dppx) {
   :root {
     --hair: 0.5px;
+  }
+}
+
+@media (min-resolution: 2.5dppx) {
+  :root {
+    --hair: 0.4px;
+  }
+}
+
+@media (min-resolution: 2.625dppx) {
+  :root {
+    --hair: 0.381px;
   }
 }
 

@@ -115,7 +115,7 @@ The thumbnail is the photo in the grid on the home page.
    - **Polaroid, tall**: the same, portrait.
    - **Fill**: the photo fills the whole box.
    - **Small**: narrow and centred, no border. Good for posters.
-   - **Pair**: the thumbnail plus the first project photo, side by side.
+   - **Pair**: the thumbnail plus the hover photo (or, without one, the first project photo), side by side.
    - **None**: leave the box empty.
 3. Optional: **Hover photo** is shown instead of the thumbnail when someone points at it.
 

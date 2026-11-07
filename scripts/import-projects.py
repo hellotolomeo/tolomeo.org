@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 """
+SUPERSEDED: don't run this. content/ was re-imported from Claude Design's site-data.json
+(scripts/import-site-data.js) and is now edited in Pages CMS; this would bring back the
+spreadsheet's typos, old titles and publish states. See CLAUDE.md.
+
 Import the project spreadsheet into content/projects/<slug>.md (one file per project).
 
 Usage:

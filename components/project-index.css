@@ -72,9 +72,11 @@ project-index .cell:nth-child(even) {
   --rule-right: 0px;
 }
 
-project-index .cell:last-child,
-project-index .cell:nth-last-child(2):nth-child(odd) {
-  --rule-bottom: 0px;
+@media (min-width: 720px) {
+  project-index .cell:last-child,
+  project-index .cell:nth-last-child(2):nth-child(odd) {
+    --rule-bottom: 0px;
+  }
 }
 
 :is(project-index, thumbnail-tuner) .cell:focus-visible {
@@ -163,12 +165,14 @@ project-index .cell:nth-last-child(2):nth-child(odd) {
   object-fit: contain;
 }
 
-project-index .cell.swapped .box {
-  visibility: hidden;
-}
+@media (hover: hover) {
+  project-index .cell.swapped .box {
+    visibility: hidden;
+  }
 
-project-index .cell.swapped .swap {
-  visibility: visible;
+  project-index .cell.swapped .swap {
+    visibility: visible;
+  }
 }
 
 :is(project-index, thumbnail-tuner) .box img {
@@ -286,12 +290,7 @@ project-index .track {
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    scrollbar-width: none;
     scroll-timeline: --column y;
-  }
-
-  project-index :is(.scroll, .rows)::-webkit-scrollbar {
-    display: none;
   }
 
   project-index .track {
@@ -320,9 +319,18 @@ project-index .track {
     height: var(--thumb-height);
     border-radius: 4px;
     background: var(--thumb);
+    visibility: hidden;
   }
 
   @supports (animation-timeline: scroll()) {
+    project-index :is(.scroll, .rows) {
+      scrollbar-width: none;
+    }
+
+    project-index :is(.scroll, .rows)::-webkit-scrollbar {
+      display: none;
+    }
+
     project-index .track {
       display: block;
     }
@@ -337,9 +345,11 @@ project-index .track {
 @keyframes project-index-thumb {
   from {
     top: 0;
+    visibility: visible;
   }
 
   to {
     top: calc(100% - var(--thumb-height));
+    visibility: visible;
   }
 }
