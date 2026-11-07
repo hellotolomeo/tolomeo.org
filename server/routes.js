@@ -27,7 +27,7 @@ export function routes(data, config) {
         {
             path: '/tools/thumbnail/',
             page: 'shared/pages/thumbnail.html',
-            context: { pageTitle: 'Thumbnail preview', noindex: true, projects: data.indexProjects },
+            context: { pageTitle: 'Thumbnail tuner', noindex: true, projects: data.indexProjects, focus: tunerData(data.projects) },
         },
     ];
     if (config.PROJECT_VIEW === 'page') {
@@ -40,6 +40,11 @@ export function routes(data, config) {
         }
     }
     return list;
+}
+
+// What the tuner starts from for each project: its current style, focus and zoom.
+function tunerData(projects) {
+    return projects.map(p => ({ slug: p.slug, focus: p.focus, zoom: p.zoom }));
 }
 
 /** dist-relative file for a route path. */

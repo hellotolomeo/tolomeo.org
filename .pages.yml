@@ -188,7 +188,6 @@ content:
 
       - name: cover_focus
         label: Thumbnail focus (across, down)
-        hidden: true # no longer used: thumbnails are never cropped (kept so old values survive saves)
         type: number
         # No list.min: a new project starts with an empty list, and min would block its
         # first save. Empty or one number is fine; the site fills in 50 for what's missing.
@@ -203,7 +202,6 @@ content:
 
       - name: cover_zoom
         label: Thumbnail zoom
-        hidden: true # no longer used: thumbnails are never cropped (kept so old values survive saves)
         type: number
         options:
           min: 1

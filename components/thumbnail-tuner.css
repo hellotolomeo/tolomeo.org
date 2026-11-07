@@ -26,9 +26,20 @@ thumbnail-tuner button {
   padding: 2px 6px;
 }
 
+thumbnail-tuner input[type="range"] {
+  accent-color: var(--line);
+  width: 120px;
+}
+
 thumbnail-tuner .stage {
   border-top: 1px solid var(--line);
   border-left: 1px solid var(--line);
+}
+
+thumbnail-tuner .cell {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
 
 thumbnail-tuner .values {

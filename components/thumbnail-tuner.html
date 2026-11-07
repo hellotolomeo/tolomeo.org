@@ -1,7 +1,10 @@
-{#- The thumbnail preview: pick a project and a style, see the real grid cell, copy the style into the CMS. -#}
-{#- `slug`, `style` and `cell` exist only in the browser; the server renders the empty picker. -#}
+{#- The thumbnail tuner: pick a project, move and zoom its cover inside a real grid cell, copy three values into the CMS. -#}
+{#- `slug`, `style`, `x`, `y`, `zoom` and `cell` exist only in the browser; the server renders the empty picker. -#}
 {% set slug = slug | default('') %}
 {% set style = style | default('polaroid') %}
+{% set x = x | default(50) %}
+{% set y = y | default(50) %}
+{% set zoom = zoom | default(1) %}
 <div class="controls">
 <label class="field">project <select data-action="pick">
 <option
@@ -26,16 +29,43 @@
 >{{ s }}</option>
 {% endfor %}
 </select></label>
+<label class="field">across <input
+  type="range"
+  min="0"
+  max="100"
+  step="1"
+  value="{{ x }}"
+  data-action="x"
+> {{ x }}</label>
+<label class="field">down <input
+  type="range"
+  min="0"
+  max="100"
+  step="1"
+  value="{{ y }}"
+  data-action="y"
+> {{ y }}</label>
+<label class="field">zoom <input
+  type="range"
+  min="1"
+  max="4"
+  step="0.01"
+  value="{{ zoom }}"
+  data-action="zoom"
+> {{ zoom }}</label>
 {% endif %}
 </div>
 {% if cell %}
+<style>thumbnail-tuner .cell .box img{object-position:{{ x }}% {{ y }}%;transform-origin:{{ x }}% {{ y }}%;scale:{{ zoom }}}</style>
 <div class="stage">
-<div
-  id="cell-{{ cell.slug }}"
-  class="cell {{ cell.style }}"
->{% set p = cell %}{% set hover = '' %}{% set hoverSwap = false %}{% include 'components/project-index/cell.html' %}</div>
+<div class="cell {{ cell.style }}" data-action="drag">{% set p = cell %}{% set hover = '' %}{% set hoverSwap = false %}{% include 'components/project-index/cell.html' %}</div>
 </div>
-<p class="hint">The photo always shows whole, in its own proportions; the style sets the frame and the size.</p>
-<pre class="values" aria-label="Value for the CMS">cover_style: {{ cell.style }}</pre>
-<p class="hint">In Pages CMS, open the project, set Thumbnail style to this, then save.</p>
+<p class="hint">Drag the photo to move it. To zoom, scroll over it or use the zoom slider (on a phone, the slider).</p>
+<pre class="values" aria-label="Values for the CMS">cover_style: {{ style }}
+cover_focus:
+  - {{ x }}
+  - {{ y }}
+cover_zoom: {{ zoom }}</pre>
+<p><button type="button" data-action="copy">{{ 'copied' if copied else 'copy these values' }}</button></p>
+<p class="hint">In Pages CMS, open the project and copy these into Thumbnail style, Thumbnail focus (across, then down: always fill both) and Thumbnail zoom, then save.</p>
 {% endif %}

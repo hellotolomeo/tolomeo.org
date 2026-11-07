@@ -4,7 +4,7 @@
 {% set hover = hover | default('') %}
 <section class="images" aria-label="Project images">
 <div class="band intro" data-content>{{ content | safe }}</div>
-<div class="scroll"><div class="grid">
+<div class="grid">
 {% for p in shown %}
 <a
   id="cell-{{ p.slug }}"
@@ -14,8 +14,7 @@
   data-slug="{{ p.slug }}"
 >{% include 'components/project-index/cell.html' %}</a>
 {% endfor %}
-</div></div>
-<div class="track" aria-hidden="true"><span class="thumb"></span></div>
+</div>
 </section>
 <section class="index" aria-label="Index">
 <div class="band"><h1 tabindex="-1">Index</h1></div>
@@ -40,5 +39,4 @@
 >{{ t }}</button>{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}</span></li>
 {% endfor %}
 </ul>
-<div class="track" aria-hidden="true"><span class="thumb"></span></div>
 </section>
