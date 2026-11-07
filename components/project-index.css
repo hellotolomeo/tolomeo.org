@@ -1,0 +1,232 @@
+project-index {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  min-height: 100vh;
+  font-size: 13px;
+  line-height: 19px;
+}
+
+project-index section {
+  position: relative;
+  flex: 1 1 360px;
+  min-width: 0;
+}
+
+project-index .index {
+  margin-left: -1px;
+}
+
+project-index .band {
+  min-height: 192px;
+  box-sizing: border-box;
+  background: var(--ground);
+}
+
+project-index .intro {
+  padding: 43px 16px 24px 37px;
+}
+
+project-index .intro p {
+  margin: 0;
+}
+
+project-index .index .band {
+  padding: 42px 40px 24px 16px;
+  text-align: right;
+  border: 1px solid var(--line);
+  border-bottom: none;
+}
+
+project-index h1 {
+  margin: 0;
+  font-size: 13px;
+  line-height: 19px;
+  font-weight: 300;
+}
+
+project-index .grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+:is(project-index, thumbnail-tuner) .cell {
+  position: relative;
+  display: block;
+  aspect-ratio: 331.4 / 191.6;
+  overflow: hidden;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+:is(project-index, thumbnail-tuner) .box {
+  position: absolute;
+  display: block;
+  overflow: hidden;
+}
+
+:is(project-index, thumbnail-tuner) .polaroid .box,
+:is(project-index, thumbnail-tuner) .polaroid-tall .box {
+  box-sizing: border-box;
+  border: 6px solid var(--frame);
+  box-shadow: 2px 2px 5px rgba(255, 255, 255, 0.28);
+}
+
+:is(project-index, thumbnail-tuner) .polaroid .box {
+  left: 10.11%;
+  top: 8.06%;
+  width: 80.18%;
+  height: 81.42%;
+}
+
+:is(project-index, thumbnail-tuner) .polaroid-tall .box {
+  left: 25.36%;
+  top: 7.385%;
+  width: 49.28%;
+  height: 85.23%;
+}
+
+:is(project-index, thumbnail-tuner) .fill .box {
+  inset: 0;
+}
+
+:is(project-index, thumbnail-tuner) .small .box {
+  left: 32.845%;
+  top: 7.595%;
+  width: 34.31%;
+  height: 84.81%;
+}
+
+:is(project-index, thumbnail-tuner) .pair .box {
+  top: 0;
+  height: 100%;
+}
+
+:is(project-index, thumbnail-tuner) .pair .a {
+  left: 0;
+  width: 40.34%;
+}
+
+:is(project-index, thumbnail-tuner) .pair .b {
+  left: 38.2%;
+  width: 61.8%;
+}
+
+:is(project-index, thumbnail-tuner) .box img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: 50% 50%;
+  transform-origin: 50% 50%;
+}
+
+project-index .rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+project-index .row {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  min-height: 38px;
+  box-sizing: border-box;
+  padding: 9px 16px 9px clamp(16px, 3.1vw, 41px);
+  border: 1px solid var(--line);
+  border-top: none;
+}
+
+project-index .marker {
+  position: absolute;
+  left: 121px;
+  top: 10px;
+  fill: var(--line);
+}
+
+project-index .years {
+  flex: 0 0 137px;
+}
+
+project-index .what {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+project-index .bullet {
+  display: inline-block;
+  width: 15px;
+}
+
+project-index .title {
+  text-decoration: none;
+}
+
+project-index .tags {
+  display: inline-block;
+  transform: skewX(-6deg);
+  margin-left: 14px;
+  color: var(--tag);
+}
+
+project-index .tag {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+project-index .tag.on {
+  color: var(--text);
+}
+
+project-index .tag:hover {
+  color: var(--hover);
+}
+
+@media (min-width: 720px) {
+  project-index {
+    height: 100vh;
+    min-height: 0;
+    flex-wrap: nowrap;
+    align-items: stretch;
+  }
+
+  project-index section {
+    height: 100vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--thumb) transparent;
+  }
+
+  project-index section::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  project-index section::-webkit-scrollbar-thumb {
+    border-radius: 4px;
+    background: var(--thumb);
+  }
+
+  project-index section::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  project-index .band {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+}

@@ -1,0 +1,97 @@
+.project-detail .head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  max-width: 835px;
+  margin-top: 39px;
+}
+
+.project-detail .years {
+  flex: 0 0 137px;
+}
+
+.project-detail .what {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.project-detail h1 {
+  display: inline;
+  margin: 0;
+  font-size: 13px;
+  line-height: 15.6px;
+  font-weight: 300;
+}
+
+.project-detail .tags {
+  display: inline-block;
+  transform: skewX(-6deg);
+  margin-left: 14px;
+  color: var(--tag);
+}
+
+.project-detail .tags a {
+  color: inherit;
+}
+
+.project-detail .tags a:hover {
+  color: var(--hover);
+}
+
+.project-detail .text,
+.project-detail .meta {
+  max-width: 551px;
+  margin-top: 24px;
+}
+
+.project-detail p {
+  margin: 0 0 7px;
+  hyphens: auto;
+}
+
+.project-detail .strip {
+  display: flex;
+  gap: 8px;
+  height: min(560px, 70vh);
+  margin: 32px -16px 0 0;
+  padding-bottom: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--thumb) transparent;
+}
+
+.project-detail .strip::-webkit-scrollbar {
+  height: 10px;
+}
+
+.project-detail .strip::-webkit-scrollbar-thumb {
+  border-radius: 5px;
+  background: var(--thumb);
+}
+
+.project-detail .strip picture {
+  flex: 0 0 auto;
+  height: 100%;
+}
+
+.project-detail .strip img {
+  display: block;
+  width: auto;
+  height: 100%;
+}
+
+.project-detail .links {
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.project-detail .prevnext {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 24px;
+  max-width: 835px;
+  margin-top: 48px;
+}

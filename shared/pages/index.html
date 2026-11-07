@@ -1,0 +1,18 @@
+{% extends 'shared/pages/base.html' %}
+{% block head %}
+<link rel="stylesheet" href="/components/project-index.css">
+<link rel="stylesheet" href="/client/covers.css">
+<script src="/lib/vendor/nunjucks.min.js" defer></script>
+<script src="/lib/vendor/idiomorph.min.js" defer></script>
+<script type="module" src="/client/main.js"></script>
+{% endblock %}
+{% block content %}
+<project-index
+  projects="{{ projects | dump | e }}"
+  match="{{ match }}"
+  {{ 'hover-swap' if hoverSwap }}
+>
+<p>{{ site.intro }}</p>
+<p>{{ site.contactLine | safe }}</p>
+</project-index>
+{% endblock %}

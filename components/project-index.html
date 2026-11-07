@@ -1,0 +1,36 @@
+{#- The home page: the image grid on the left, the index list on the right, both from `projects`. -#}
+{#- `shown` and `hover` exist only in the browser; the server renders every project with nothing pointed at. -#}
+{% set shown = shown | default(projects) %}
+{% set hover = hover | default('') %}
+<section class="images" aria-label="Project images">
+<div class="band intro" data-content>{{ content | safe }}</div>
+<div class="grid">
+{% for p in shown %}
+<a
+  id="cell-{{ p.slug }}"
+  class="cell {{ p.style }}"
+  href="{{ p.href }}"
+  aria-label="{{ p.title }}"
+  data-slug="{{ p.slug }}"
+>{% include 'components/project-index/cell.html' %}</a>
+{% endfor %}
+</div>
+</section>
+<section class="index" aria-label="Index">
+<div class="band"><h1>Index</h1></div>
+<ul class="rows">
+{% for p in shown %}
+<li
+  id="row-{{ p.slug }}"
+  class="row{% if p.child %} child{% endif %}"
+  data-slug="{{ p.slug }}"
+>{% if hover == p.slug %}<svg class="marker" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16"><path d="M1 0 L15 8 L1 16 Z"></path></svg>{% endif %}<span class="years">{{ p.years }}</span><span class="what">{% if p.child %}<span class="bullet">•</span>{% endif %}<a class="title" href="{{ p.href }}">{{ p.title }}</a>{% if p.tags | length %}<span class="tags">{% for t in p.tags %}<button
+  type="button"
+  class="tag{% if t in filter %} on{% endif %}"
+  data-action="tag"
+  data-tag="{{ t }}"
+  aria-pressed="{{ 'true' if t in filter else 'false' }}"
+>{{ t }}</button>{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}</span></li>
+{% endfor %}
+</ul>
+</section>

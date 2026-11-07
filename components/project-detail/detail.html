@@ -1,0 +1,54 @@
+{#- The project page's contents (provisional: BRIEF §5.2). The final design replaces this file and project-detail.css only. `project` is the project, as server/content.js shapes it. -#}
+<article class="project-detail">
+<header class="head">
+<span class="years">{{ project.years }}</span>
+<span class="what"><h1>{{ project.title }}</h1>{% if project.tags | length %}<span class="tags">{% for t in project.tags %}<a href="/?filter={{ t | urlencode }}">{{ t }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}</span>
+</header>
+{% if project.body %}
+<div class="text">
+{{ project.body | safe }}
+</div>
+{% endif %}
+{% if project.role or project.client %}
+<div class="meta">
+{% if project.role %}
+<p>role: {{ project.role }}</p>
+{% endif %}
+{% if project.client %}
+<p>for: {{ project.client }}</p>
+{% endif %}
+</div>
+{% endif %}
+{% if project.images | length %}
+<div class="strip" tabindex="0" role="region" aria-label="Photos">
+{% for g in project.images %}
+<picture>{% if g.webp %}<source type="image/webp" srcset="{{ g.webp }}" sizes="{{ g.sizes }}">{% endif %}<img
+  src="{{ g.src }}"
+  {% if g.srcset %} srcset="{{ g.srcset }}" sizes="{{ g.sizes }}"{% endif %}
+  width="{{ g.width }}"
+  height="{{ g.height }}"
+  alt="{{ g.alt }}"
+  loading="{{ 'eager' if loop.first else 'lazy' }}"
+  decoding="async"
+></picture>
+{% endfor %}
+</div>
+{% endif %}
+{% if project.photoLinks | length %}
+<ul class="links">
+{% for l in project.photoLinks %}
+<li><a href="{{ l.url }}">{{ l.label }}</a></li>
+{% endfor %}
+</ul>
+{% endif %}
+{% if project.prev or project.next %}
+<nav class="prevnext" aria-label="More projects">
+{% if project.prev %}
+<a href="{{ project.prev.href }}" rel="prev">&lt;- {{ project.prev.title }}</a>
+{% endif %}
+{% if project.next %}
+<a href="{{ project.next.href }}" rel="next">{{ project.next.title }} -&gt;</a>
+{% endif %}
+</nav>
+{% endif %}
+</article>

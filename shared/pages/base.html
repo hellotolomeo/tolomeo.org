@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tolomeo — {{ pageTitle }}</title>
+{% if description %}
+<meta name="description" content="{{ description }}">
+{% endif %}
+{% if canonical %}
+<link rel="canonical" href="{{ canonical }}">
+{% endif %}
+{% if noindex %}
+<meta name="robots" content="noindex">
+{% endif %}
+<link rel="icon" href="/client/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/fonts/FluxischElse-Light.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/client/site.css">
+{% block head %}{% endblock %}
+</head>
+<body>
+{% block content %}{% endblock %}
+</body>
+</html>

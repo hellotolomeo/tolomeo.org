@@ -1,0 +1,62 @@
+{#- The thumbnail tuner: pick a project, move and zoom its cover inside a real grid cell, copy three values into the CMS. -#}
+{#- `slug`, `style`, `x`, `y`, `zoom` and `cell` exist only in the browser; the server renders the empty picker. -#}
+{% set slug = slug | default('') %}
+{% set style = style | default('polaroid') %}
+{% set x = x | default(50) %}
+{% set y = y | default(50) %}
+{% set zoom = zoom | default(1) %}
+<div class="controls">
+<label class="field">project <select data-action="pick">
+<option value=""{% if not slug %} selected{% endif %}>choose…</option>
+{% for p in projects %}
+{% if p.cover %}
+<option value="{{ p.slug }}"{% if p.slug == slug %} selected{% endif %}>{{ p.title }}</option>
+{% endif %}
+{% endfor %}
+</select></label>
+{% if slug %}
+<label class="field">style <select data-action="style">
+{% for s in ['polaroid', 'polaroid-tall', 'fill', 'small', 'pair'] %}
+<option value="{{ s }}"{% if s == style %} selected{% endif %}>{{ s }}</option>
+{% endfor %}
+</select></label>
+<label class="field">across <input
+  type="range"
+  min="0"
+  max="100"
+  step="1"
+  value="{{ x }}"
+  data-action="x"
+> {{ x }}</label>
+<label class="field">down <input
+  type="range"
+  min="0"
+  max="100"
+  step="1"
+  value="{{ y }}"
+  data-action="y"
+> {{ y }}</label>
+<label class="field">zoom <input
+  type="range"
+  min="1"
+  max="4"
+  step="0.01"
+  value="{{ zoom }}"
+  data-action="zoom"
+> {{ zoom }}</label>
+{% endif %}
+</div>
+{% if cell %}
+<style>thumbnail-tuner .cell .box img{object-position:{{ x }}% {{ y }}%;transform-origin:{{ x }}% {{ y }}%;scale:{{ zoom }}}</style>
+<div class="stage">
+<div class="cell {{ cell.style }}" data-action="drag">{% set p = cell %}{% set hover = '' %}{% set hoverSwap = false %}{% include 'components/project-index/cell.html' %}</div>
+</div>
+<p class="hint">Drag the photo to move it; scroll (or pinch) over it to zoom.</p>
+<pre class="values" aria-label="Values for the CMS">cover_style: {{ style }}
+cover_focus:
+  - {{ x }}
+  - {{ y }}
+cover_zoom: {{ zoom }}</pre>
+<p><button type="button" data-action="copy">{{ 'copied' if copied else 'copy these values' }}</button></p>
+<p class="hint">In Pages CMS, open the project and set <b>Thumbnail style</b>, <b>Focus</b> (the two numbers) and <b>Zoom</b> to these values, then save.</p>
+{% endif %}

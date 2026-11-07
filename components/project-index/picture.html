@@ -1,0 +1,9 @@
+{#- A grid image at 600px; the cell's link carries the name, so the image itself is decoration. -#}
+<picture>{% if pic.webp %}<source type="image/webp" srcset="{{ pic.webp }}">{% endif %}<img
+  src="{{ pic.src }}"
+  width="{{ pic.width }}"
+  height="{{ pic.height }}"
+  alt=""
+  loading="lazy"
+  decoding="async"
+></picture>
