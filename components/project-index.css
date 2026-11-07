@@ -18,10 +18,10 @@ project-index .index {
 }
 
 project-index .band {
-  min-height: 192px;
+  min-height: 193px;
   box-sizing: border-box;
   background: var(--ground);
-  box-shadow: 0 1px 0 var(--line);
+  border-bottom: 1px solid var(--line);
 }
 
 project-index .intro {
@@ -35,8 +35,7 @@ project-index .intro p {
 project-index .index .band {
   padding: 42px 40px 24px 16px;
   text-align: right;
-  border: 1px solid var(--line);
-  border-bottom: none;
+  border-left: 1px solid var(--line);
 }
 
 project-index h1 {
@@ -49,8 +48,7 @@ project-index h1 {
 project-index .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  border-top: 1px solid var(--line);
-  border-left: 1px solid var(--line);
+  align-content: start;
 }
 
 :is(project-index, thumbnail-tuner) .cell {
@@ -58,8 +56,14 @@ project-index .grid {
   display: block;
   aspect-ratio: 331.4 / 191.6;
   overflow: hidden;
+  container-type: inline-size;
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
+}
+
+project-index .cell:last-child,
+project-index .cell:nth-last-child(2):nth-child(odd) {
+  border-bottom: none;
 }
 
 :is(project-index, thumbnail-tuner) .cell:focus-visible {
@@ -78,55 +82,54 @@ project-index .grid {
 
 :is(project-index, thumbnail-tuner) .box {
   position: absolute;
+  inset: 0;
   display: block;
+  margin: auto;
   overflow: hidden;
+  box-sizing: border-box;
+  aspect-ratio: var(--a, 1.5);
+  translate: var(--dx, 0) var(--dy, 0);
 }
 
 :is(project-index, thumbnail-tuner) .polaroid .box,
 :is(project-index, thumbnail-tuner) .polaroid-tall .box {
-  box-sizing: border-box;
+  box-sizing: content-box;
   border: 6px solid var(--frame);
   box-shadow: 2px 2px 5px rgba(255, 255, 255, 0.28);
 }
 
 :is(project-index, thumbnail-tuner) .polaroid .box {
-  left: 10.11%;
-  top: 8.06%;
-  width: 80.18%;
-  height: 81.42%;
+  width: min(80.18cqw - 12px, (47.0732cqw - 12px) * var(--a, 1.5));
 }
 
 :is(project-index, thumbnail-tuner) .polaroid-tall .box {
-  left: 25.36%;
-  top: 7.385%;
-  width: 49.28%;
-  height: 85.23%;
+  width: min(49.28cqw - 12px, (49.276cqw - 12px) * var(--a, 1.5));
 }
 
 :is(project-index, thumbnail-tuner) .fill .box {
-  inset: 0;
+  width: min(100cqw, 57.8153cqw * var(--a, 1.5));
 }
 
 :is(project-index, thumbnail-tuner) .small .box {
-  left: 32.845%;
-  top: 7.595%;
-  width: 34.31%;
-  height: 84.81%;
+  width: min(96cqw, 55.5027cqw * var(--a, 1.5));
+}
+
+:is(project-index, thumbnail-tuner) .cell.pair {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 :is(project-index, thumbnail-tuner) .pair .box {
-  top: 0;
-  height: 100%;
-}
-
-:is(project-index, thumbnail-tuner) .pair .a {
-  left: 0;
-  width: 40.34%;
+  position: relative;
+  inset: auto;
+  margin: 0;
+  flex: none;
+  height: min(57.8153cqw, 100cqw / (var(--a, 1.5) + var(--b, 1.5)));
 }
 
 :is(project-index, thumbnail-tuner) .pair .b {
-  left: 38.2%;
-  width: 61.8%;
+  aspect-ratio: var(--b, 1.5);
 }
 
 :is(project-index, thumbnail-tuner) .box img {
@@ -136,16 +139,13 @@ project-index .grid {
   width: 100%;
   height: 100%;
   max-width: none;
-  object-fit: cover;
-  object-position: 50% 50%;
-  transform-origin: 50% 50%;
+  object-fit: contain;
 }
 
 project-index .rows {
   list-style: none;
   margin: 0;
   padding: 0;
-  border-top: 1px solid var(--line);
 }
 
 project-index .row {
@@ -156,8 +156,8 @@ project-index .row {
   min-height: 38px;
   box-sizing: border-box;
   padding: 9px 16px 9px clamp(16px, 3.1vw, 41px);
-  border: 1px solid var(--line);
-  border-top: none;
+  border-left: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
 }
 
 project-index .marker {
@@ -210,9 +210,26 @@ project-index .tag:hover {
   color: var(--hover);
 }
 
+project-index .track {
+  display: none;
+}
+
 @media (max-width: 719.98px) {
   project-index section {
     flex-basis: 100%;
+  }
+
+  project-index .index {
+    margin-left: 0;
+  }
+
+  project-index .cell:nth-child(even) {
+    border-right: none;
+  }
+
+  project-index .index .band,
+  project-index .row {
+    border-left: none;
   }
 }
 
@@ -225,35 +242,75 @@ project-index .tag:hover {
   }
 
   project-index section {
+    display: flex;
+    flex-direction: column;
     height: 100vh;
+    timeline-scope: --column;
+  }
+
+  project-index .band {
+    flex: none;
+  }
+
+  project-index :is(.scroll, .rows) {
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    scroll-padding-top: 192px;
+    scrollbar-width: none;
+    scroll-timeline: --column y;
   }
 
-  @supports not selector(::-webkit-scrollbar) {
-    project-index section {
-      scrollbar-width: thin;
-      scrollbar-color: var(--thumb) transparent;
-    }
+  project-index :is(.scroll, .rows)::-webkit-scrollbar {
+    display: none;
   }
 
-  project-index section::-webkit-scrollbar {
+  project-index .track {
+    position: absolute;
+    top: 193px;
+    bottom: 0;
+    z-index: 2;
     width: 8px;
+    pointer-events: none;
   }
 
-  project-index section::-webkit-scrollbar-thumb {
+  project-index .images .track {
+    right: -3.5px;
+    --thumb-height: min(123px, 40%);
+  }
+
+  project-index .index .track {
+    right: 3px;
+    --thumb-height: min(299px, 50%);
+  }
+
+  project-index .thumb {
+    position: absolute;
+    left: 0;
+    width: 8px;
+    height: var(--thumb-height);
     border-radius: 4px;
     background: var(--thumb);
   }
 
-  project-index section::-webkit-scrollbar-track {
-    background: transparent;
+  @supports (animation-timeline: scroll()) {
+    project-index .track {
+      display: block;
+    }
+
+    project-index .thumb {
+      animation: project-index-thumb linear both;
+      animation-timeline: --column;
+    }
+  }
+}
+
+@keyframes project-index-thumb {
+  from {
+    top: 0;
   }
 
-  project-index .band {
-    position: sticky;
-    top: 0;
-    z-index: 1;
+  to {
+    top: calc(100% - var(--thumb-height));
   }
 }

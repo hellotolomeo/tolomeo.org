@@ -9,10 +9,7 @@
 {% block content %}
 <main class="page tuner">
 <p class="back">&lt;----- <a href="/">index</a></p>
-<h1>Thumbnail tuner</h1>
-<thumbnail-tuner
-  projects="{{ projects | dump | e }}"
-  start="{{ focus | dump | e }}"
-></thumbnail-tuner>
+<h1>Thumbnail preview</h1>
+<thumbnail-tuner projects="{{ projects | dump | e }}"></thumbnail-tuner>
 </main>
 {% endblock %}

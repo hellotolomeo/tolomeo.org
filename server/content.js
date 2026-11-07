@@ -228,33 +228,39 @@ function stripSizes(g) {
     return `(min-height: ${Math.round(STRIP_HEIGHT / (STRIP_VH / 100))}px) ${Math.round(STRIP_HEIGHT * aspect)}px, ${Math.round(STRIP_VH * aspect)}vh`;
 }
 
-// --- Cover placement: one rule per placed cover, in a generated stylesheet, never inline.
+// --- Cover placement: one rule per cover, in a generated stylesheet, never inline.
+// Each box takes its image's own proportions (--a; --b for a pair's right image), so no
+// thumbnail is ever cropped; the style sets its size (components/project-index.css).
 
-const JITTER = { left: [8.96, 11.65], top: [6.78, 9.34] };
+const JITTER = { dx: [-1.35, 1.35], dy: [-2.5, 0] };
 
-/** The polaroid frame's offset for a slug: deterministic, inside the canvas's range. */
+/** The polaroid frame's offset from centre for a slug, in % of the cell: deterministic. */
 export function jitter(slug) {
     let h = 0x811c9dc5;
     for (const ch of slug) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
     const a = (h & 0xffff) / 0xffff;
     const b = (h >>> 16) / 0xffff;
     const at = ([lo, hi], f) => Math.round((lo + f * (hi - lo)) * 100) / 100;
-    return { left: at(JITTER.left, a), top: at(JITTER.top, b) };
+    return { dx: at(JITTER.dx, a), dy: at(JITTER.dy, b) };
 }
+
+const aspect = (pic) => (pic?.width && pic?.height ? Math.round((pic.width / pic.height) * 10000) / 10000 : null);
 
 export function coversCss(projects, config) {
     const rules = [`:root{--tag:${config.TAG_COLOR}}`];
     for (const p of projects) {
         if (p.style === 'none') continue;
-        const cell = `project-index #cell-${p.slug}`;
+        const decl = [];
+        const a = aspect(p.cover);
+        if (a) decl.push(`--a:${a}`);
+        const b = p.style === 'pair' ? aspect(p.pair) : null;
+        if (b) decl.push(`--b:${b}`);
         if (config.FRAME_JITTER && p.style === 'polaroid') {
-            const { left, top } = jitter(p.slug);
-            rules.push(`${cell} .box{left:${left}%;top:${top}%}`);
+            const { dx, dy } = jitter(p.slug);
+            // The cell is 331.4 × 191.6, so a % of its height is that × 0.578 in container-width units.
+            decl.push(`--dx:${dx}cqw`, `--dy:${Math.round(dy * (191.6 / 331.4) * 100) / 100}cqw`);
         }
-        const [x, y] = p.focus;
-        if (x !== 50 || y !== 50 || p.zoom !== 1) {
-            rules.push(`${cell} img{object-position:${x}% ${y}%;transform-origin:${x}% ${y}%;scale:${p.zoom}}`);
-        }
+        if (decl.length) rules.push(`:is(project-index, thumbnail-tuner) #cell-${p.slug}{${decl.join(';')}}`);
     }
     return rules.join('\n') + '\n';
 }
