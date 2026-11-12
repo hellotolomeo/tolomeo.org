@@ -11,17 +11,11 @@ role:
 - program manager
 client: De Fabriek
 parent: null
-published: true
+published: false
 cover: /images/projects/landline-study-lab/landline-study-lab-cover.jpg
-cover_style: polaroid
-cover_focus:
-- 50
-- 63
-cover_zoom: 1.02
 images:
 - image: /images/projects/landline-study-lab/landline-01.jpg
   alt: A yellow ball on the floor of an empty white studio
-hover_image: ""
 photo_links: []
 ---
 

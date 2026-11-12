@@ -7,15 +7,16 @@
  * field is defaulted here. Image values may be a full public path
  * (/images/projects/x/a.jpg, what the CMS writes), a path under images/, or a
  * bare file name (resolved under images/projects/<slug>/). `images` entries
- * may be { image, alt } objects or bare strings.
+ * may be { image, alt, caption } objects or bare strings; a caption is one line
+ * of Markdown.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import matter from 'gray-matter';
-import { markdown, markdownInline } from './markdown.js';
+import { markdown, markdownInline, markdownText } from './markdown.js';
 
-const STYLES = ['polaroid', 'polaroid-tall', 'fill', 'small', 'pair', 'none'];
-// Grid cells take the 600px file; the project page's strip is clamp(240px, 30vw, 400px) tall.
+// Grid cells take the 600px file; a project page shows one photo at a time, as large as fits
+// (components/project-slides.css).
 
 /**
  * @param {{ root: string, images: Map<string, object>, config: object, log?: Function }} options
@@ -46,9 +47,9 @@ export function loadContent({ root, images, config, log = () => {} }) {
     const tags = [...new Set(projects.flatMap(p => p.tags))].sort((a, b) => a.localeCompare(b));
     return {
         site: {
-            intro: str(index.data.intro),
-            contactLine: markdownInline(str(index.data.contact_line)),
-            email: str(index.data.email),
+            // The line at the top of the home page: Markdown, its link the name that opens Info.
+            intro: markdownInline(str(index.data.intro)),
+            description: markdownText(str(index.data.intro)),
         },
         info: { title: str(info.data.title) || 'Info', body: markdown(info.content) },
         projects,
@@ -56,6 +57,7 @@ export function loadContent({ root, images, config, log = () => {} }) {
         indexProjects: projects.map(lean),
         tags,
         coversCss: coversCss(projects, config),
+        slidesCss: slidesCss(projects),
     };
 }
 
@@ -72,9 +74,6 @@ const num = (v, fallback) => (Number.isFinite(Number(v)) && v !== '' && v !== nu
 // Front matter with every field present and typed.
 function normalize({ data, content }, file, warn) {
     const slug = str(data.slug) || file.replace(/\.md$/, '');
-    let style = str(data.cover_style) || 'polaroid';
-    if (!STYLES.includes(style)) { warn(`${slug}: unknown cover_style "${style}", using polaroid`); style = 'polaroid'; }
-    const focus = list(data.cover_focus).map(n => clamp(num(n, 50), 0, 100));
     return {
         slug,
         title: str(data.title) || slug,
@@ -88,13 +87,9 @@ function normalize({ data, content }, file, warn) {
         parent: str(data.parent) || null,
         published: data.published === true,
         cover: str(data.cover),
-        coverStyle: style,
-        coverFocus: [focus[0] ?? 50, focus[1] ?? 50],
-        coverZoom: Math.max(1, num(data.cover_zoom, 1)),
         images: list(data.images).map(entry => (typeof entry === 'string'
-            ? { image: str(entry), alt: '' }
-            : { image: str(entry?.image), alt: str(entry?.alt) })).filter(e => e.image),
-        hoverImage: str(data.hover_image),
+            ? { image: str(entry), alt: '', caption: '' }
+            : { image: str(entry?.image), alt: str(entry?.alt), caption: str(entry?.caption) })).filter(e => e.image),
         photoLinks: list(data.photo_links)
             .map(l => ({ label: str(l?.label) || str(l?.url), url: str(l?.url) }))
             .filter(l => /^https?:\/\//i.test(l.url)),
@@ -134,44 +129,33 @@ function order(published, warn) {
 function shape(p, { images, warn }) {
     const pic = (value, alt = '', placeholder = false) => picture(value, p.slug, alt, images, warn, placeholder);
     // Only the grid needs an image where one is missing; elsewhere a missing photo is left out.
-    const cover = p.coverStyle === 'none' ? null : pic(p.cover, '', true);
-    const gallery = p.images.map(({ image, alt }) => pic(image, alt || p.title)).filter(Boolean);
-    // pair: the cover on the left; on the right the hover photo if there is one (the design's
-    // Chapter Symbols pair is cover + spread, and the spread is its hover photo), else the
-    // first project photo that isn't the cover.
-    const hoverPic = p.hoverImage ? pic(p.hoverImage) : null;
-    const pairWith = p.coverStyle === 'pair'
-        ? ((hoverPic && hoverPic.key !== cover?.key ? hoverPic : null) ?? gallery.find(g => g.key !== cover?.key) ?? null)
-        : null;
-    const style = !cover ? 'none' : p.coverStyle === 'pair' && !pairWith ? 'polaroid' : p.coverStyle;
+    const cover = pic(p.cover, '', true);
+    const slides = p.images
+        .map(({ image, alt, caption }) => ({ pic: pic(image, alt || p.title), caption: markdownInline(caption) }))
+        .filter(s => s.pic)
+        .map(s => slide(s.pic, s.caption));
     return {
         slug: p.slug,
         title: p.title,
         years: p.years,
         tags: p.tags,
-        tagLinks: p.tags.map(t => ({ label: t, href: `/?filter=${encodeURIComponent(t)}` })),
         role: p.role.join(', '),
         client: p.client,
         child: Boolean(p.parent),
         parent: p.parent,
         href: `/projects/${p.slug}/`,
         body: markdown(p.body),
-        style,
         cover,
-        pair: pairWith,
-        hover: cover && p.hoverImage ? pic(p.hoverImage) : null,
-        focus: p.coverFocus,
-        zoom: p.coverZoom,
-        images: gallery.map(g => ({ ...g, sizes: stripSizes(g) })),
+        slides,
         photoLinks: p.photoLinks,
     };
 }
 
 const link = (p) => ({ title: p.title, href: p.href });
 
-// The fields the index component reads (BRIEF §5.1); images at grid size only.
+// The fields the index component reads; the cover at grid size only.
 function lean(p) {
-    const grid = (g) => (g ? { src: g.small, webp: g.smallWebp, width: g.width, height: g.height } : null);
+    const c = p.cover;
     return {
         slug: p.slug,
         title: p.title,
@@ -179,11 +163,14 @@ function lean(p) {
         tags: p.tags,
         child: p.child,
         href: p.href,
-        style: p.style,
-        cover: grid(p.cover),
-        pair: grid(p.pair),
-        hover: grid(p.hover),
+        cover: c ? { src: c.small, webp: c.smallWebp, width: c.width, height: c.height } : null,
     };
+}
+
+// One photo of a project page, as the project-slides component prints it; `caption` is HTML.
+function slide(g, caption) {
+    const sizes = slideSizes(g);
+    return { src: g.src, srcset: g.srcset, webp: g.webp, sizes, width: g.width, height: g.height, alt: g.alt, caption };
 }
 
 // An image value → { key, src, srcset, webp, small, smallWebp, width, height, alt }, or null.
@@ -225,50 +212,37 @@ function relPath(value, slug) {
     return v.replace(/^\/+/, '');
 }
 
-// The strip shows each image at the strip's height (clamp(240px, 30vw, 400px)), so its
-// width is that height × its aspect ratio.
-function stripSizes(g) {
-    const a = g.width && g.height ? g.width / g.height : 1.5;
-    const px = (n) => `${Math.round(n * a)}px`;
-    return `(max-width: 800px) ${px(240)}, (min-width: 1334px) ${px(400)}, ${Math.round(30 * a * 100) / 100}vw`;
-}
-
-// --- Cover placement: one rule per cover, in a generated stylesheet, never inline.
-// Each box takes its image's own proportions (--a; --b for a pair's right image), so no
-// thumbnail is ever cropped; the style sets its size (components/project-index.css).
-
-const JITTER = { dx: [-1.35, 1.35], dy: [-2.5, 0] };
-
-/** The polaroid frame's offset from centre for a slug, in % of the cell: deterministic. */
-export function jitter(slug) {
-    let h = 0x811c9dc5;
-    for (const ch of slug) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
-    const a = (h & 0xffff) / 0xffff;
-    const b = (h >>> 16) / 0xffff;
-    const at = ([lo, hi], f) => Math.round((lo + f * (hi - lo)) * 100) / 100;
-    return { dx: at(JITTER.dx, a), dy: at(JITTER.dy, b) };
-}
-
 const aspect = (pic) => (pic?.width && pic?.height ? Math.round((pic.width / pic.height) * 10000) / 10000 : null);
 
+// A slide is as large as fits its frame's room (components/project-slides.css: the width left
+// between the arrows, the height left between the header and the caption), less the 6px frame.
+function slideSizes(g) {
+    const a = aspect(g) ?? 1.5;
+    const tall = `calc((100vh - 154px) * ${a})`;
+    return `(max-width: 600px) min(calc(100vw - 100px), ${tall}), min(calc(100vw - 161px), ${tall})`;
+}
+
+// --- Generated stylesheets: proportions never go inline. Each framed box takes its image's
+// own proportions (--a), so no photo is ever cropped and the frame fits it exactly.
+
+/** client/covers.css: the tag colour, and one rule per grid cell (components/project-index.css). */
 export function coversCss(projects, config) {
     const rules = [`:root{--tag:${config.TAG_COLOR}}`];
     for (const p of projects) {
-        if (p.style === 'none') continue;
-        const decl = [];
         const a = aspect(p.cover);
-        if (a) decl.push(`--a:${a}`);
-        const b = p.style === 'pair' ? aspect(p.pair) : null;
-        if (b) decl.push(`--b:${b}`);
-        if (config.FRAME_JITTER && p.style === 'polaroid') {
-            const { dx, dy } = jitter(p.slug);
-            // The cell is 331.4 × 191.6, so a % of its height is that × 0.578 in container-width units.
-            decl.push(`--dx:${dx}cqw`, `--dy:${Math.round(dy * (191.6 / 331.4) * 100) / 100}cqw`);
-        }
-        if (decl.length) rules.push(`:is(project-index, thumbnail-tuner) #cell-${p.slug}{${decl.join(';')}}`);
+        if (a) rules.push(`project-index #cell-${p.slug}{--a:${a}}`);
     }
     return rules.join('\n') + '\n';
 }
 
-const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
-
+/** client/slides.css: one rule per project photo (components/project-slides.css). */
+export function slidesCss(projects) {
+    const rules = [];
+    for (const p of projects) {
+        p.slides.forEach((s, i) => {
+            const a = aspect(s);
+            if (a) rules.push(`#slides-${p.slug} .slide:nth-child(${i + 1}){--a:${a}}`);
+        });
+    }
+    return rules.join('\n') + '\n';
+}

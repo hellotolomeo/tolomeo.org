@@ -2,14 +2,13 @@
 title: Print for Palestine
 slug: print-for-palestine
 order: 2.3
-years: '2024'
+years: 2024 - 2026
 year_start: 2024
-year_end: 2024
+year_end: 2026
 tags:
-- service
-- boycott
 - workshop
-- collaboration
+- service
+- print fundraiser
 role:
 - coordinator
 - instructor
@@ -17,11 +16,6 @@ client: Onomatopee
 parent: the-riso-studio
 published: true
 cover: /images/projects/print-for-palestine/print-for-palestine-cover.jpg
-cover_style: small
-cover_focus:
-- 50
-- 50
-cover_zoom: 1
 images:
 - image: /images/projects/print-for-palestine/print-for-palestine-01.jpg
   alt: Print for Palestine workshop poster in red, black and green
@@ -29,7 +23,6 @@ images:
   alt: Protest Poster Support poster in red and white on green
 - image: /images/projects/print-for-palestine/print-for-palestine-03.jpg
   alt: Risoprinted Free Palestine art print on a yellow background
-hover_image: /images/projects/print-for-palestine/print-for-palestine-02.jpg
 photo_links: []
 ---
 

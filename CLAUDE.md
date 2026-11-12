@@ -1,10 +1,10 @@
 # tolomeo.org
 
 Portfolio site for Tolomeo. Static, pre-rendered, hosted on GitHub Pages at tolomeo.org.
-The spec is `BRIEF.md` (v2); decisions on the build plan are in `BUILD-PLAN-RESPONSE.md`. Read both before any change to layout, behaviour or content model.
+The spec is `BRIEF.md` (v2); decisions on the build plan are in `BUILD-PLAN-RESPONSE.md`. Read both before any change to layout, behaviour or content model. The **look** in `BRIEF.md` §3 and §5 and in `design/*.html` (dark, pink lines) is superseded by the redesign of 11 Nov 2026: its values are the "Design" section below.
 
 ## Stack
-- The Zeldman Pattern, vendored in upstream's own `AGENTS.md` layout (`client/lib/`, `lib/vendor/`, `lib/filters.js`, `server/zeldman/`, docs in `lib/zeldman/`). One component = `components/<name>.html` + `.css` + `.js`. `setState()` is the only way the DOM changes. No inline `style=""` in component markup; generated placement goes in `dist/client/covers.css`.
+- The Zeldman Pattern, vendored in upstream's own `AGENTS.md` layout (`client/lib/`, `lib/vendor/`, `lib/filters.js`, `server/zeldman/`, docs in `lib/zeldman/`). One component = `components/<name>.html` + `.css` + `.js`. `setState()` is the only way the DOM changes. No inline `style=""` in component markup; generated proportions go in `dist/client/covers.css` and `dist/client/slides.css`.
 - Node renders everything at build time: `node build.js` → `dist/`. No server in production.
 - Content is Markdown + YAML front matter in `content/` (projects, site). Images in `images/projects/<slug>/`; the CMS stores full `/images/…` paths and drops empty keys, so the data layer defaults every field.
 - Pages CMS edits content via `.pages.yml`. Keep the field names in `.pages.yml`, `content/` and the templates identical.
@@ -16,26 +16,45 @@ The spec is `BRIEF.md` (v2); decisions on the build plan are in `BUILD-PLAN-RESP
 - `npm run images -- <folder-of-originals> <slug>` — optional bulk tool: 2000px web copies in `images/projects/<slug>/`
 - `npm run verify` — after a build: Playwright checks for the acceptance points (CI runs it on branches and PRs, not on `main`). Needs Chromium: `npx playwright install chromium`, or `CHROMIUM_PATH`.
 - `node scripts/normalize-images.js` — what CI runs before the build: HEIC/TIFF → JPEG, >2000px shrunk, content references rewritten; idempotent.
-- `node scripts/import-covers.js <Index.dc.html> <blob-folder> [--dry-run]` — the one-time cover migration from the design canvas (already run; only for re-importing canvas covers).
-- `node scripts/import-site-data.js <site-data.json> <kit-folder> [--canvas <blob-folder>] [--dry-run]` — the one-off import of Claude Design's site update (already run). `site-data.json` superseded the spreadsheet; content in `content/` (edited in the CMS) is now the source of truth.
-- `scripts/import-projects.py` (the spreadsheet importer) is **superseded: don't run it** — it would bring back the spreadsheet's typos, old titles and publish states.
+- `node scripts/import-site-data.js <kit-folder> [--dry-run]` — the one-off import of a Claude Design site kit (a folder with `site-data.json`, `thumbnails/`, `images/`): rewrites `content/projects/`, copies the photos and thumbnails into `images/projects/<slug>/`, deletes photos nothing references. Already run for the redesign of 11 Nov 2026; content in `content/` (edited in the CMS) is now the source of truth.
+- `scripts/import-projects.py` (the spreadsheet importer) and `scripts/import-covers.js` (the design-canvas cover migration) are **superseded: don't run them** — the first would bring back the spreadsheet's typos, old titles and publish states, the second writes `cover_style`/`cover_focus`/`cover_zoom`, which no longer exist.
 
 ## Rules
 - Never edit `dist/`; it is generated.
 - Never invent content: empty descriptions and missing images stay empty. Placeholders only where the design needs an image.
-- Design values come from `design/*.html` (inline styles are the measurements) and the token table in `BRIEF.md` §3. Don't restyle.
+- Design values come from the "Design" section below (the redesign of 11 Nov 2026, which replaced `design/*.html` and the token table in `BRIEF.md` §3). Don't restyle.
 - Plain JS, plain CSS, no bundler, no framework, no TypeScript. Dependencies stay: `nunjucks`, `gray-matter`, `marked`, `sharp`; `playwright` (pinned to the installed browser's version) is the only dev dependency, for `scripts/verify.js`.
 - Every page must be complete HTML before JavaScript; the first browser render must make zero DOM mutations.
-- Every `BRIEF.md` §9 assumption is a constant in `site.config.js`.
+- Every `BRIEF.md` §9 assumption that still applies is a constant in `site.config.js` (the redesign removed the hover photo and the frame jitter, and their constants with them).
 - Anything Tolomeo edits must be editable alone in Pages CMS. Scripts are for one-off migrations only.
 
-## Conventions introduced by the first build
+## Design (redesign of 11 Nov 2026)
+One light colour world, no visible lines anywhere. Reference width 1366px (project pages: 1366 × 710).
+
+| Token (`client/site.css`) | Value |
+| --- | --- |
+| Ground / text | `#f2f2f2` / `#412d37` |
+| `--link`: link hover, the Index header line, chevrons, focus ring | `#99567a` |
+| `--tag`: type labels, `role:` / `for:` (67% of the text colour; `TAG_COLOR`) | `#807279` |
+| `--caption` (80%) | `#67575f` |
+| `--thumb`: scroll bars (solid) | `#ccabbd`, 8px, rounded |
+| Frame, on every thumbnail and every project photo | 6px `#f4f3e7`, `box-shadow: 1px 2px 6px rgba(100, 40, 95, 0.55)` |
+
+- Type: Fluxisch Else only. Body Light 13.38px / 16px. Bold (the second `@font-face`, `fonts/FluxischElse-Bold.woff2`) for dates, titles, `Back` and `**bold**` in content. No italic exists: slanted text is Light with `transform: skewX(-6deg)` on an inline-block; Markdown `*italic*` becomes `<em>` with one `<span>` per word (`server/markdown.js`) so it still wraps. Links are underlined 0.67px in the text colour and turn `--link` on hover.
+- Tab title: the home page is `Tolomeo`; every other page `Tolomeo — <page>`. Favicons are the files in `public/`, which is copied to the site root.
+- **Index**: an 88px header (`.site-head`, outside the component): one purple line at 37px / 33px, from `site/index.md` `intro` (Markdown; its link is the name, Bold, text colour, to `/info/`). No "Index" link. Under it two 50% columns. Left: the grid, 2 columns, a cell a quarter of the page wide at 341.2 : 197.12; each thumbnail whole, centred, as large as fits 91% × 86.5% of the cell, frame included. Right: the list; a row is one fifth of a cell tall (`2.8886cqw`), the date at 1.676% of the page from the column's edge, the title at 9.868%, the type 15px after the title, sub-items with a `•`. Pointing at a row or its thumbnail turns the title `--link` and shows a 12.4 × 14.3 chevron (1.5px stroke) 14px left of the title. Thumbnails are static.
+- **Project page**: a 79px header (`Back` at 37px / 42px to `/`; the title centred, Bold, text top 43px, a link to `#project-info`). Then the photos one at a time, framed, centred, as large as fits between the header and the caption's room (568px tall at a 710px viewport), never cropped; chevrons 16.5 × 19 (1.5px stroke) 28px either side of the frame in 44 × 44 targets, none before the first photo or after the last; a click on the photo and the left / right keys also move. Caption 16px under the frame, at most 480px wide, 11px / 13.2px, `--caption`. Then `#project-info`: a row like an Index row (date, title, type), the description (at most 433px, 7px between paragraphs) with `role:` / `for:` beside it; empty parts are left out.
+- **Info**: `Back` at 37px / 42px; the text from 113px down, at most 420px wide, 7px between paragraphs.
+
+## Conventions
 - Data flows one way: `server/content.js` shapes everything (sorting, defaults, image lookups, Markdown → HTML via `server/markdown.js`); templates only print flat fields. `build.js` and `server.js` share it and `server/routes.js`.
-- Components: `project-index` (home: grid + list + filter; props `projects, filter, match, hover-swap`, state `hover`, `swap`) and `thumbnail-tuner` (`/tools/thumbnail/`). Grid-cell markup is the partial `components/project-index/cell.html` + `picture.html`, shared by both; cell CSS selectors are `:is(project-index, thumbnail-tuner) …`.
-- Browser-only template variables (`shown`, `hover`, the tuner's state) are guarded with `| default(…)` so the server render and the first browser render are identical. Keep it that way; `npm run verify` measures it.
-- Templates are preloaded with `fetch()` by `client/template-env.js` `setup([...])`; list every template (and partial) a page's components use in that page's entry (`client/main.js`, `client/tuner.js`).
-- Thumbnails are never cropped: each grid box takes its image's proportions (`--a`, and `--b` for a pair's right image) and the style sets its size, centred in the cell (container units on `.cell`). Those values and the polaroid jitter are generated into `client/covers.css` (`coversCss()` in `server/content.js`), never inline. `cover_focus`/`cover_zoom` are no longer used (hidden in the CMS); the tuner at `/tools/thumbnail/` is a style preview.
-- Index layout at ≥720px: each column is a fixed 192px band (its bottom rule drawn inside it) over its own scroller (`.images .scroll`, `.rows`); native scrollbars are hidden and the pink thumbs are a CSS scroll-driven animation (`.track`/`.thumb`, no script; absent where `animation-timeline` isn't supported). No lines on the outer page edges. The middle divider is drawn once, as the list section's left inset shadow (full height), so it is one device pixel at any width; grid cells draw only their internal right/bottom rules (an overlay `::before`, so photos can't cover them).
-- The project page (README §4 of the site update): a 192px header band with `<----- back` (to `/`) and `Index` (to `/`), a title row like an Index row, description + role/for columns from about 213px, then the image strip (clamp(240px, 30vw, 400px) tall, no gaps, scrolls sideways). No JS. Its `back` link is plain `/`; the home page restores the filter that was active when the project was opened (sessionStorage, only on a followed link from `/projects/…`, never on reload).
-- Lines are hairlines: `--hair` (site.css) is 1px on standard screens, 0.5px at 2x, a third at 3x, drawn as inset box-shadows (Chromium rounds sub-pixel borders up to 1px). Don't switch them back to `border: 0.5px`.
-- Hover swap: the hover image is always rendered in its cell (lazy, hidden) and shown only while the pointer is over that cell (`swap` state); rows only show the marker. A `pair` cover's right picture is the hover photo if set, else the first project photo.
+- Components: `project-index` (home: grid + list + filter; props `projects, filter, match`, state `hover`) and `project-slides` (a project page's photos; props `images, label`, state `index`). Page-level styles are `client/site.css` (every page, with the Index header and the Info / 404 frame) and `client/project.css` (the project page's header and information).
+- Browser-only template variables (`shown`, `hover`, `index`) are guarded with `| default(…)` so the server render and the first browser render are identical. Keep it that way; `npm run verify` measures it.
+- Templates are preloaded with `fetch()` by `client/template-env.js` `setup([...])`; list every template (and partial) a page's components use in that page's entry (`client/main.js`, `client/project.js`).
+- Measures the design gives as a share of the 1366px page are `cqw` on a page-wide container (`project-index`; `main.project`), so they scale with the page and ignore the scrollbar. Pixel floors (`max(…cqw, …px)`) only keep the date clear of the title on narrow pages.
+- Framed boxes are never cropped: each takes its image's proportions from a generated rule, never inline: `--a` per grid cell in `client/covers.css` (`coversCss()`), per project photo in `client/slides.css` (`slidesCss()`, loaded by project pages only), both in `server/content.js`. One thumbnail style for all: `cover_style`, `cover_focus`, `cover_zoom` and `hover_image` are gone from the content, the CMS and the data layer, and so is the thumbnail tuner.
+- Index layout at ≥720px: the page does not scroll; each column is its own scroller (`.images .scroll`, `.rows`) under the header; native scrollbars are hidden and the thumbs are a CSS scroll-driven animation (`.track`/`.thumb`, no script; where `animation-timeline` isn't supported the native scrollbar shows, thin, in the thumb colour): the grid's at the right edge of its column, the list's at the right edge of the page. Below 720px: normal page flow, the list under the grid.
+- Row highlight: the `hover` state puts class `on` on the row (pointer on the row or its thumbnail, or focus); the chevron is a CSS mask on `.what::before`. Tags are `<button>`s that toggle the filter (`?filter=a,b`, any-match); active ones are in the text colour.
+- The slideshow: every photo is in the HTML; `index` puts class `current` on one slide and the stylesheet hides the rest **only when the element is `:defined`**, so with JavaScript off (or not yet loaded) the photos are one under the other, the first exactly where the script shows it. Each slide prints its own chevrons (none on the first's left or the last's right), so they sit beside the frame by layout. The next photo is loaded ahead (`loading` follows `index`). A project with one photo loads no script.
+- The project page's `Back` link is plain `/`; the home page restores the filter that was active when the project was opened (sessionStorage, only on a followed link from `/projects/…`, never on reload).
+- A caption is one line of Markdown in `images[].caption`; `*asterisks*` slant.

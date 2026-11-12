@@ -1,7 +1,7 @@
 ---
 title: Welcome Flynn
 slug: welcome-flynn
-order: 21
+order: 20
 years: '2023'
 year_start: 2023
 year_end: 2023
@@ -13,14 +13,10 @@ role:
 - risoprinter
 client: Private
 parent: null
-published: false
-cover: ""
-cover_style: polaroid
-cover_focus:
-- 50
-- 50
-cover_zoom: 1
-images: []
-hover_image: ""
+published: true
+cover: /images/projects/welcome-flynn/welcome-flynn-cover.jpg
+images:
+- image: /images/projects/welcome-flynn/welcome-flynn-01.jpg
+  alt: "Welcome Flynn card: green linework on a bright pink risoprint"
 photo_links: []
 ---

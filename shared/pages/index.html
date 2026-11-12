@@ -6,14 +6,11 @@
 <script type="module" src="/client/main.js"></script>
 {% endblock %}
 {% block content %}
+<header class="site-head">
+<h1 class="visually-hidden">Tolomeo</h1>
+<p>{{ site.intro | safe }}</p>
+</header>
 <main>
-<project-index
-  projects="{{ projects | dump | e }}"
-  match="{{ match }}"
-  {{ 'hover-swap' if hoverSwap }}
->
-<p>{{ site.intro }}</p>
-<p>{{ site.contactLine | safe }}</p>
-</project-index>
+<project-index projects="{{ projects | dump | e }}" match="{{ match }}"></project-index>
 </main>
 {% endblock %}

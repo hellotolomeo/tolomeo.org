@@ -1,0 +1,109 @@
+/* A project page: the 79px header, the photos (components/project-slides.css), then the
+   project's information, which the title in the header scrolls to. */
+.project-head {
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(0, 1fr);
+  column-gap: 16px;
+  box-sizing: border-box;
+  min-height: 79px;
+  padding: 42px 16px 20px;
+}
+
+.project-head h1 {
+  grid-column: 2;
+  margin: 1px 0 0;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: 700;
+  text-align: center;
+}
+
+.project-head h1 a {
+  text-decoration: none;
+}
+
+/* The page is the container: cqw here and in project-slides is a share of its width. */
+.project {
+  display: block;
+  container-type: inline-size;
+}
+
+.project-info {
+  padding-bottom: 96px;
+}
+
+/* The first row is an Index row: the date 1.676% of the page in, the title 9.868%. */
+.project-info .row {
+  display: grid;
+  grid-template-columns: max(8.192cqw, 104px) minmax(0, 1fr);
+  align-content: center;
+  align-items: baseline;
+  min-height: max(2.8886cqw, 26px);
+  box-sizing: border-box;
+  padding: 5px 16px 5px max(1.676cqw, 12px);
+}
+
+.project-info .years,
+.project-info .title {
+  font-weight: 700;
+}
+
+.project-info .type {
+  display: inline-block;
+  transform: skewX(-6deg);
+  margin-left: 15px;
+  color: var(--tag);
+}
+
+.project-info .text {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 17px;
+  margin-top: 12px;
+  padding: 0 16px 0 calc(max(1.676cqw, 12px) + max(8.192cqw, 104px));
+}
+
+.project-info .description {
+  flex: 0 1 433px;
+  min-width: min(260px, 100%);
+  max-width: 433px;
+}
+
+.project-info .meta {
+  flex: 0 1 384px;
+  min-width: min(200px, 100%);
+  max-width: 384px;
+}
+
+.project-info .text p {
+  margin: 0 0 7px;
+}
+
+.project-info .text p:last-child {
+  margin-bottom: 0;
+}
+
+.project-info .label {
+  color: var(--tag);
+}
+
+.project-info .links {
+  margin: 24px 0 0;
+  padding: 0 16px 0 calc(max(1.676cqw, 12px) + max(8.192cqw, 104px));
+  list-style: none;
+}
+
+@media (max-width: 719.98px) {
+  .project-info .row,
+  .project-info .text,
+  .project-info .links {
+    padding-left: 16px;
+  }
+}
+
+@media (min-width: 720px) {
+  .project-head {
+    padding-left: 37px;
+    padding-right: 37px;
+  }
+}

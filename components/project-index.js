@@ -1,11 +1,11 @@
 import BaseComponent from '../client/lib/BaseComponent.js';
 
 /**
- * The home page: the grid of covers and the index list, both rendered from
+ * The home page: the grid of thumbnails and the index list, both rendered from
  * one list of projects, filtered by tag. The active tags live in the URL
  * (?filter=a,b) and in `filter`; a change is one setState, and the morph
- * removes only the cells and rows that stop matching. Pointing at a cell or a
- * row puts the marker in that row (and swaps to the hover image, if any).
+ * removes only the cells and rows that stop matching. Pointing at a thumbnail
+ * or a row highlights that row (purple title, chevron).
  * Static pages never carry ?filter, so the first render matches the server's;
  * a filter in the URL is applied right after it.
  */
@@ -15,18 +15,16 @@ class ProjectIndex extends BaseComponent {
         projects: [], // every published project in list order, as server/content.js shapes it (JSON)
         filter: [], // the active tags; static pages leave it empty and the URL sets it
         match: 'any', // 'any': a project shows with at least one active tag; 'all': with every one
-        'hover-swap': false, // show a project's hover image while the pointer is over its cell
     };
     static events = [];
-    // hover: the project whose row shows the marker (pointer on its cell or row, or focus);
-    // swap: the project whose cell the pointer is over, which shows its hover image.
-    state = { hover: '', swap: '' };
+    // hover: the project whose row is highlighted (pointer on its thumbnail or row, or focus).
+    state = { hover: '' };
 
     connectedCallback() {
         this.addEventListener('click', e => this.click(e), { signal: this.signal });
-        this.addEventListener('mouseover', e => this.point(e.target, true), { signal: this.signal });
+        this.addEventListener('mouseover', e => this.point(e.target), { signal: this.signal });
         this.addEventListener('mouseleave', () => this.pointAt(''), { signal: this.signal });
-        this.addEventListener('focusin', e => this.point(e.target, false), { signal: this.signal });
+        this.addEventListener('focusin', e => this.point(e.target), { signal: this.signal });
         // After the event: a morph that removes the focused row fires focusout mid-morph,
         // and a render must never start inside another.
         this.addEventListener('focusout', () => queueMicrotask(() => { if (!this.contains(document.activeElement)) this.pointAt(''); }), { signal: this.signal });
@@ -58,26 +56,20 @@ class ProjectIndex extends BaseComponent {
             const { filter } = this.state;
             this.go(filter.includes(t) ? filter.filter(x => x !== t) : [...filter, t], 'push');
             // The row holding the button can stop matching; keep keyboard focus in the list.
-            if (!tag.isConnected) (this.querySelector('.tag.on') ?? this.querySelector('.index h1 a'))?.focus();
+            if (!tag.isConnected) (this.querySelector('.tag.on') ?? this.querySelector('.row .title'))?.focus();
             return;
         }
-        // Leaving for a project page: remember the filter, so its "index" link can bring it back.
+        // Leaving for a project page: remember the filter, so its "Back" link can bring it back.
         if (e.target.closest('a[href^="/projects/"]')) remember(this.state.filter);
     }
 
-    // The marker follows the pointer (or focus) over a cell or row. The hover photo swaps in only
-    // while the pointer is over the thumbnail itself, in a cell that has one; focus arriving in a
-    // cell that is already swapped (a mouse press) keeps it.
-    point(target, pointer) {
-        const el = target.closest?.('[data-slug]');
-        const slug = el?.dataset.slug ?? '';
-        const onImage = Boolean(el?.classList.contains('cell') && el.querySelector(':scope > .swap') && target.closest('.box, .swap'));
-        const swap = pointer ? (onImage ? slug : '') : (slug && slug === this.state.swap ? slug : '');
-        this.pointAt(slug, swap);
+    // The highlight follows the pointer (or focus) over a thumbnail or a row.
+    point(target) {
+        this.pointAt(target.closest?.('[data-slug]')?.dataset.slug ?? '');
     }
 
-    pointAt(hover, swap = '') {
-        if (hover !== this.state.hover || swap !== this.state.swap) this.setState({ hover, swap });
+    pointAt(hover) {
+        if (hover !== this.state.hover) this.setState({ hover });
     }
 
     // Apply a filter: the URL first, then state.

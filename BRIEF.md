@@ -1,5 +1,12 @@
 # tolomeo.org — build brief (v2, 7 Nov 2026)
 
+> **Redesign, 11 Nov 2026.** The look and the page layouts described here (§3, §5, the cover
+> styles and thumbnail tuner in §6, `HOVER_SWAP` and `FRAME_JITTER` in §9) were replaced: light
+> ground, no lines, one framed thumbnail style, no hover photo, a one-photo-at-a-time project page
+> with captions. The current values are in `CLAUDE.md`, "Design". The stack, the content model
+> (less `cover_style`, `cover_focus`, `cover_zoom`, `hover_image`; plus `images[].caption`), the
+> image pipeline, the CMS and the acceptance points below still stand.
+
 Portfolio site for Tolomeo, an artist researcher, publisher and educator in the Netherlands.
 Read this file completely before writing code. `CLAUDE.md` holds the standing rules;
 `BUILD-PLAN-RESPONSE.md` records the decisions taken on the builder's plan of 7 Nov; where that

@@ -1,7 +1,7 @@
 ---
 title: Open Letter TU/e
 slug: open-letter-tu-e
-order: 13
+order: 12
 years: '2024'
 year_start: 2024
 year_end: 2024
@@ -14,14 +14,8 @@ client: Eindhoven Students for Palestine
 parent: null
 published: true
 cover: /images/projects/open-letter-tu-e/open-letter-tu-e-cover.jpg
-cover_style: small
-cover_focus:
-- 50
-- 50
-cover_zoom: 1
 images:
 - image: /images/projects/open-letter-tu-e/open-letter-01.jpg
   alt: Sign the Open Letter graphic
-hover_image: ""
 photo_links: []
 ---

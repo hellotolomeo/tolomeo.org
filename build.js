@@ -46,10 +46,13 @@ const copy = (from, to = from, filter = () => true) => {
 copy('components');
 copy('client');
 copy('lib', 'lib', src => !src.includes(`${join(root, 'lib', 'zeldman')}`));
-copy('fonts', 'fonts', src => !/Bold/.test(src));
+copy('fonts');
+// The files that sit at the site's root as they are: the favicons.
+copy('public', '.');
 write('client/covers.css', data.coversCss);
+write('client/slides.css', data.slidesCss);
 write('CNAME', 'tolomeo.org\n');
 write('.nojekyll', '');
-write('robots.txt', 'User-agent: *\nDisallow: /tools/\n');
+write('robots.txt', 'User-agent: *\nDisallow:\n');
 
 console.log(`build: ${pages.length} pages, ${data.projects.length} projects, ${((Date.now() - started) / 1000).toFixed(1)}s → dist/`);

@@ -1,7 +1,7 @@
 ---
 title: Points of Transition
 slug: points-of-transition
-order: 8
+order: 7
 years: '2021'
 year_start: 2021
 year_end: 2021
@@ -14,11 +14,6 @@ client: Temporary Art Centre
 parent: null
 published: true
 cover: /images/projects/points-of-transition/points-of-transition-cover.jpg
-cover_style: fill
-cover_focus:
-- 50
-- 37
-cover_zoom: 1
 images:
 - image: /images/projects/points-of-transition/points-of-transition-01.jpg
   alt: The performer, in a cap reading Average Gay Dad, tattooing hair onto their leg
@@ -44,7 +39,6 @@ images:
   alt: "3D render: a white hook wrapped in glowing orange strands"
 - image: /images/projects/points-of-transition/points-of-transition-12.jpg
   alt: "3D render: a thin dark rod"
-hover_image: /images/projects/points-of-transition/points-of-transition-02.jpg
 photo_links: []
 ---
 

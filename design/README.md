@@ -1,5 +1,10 @@
 # Design references
 
+**Superseded.** These are the references for the first, dark design. The site was redesigned on
+11 Nov 2026 (light ground, no lines, one framed thumbnail style, a one-photo-at-a-time project
+page); the current values are in `CLAUDE.md`, "Design". Nothing here is current any more except
+as history.
+
 | File | What it is |
 | --- | --- |
 | `index-dark.html` | **The Home page.** Export of the approved Index artboard: dark, half split, image grid left, index list right, 28 cells for 28 rows. Inline styles are the measurements. The hover prototype (pink ▶ marker next to the hovered row, lit from the row or its grid cell) is in the markup as `{{ hover.* }}` / `<sc-if>` fragments — read the behaviour, don't copy that syntax. |

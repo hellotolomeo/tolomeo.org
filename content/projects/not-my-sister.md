@@ -1,12 +1,13 @@
 ---
 title: Not My Sister
 slug: not-my-sister
-order: 7
+order: 6
 years: '2023'
 year_start: 2023
 year_end: 2023
 tags:
 - book
+- publication
 role:
 - publisher
 - editor
@@ -15,19 +16,13 @@ client: Landline, Onomatopee
 parent: null
 published: true
 cover: /images/projects/not-my-sister/not-my-sister-cover.jpg
-cover_style: fill
-cover_focus:
-- 39
-- 21
-cover_zoom: 1.02
 images:
 - image: /images/projects/not-my-sister/not-my-sister-01.jpg
-  alt: Three people assembling copies of Not My Sister at a long table
-- image: /images/projects/not-my-sister/not-my-sister-02.jpg
   alt: A copy of Not My Sister on a grey surface
+- image: /images/projects/not-my-sister/not-my-sister-02.jpg
+  alt: Three people assembling copies of Not My Sister at a long table
 - image: /images/projects/not-my-sister/not-my-sister-03.jpg
   alt: "Cover of Not My Sister: Proletarian Women Define the Battle Lines, edited by T.M. Cabrera"
-hover_image: /images/projects/not-my-sister/not-my-sister-02.jpg
 photo_links: []
 ---
 

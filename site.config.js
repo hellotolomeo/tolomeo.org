@@ -1,4 +1,4 @@
-// The assumptions of BRIEF.md §9, one constant each. Flip one here and rebuild;
+// The site's assumptions, one constant each (BRIEF.md §9). Flip one here and rebuild;
 // no template or stylesheet needs touching.
 export default {
     // 'page': every project has its own page at /projects/<slug>/ (the client's wording).
@@ -6,14 +6,8 @@ export default {
     PROJECT_VIEW: 'page',
     // 'any': a project shows when it has at least one active tag (OR); 'all': every active tag (AND).
     FILTER_MATCH: 'any',
-    // Swap a grid cell to its hover_image while the pointer is over that cell.
-    HOVER_SWAP: true,
-    // Polaroid frames sit slightly off-grid, offset deterministically from the slug.
-    // Off: the design now centres every thumbnail exactly.
-    FRAME_JITTER: false,
-    // The intro reads "Tolomeo is…": that is content, in content/site/index.md.
-    // The colour of the tags in the index list.
-    TAG_COLOR: '#b5b7b7',
+    // The colour of the type labels in the index list and of "role:" / "for:": 67% of the text colour.
+    TAG_COLOR: '#807279',
     // Absolute address, for rel=canonical.
     SITE_URL: 'https://tolomeo.org',
 };

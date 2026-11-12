@@ -9,10 +9,14 @@
  *   2. Filtering: from the URL and from clicks; the morph only removes what
  *      stops matching (surviving rows and cells are the same nodes) and touches
  *      nothing else but the tag buttons' state; back/forward restore.
- *   3. Project pages: every published project's URL answers with its page.
+ *   3. Project pages: every published project's URL answers with its page, with
+ *      every photo in the HTML; the photos show one at a time (chevrons, a click
+ *      on the photo, the arrow keys), and all of them with JavaScript off.
  *   4. 390px: no horizontal scroll on any route.
  *   5. CMS: every front-matter key in content/ is a field in .pages.yml, and every
  *      tag in use is in the tags select.
+ *   6. The Index's proportions at 1366px: a cell is a quarter of the page, five
+ *      list rows are one cell tall, thumbnails are whole, centred and framed.
  *   + zero mutations on the first render and on a forced el.render();
  *   + zero console errors and page errors on every route, JS on and off.
  * Exits 1 if anything fails.
@@ -44,6 +48,11 @@ const fronts = readdirSync(projectsDir).filter(f => f.endsWith('.md'))
     .map(f => ({ file: f, ...matter(readFileSync(join(projectsDir, f), 'utf8'), {}) }));
 const published = fronts.filter(f => f.data.published === true);
 const html = (v) => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Markdown as the words a reader sees: links as their text, no emphasis marks.
+const words = (md) => String(md).replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[*_`#>]/g, '').replace(/\s+/g, ' ').trim();
+// HTML as its text, still escaped as html() escapes.
+const textOf = (h) => String(h).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ');
+const photos = (p) => (p.data.images ?? []).map(im => (typeof im === 'string' ? { image: im } : im)).filter(im => im?.image);
 // Two tags to filter by, taken from the content: the most used, and the most used of the rest.
 const counts = new Map();
 for (const p of published) for (const t of p.data.tags ?? []) counts.set(t, (counts.get(t) ?? 0) + 1);
@@ -51,7 +60,7 @@ const [tagA, tagB] = [...counts].sort((a, b) => b[1] - a[1]).map(([t]) => t);
 
 // --- a static server for dist/, like GitHub Pages
 
-const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.woff2': 'font/woff2', '.otf': 'font/otf', '.json': 'application/json', '.txt': 'text/plain' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.woff2': 'font/woff2', '.otf': 'font/otf', '.json': 'application/json', '.txt': 'text/plain', '.ico': 'image/x-icon' };
 const server = createServer((req, res) => {
     const { pathname } = new URL(req.url, 'http://x');
     let path = normalize(join(dist, decodeURIComponent(pathname)));
@@ -67,7 +76,11 @@ const server = createServer((req, res) => {
 await new Promise(r => server.listen(0, '127.0.0.1', r));
 const base = `http://127.0.0.1:${server.address().port}`;
 
-const routes = ['/', '/projects/', '/info/', '/tools/thumbnail/', '/404.html', ...published.map(p => `/projects/${p.data.slug}/`)];
+const routes = ['/', '/projects/', '/info/', '/404.html', ...published.map(p => `/projects/${p.data.slug}/`)];
+// The project pages the slideshow checks use: the one with the most photos, one with a single photo, one with captions.
+const many = [...published].sort((a, b) => photos(b).length - photos(a).length)[0];
+const single = published.find(p => photos(p).length === 1);
+const captioned = published.find(p => photos(p).length > 1 && photos(p).some(im => im.caption));
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 try {
@@ -77,20 +90,26 @@ try {
         const missingRows = published.filter(p => !index.includes(`id="row-${p.data.slug}"`) || !index.includes(`id="cell-${p.data.slug}"`));
         check('1. index HTML has every published project as a row and a cell', missingRows.length === 0, missingRows.map(p => p.data.slug).join(', '));
         const site = matter(readFileSync(join(root, 'content/site/index.md'), 'utf8'), {}).data;
-        check('1. index HTML has the intro', index.includes(site.intro));
+        check('1. index HTML has the intro', textOf(index).includes(html(words(site.intro))), words(site.intro));
+        check('1. the home page\'s tab title is the name alone', index.includes('<title>Tolomeo</title>'));
         const unpublished = fronts.filter(f => f.data.published !== true && index.includes(`id="row-${f.data.slug}"`));
         check('1. unpublished projects are absent', unpublished.length === 0, unpublished.map(f => f.data.slug).join(', '));
         let pageMisses = [];
+        let photoMisses = [];
         for (const p of published) {
             const res = await fetch(`${base}/projects/${p.data.slug}/`);
-            const firstWords = p.content.trim().split('\n')[0]?.replace(/[*_`[\]()#>]/g, '').trim().split(/\s+/).slice(0, 4).join(' ') ?? '';
+            const firstWords = words(p.content.trim().split('\n')[0] ?? '').split(' ').slice(0, 4).join(' ');
             const body = await res.text();
-            if (res.status !== 200 || !body.includes(`<h1>${html(p.data.title)}</h1>`) || (firstWords && !body.includes(html(firstWords)))) pageMisses.push(p.data.slug);
+            if (res.status !== 200 || !body.includes(`<h1><a href="#project-info">${html(p.data.title)}</a></h1>`) || !body.includes('id="project-info"') || (firstWords && !textOf(body).includes(html(firstWords)))) pageMisses.push(p.data.slug);
+            const shown = body.match(/<li class="slide[ "]/g)?.length ?? 0;
+            const captions = photos(p).filter(im => im.caption && !textOf(body).includes(html(words(im.caption))));
+            if (shown !== photos(p).length || captions.length) photoMisses.push(`${p.data.slug} (${shown}/${photos(p).length} photos, ${captions.length} captions missing)`);
         }
         check('1+3. every project page answers 200 with its title and description in the HTML', pageMisses.length === 0, pageMisses.join(', '));
+        check('1+3. every project page has every photo and caption in the HTML', photoMisses.length === 0, photoMisses.join(', '));
         const info = await (await fetch(`${base}/info/`)).text();
-        const infoWords = matter(readFileSync(join(root, 'content/site/info.md'), 'utf8'), {}).content.trim().split(/\s+/).slice(0, 3).join(' ');
-        check('1. info HTML has its body', info.includes(html(infoWords)), infoWords);
+        const infoWords = words(matter(readFileSync(join(root, 'content/site/info.md'), 'utf8'), {}).content).split(' ').slice(0, 3).join(' ');
+        check('1. info HTML has its body', textOf(info).includes(html(infoWords)), infoWords);
         const hidden = fronts.find(f => f.data.published !== true);
         if (hidden) {
             const gone = await fetch(`${base}/projects/${hidden.data.slug}/`);
@@ -118,13 +137,14 @@ try {
                 records.push(...watch.takeRecords());
                 const inside = records.filter(m => {
                     const el = m.target.nodeType === 1 ? m.target : m.target.parentElement;
-                    return el?.closest('project-index, thumbnail-tuner');
+                    return el?.closest('project-index, project-slides');
                 }).map(m => `${m.type} ${m.target.nodeName}${m.attributeName ? ` [${m.attributeName}]` : ''}`);
                 records.length = 0;
                 return inside;
             };
         });
-        for (const [path, tag] of [['/', 'project-index'], ['/projects/', 'project-index'], ['/tools/thumbnail/', 'thumbnail-tuner']]) {
+        const slideshows = published.filter(p => photos(p).length > 1).map(p => [`/projects/${p.data.slug}/`, 'project-slides']);
+        for (const [path, tag] of [['/', 'project-index'], ['/projects/', 'project-index'], ...slideshows]) {
             await page.goto(base + path);
             await page.waitForFunction(t => document.querySelector(t)?.rendered, tag);
             const first = await page.evaluate(() => window.__mutations());
@@ -202,7 +222,22 @@ try {
         const reset = await page.evaluate(() => document.querySelectorAll('project-index .row').length);
         check('2. / with no query shows everything', reset === published.length);
 
-        // the project page's index link brings the filter back
+        // pointing at a thumbnail highlights its row, and changes nothing else
+        {
+            await page.goto(`${base}/`);
+            await page.waitForFunction(() => document.querySelector('project-index')?.rendered);
+            const slug = published[1].data.slug;
+            await page.evaluate(() => window.__mutations());
+            await page.hover(`#cell-${slug}`);
+            await page.waitForTimeout(50);
+            const hover = await page.evaluate(() => ({
+                on: [...document.querySelectorAll('project-index .row.on')].map(r => r.dataset.slug),
+                muts: window.__mutations(),
+            }));
+            check('pointing at a thumbnail highlights its row and touches nothing else', hover.on.length === 1 && hover.on[0] === slug && hover.muts.every(m => m === 'attributes LI [class]'), `${hover.on.join(',')} ${hover.muts.slice(0, 5).join('; ')}`);
+        }
+
+        // the project page's Back link brings the filter back
         await page.goto(`${base}/?filter=${encodeURIComponent(tagA)}`);
         await page.waitForTimeout(100);
         await page.click('project-index .row .title');
@@ -210,7 +245,7 @@ try {
         await page.click('.back a');
         await page.waitForFunction(() => document.querySelector('project-index')?.rendered);
         await page.waitForTimeout(100);
-        check('2. the project page\'s index link keeps the filter', await page.evaluate(q => location.search === q, `?filter=${encodeURIComponent(tagA)}`));
+        check('2. the project page\'s Back link keeps the filter', await page.evaluate(q => location.search === q, `?filter=${encodeURIComponent(tagA)}`));
 
         // 3. a project from the grid
         await page.goto(`${base}/`);
@@ -218,6 +253,103 @@ try {
         await page.click(`#cell-${first.data.slug}`);
         await page.waitForURL(`**/projects/${first.data.slug}/`);
         check('3. a grid cell opens its project page', (await page.textContent('h1')).trim() === String(first.data.title).trim());
+
+        // 3. the photos, one at a time
+        if (many && photos(many).length > 2) {
+            const count = photos(many).length;
+            await page.goto(`${base}/projects/${many.data.slug}/`);
+            await page.waitForFunction(() => document.querySelector('project-slides')?.rendered);
+            const look = () => page.evaluate(() => {
+                const seen = (el) => Boolean(el) && el.getClientRects().length > 0;
+                const slides = [...document.querySelectorAll('project-slides .slide')];
+                const shown = slides.filter(seen);
+                return {
+                    shown: shown.length,
+                    current: slides.indexOf(shown[0]),
+                    prev: seen(shown[0]?.querySelector('.prev')),
+                    next: seen(shown[0]?.querySelector('.next')),
+                    focus: document.activeElement?.className ?? '',
+                };
+            });
+            const start = await look();
+            check('3. a project page shows its first photo only, with no "previous"', start.shown === 1 && start.current === 0 && !start.prev && start.next, JSON.stringify(start));
+            await page.evaluate(() => window.__mutations());
+            await page.click('project-slides .current .next');
+            const second = await look();
+            const muts = await page.evaluate(() => window.__mutations());
+            const other = muts.filter(m => !['attributes LI [class]', 'attributes IMG [loading]', 'characterData #text'].includes(m));
+            check('3. the "next" chevron shows the second photo, between two chevrons, and keeps focus', second.shown === 1 && second.current === 1 && second.prev && second.next && second.focus.includes('next'), JSON.stringify(second));
+            check('3. changing photo touches only the current class, the next photo\'s loading and the status line', other.length === 0, other.slice(0, 5).join('; '));
+            await page.click('project-slides .current .frame');
+            const third = await look();
+            await page.keyboard.press('ArrowLeft');
+            const left = await look();
+            check('3. a click on the photo goes on, the left arrow key goes back', third.current === 2 && left.current === 1, `${third.current}, ${left.current}`);
+            for (let i = 0; i < count + 1; i++) await page.keyboard.press('ArrowRight');
+            const end = await look();
+            await page.click('project-slides .current .frame');
+            const still = await look();
+            check('3. the last photo has no "next", and a click on it stays', end.current === count - 1 && end.prev && !end.next && still.current === count - 1, JSON.stringify(end));
+            await page.click('.project-head h1 a');
+            await page.waitForFunction(() => location.hash === '#project-info');
+            await page.waitForTimeout(700);
+            const info = await page.evaluate(() => { const top = document.querySelector('#project-info').getBoundingClientRect().top; return top < innerHeight; });
+            check('3. the title scrolls to the project information', info);
+        }
+        if (captioned) {
+            const at = photos(captioned).findIndex(im => im.caption);
+            await page.goto(`${base}/projects/${captioned.data.slug}/`);
+            await page.waitForFunction(() => document.querySelector('project-slides')?.rendered);
+            for (let i = 0; i < at; i++) await page.keyboard.press('ArrowRight');
+            const shown = await page.evaluate(() => [...document.querySelectorAll('project-slides .caption')].filter(c => c.getClientRects().length).map(c => c.textContent.replace(/\s+/g, ' ').trim()));
+            check('3. a photo\'s caption shows under it, and only its own', shown.length === 1 && shown[0] === words(photos(captioned)[at].caption), shown.join(' | '));
+        }
+        if (single) {
+            await page.goto(`${base}/projects/${single.data.slug}/`);
+            const lone = await page.evaluate(() => ({ arrows: document.querySelectorAll('project-slides .arrow').length, slides: document.querySelectorAll('project-slides .slide').length, scripts: document.scripts.length }));
+            check('3. a project with one photo has no chevrons and no script', lone.arrows === 0 && lone.slides === 1 && lone.scripts === 0, JSON.stringify(lone));
+        }
+
+        // 6. the Index's proportions at the design's width
+        {
+            await page.setViewportSize({ width: 1366, height: 710 });
+            await page.goto(`${base}/`);
+            await page.waitForFunction(() => document.querySelector('project-index')?.rendered);
+            const m = await page.evaluate(() => {
+                const box = (el) => el.getBoundingClientRect();
+                const cells = [...document.querySelectorAll('project-index .cell')];
+                const rows = [...document.querySelectorAll('project-index .row')];
+                const page = document.documentElement.clientWidth;
+                const cell = box(cells[0]);
+                const lines = [...document.querySelectorAll('.site-head, .site-head *, project-index, project-index *')].filter((el) => {
+                    const s = getComputedStyle(el);
+                    return !el.classList.contains('box') && (parseFloat(s.borderTopWidth) + parseFloat(s.borderRightWidth) + parseFloat(s.borderBottomWidth) + parseFloat(s.borderLeftWidth) > 0 || s.boxShadow !== 'none');
+                }).length;
+                const thumbs = cells.filter(c => c.querySelector('.box')).map((c) => {
+                    const a = box(c);
+                    const b = box(c.querySelector('.box'));
+                    const img = c.querySelector('img');
+                    return {
+                        fits: b.width <= a.width * 0.91 + 0.5 && b.height <= a.height * 0.865 + 0.5,
+                        full: b.width >= a.width * 0.91 - 0.5 || b.height >= a.height * 0.865 - 0.5,
+                        centred: Math.abs((b.x + b.width / 2) - (a.x + a.width / 2)) < 0.5 && Math.abs((b.y + b.height / 2) - (a.y + a.height / 2)) < 0.5,
+                        whole: Math.abs((b.width - 12) / (b.height - 12) - img.getAttribute('width') / img.getAttribute('height')) < 0.01,
+                    };
+                });
+                return {
+                    quarter: Math.abs(cell.width - page / 4) < 0.5,
+                    ratio: Math.abs(cell.width / cell.height - 341.2 / 197.12) < 0.005,
+                    fifth: rows.every(r => Math.abs(box(r).height - cell.height / 5) < 0.1),
+                    columns: Math.abs(box(cells[1]).x - cell.width) < 0.5 && Math.abs(box(cells[2]).y - cell.y - cell.height) < 0.5,
+                    thumbs: thumbs.every(t => t.fits && t.full && t.centred && t.whole),
+                    scrolls: document.documentElement.scrollHeight <= innerHeight,
+                    lines,
+                };
+            });
+            check('6. at 1366px a cell is a quarter of the page, two to a row, and five list rows are one cell tall', m.quarter && m.ratio && m.fifth && m.columns, JSON.stringify(m));
+            check('6. every thumbnail is whole, centred, framed and as large as its cell allows', m.thumbs);
+            check('6. the two columns scroll on their own, and nothing draws a line', m.scrolls && m.lines === 0, JSON.stringify(m));
+        }
 
         // 4. 390px
         await page.setViewportSize({ width: 390, height: 844 });
@@ -246,12 +378,15 @@ try {
         page.on('console', m => { if (m.type() === 'error') errs.push(`${page.url()}: ${m.text()}`); });
         page.on('pageerror', e => errs.push(`${page.url()}: ${e.message}`));
         let rowsShown = 0;
+        let photosShown = -1;
         for (const path of routes) {
             await page.goto(base + path);
             if (path === '/') rowsShown = await page.evaluate(() => document.querySelectorAll('project-index .row').length);
+            if (many && path === `/projects/${many.data.slug}/`) photosShown = await page.evaluate(() => [...document.querySelectorAll('project-slides .slide')].filter(s => s.getClientRects().length).length);
         }
         check('no console errors with JavaScript off', errs.length === 0, errs.slice(0, 5).join(' | '));
         check('1. with JavaScript off the index shows every row', rowsShown === published.length);
+        if (many) check('1. with JavaScript off a project page shows every photo', photosShown === photos(many).length, `${photosShown}/${photos(many).length}`);
         await context.close();
     }
 
@@ -266,8 +401,9 @@ try {
         const vocab = new Set((fields.get('tags')?.options?.values ?? []).map(v => (typeof v === 'object' ? v.value ?? v.name : v)));
         const used = [...new Set(fronts.flatMap(f => f.data.tags ?? []))].filter(t => !vocab.has(t));
         check('5. every tag in use is in the tags select', used.length === 0, used.join(', '));
-        const styles = new Set((fields.get('cover_style')?.options?.values ?? []).map(v => (typeof v === 'object' ? v.value ?? v.name : v)));
-        check('5. cover_style offers the six styles', ['polaroid', 'polaroid-tall', 'fill', 'small', 'pair', 'none'].every(s => styles.has(s)));
+        const photoFields = new Set((fields.get('images')?.fields ?? []).map(f => f.name));
+        const photoKeys = [...new Set(fronts.flatMap(f => photos(f).flatMap(im => Object.keys(im))))].filter(k => !photoFields.has(k));
+        check('5. every key of a project photo (image, alt, caption) is a field in .pages.yml', photoKeys.length === 0, photoKeys.join(', '));
         const files = (config.content ?? []).filter(c => c.type === 'file').map(c => c.path).sort();
         check('5. the two text pages are editable', JSON.stringify(files) === JSON.stringify(['content/site/index.md', 'content/site/info.md']), files.join(', '));
     }

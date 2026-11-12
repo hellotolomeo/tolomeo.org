@@ -2,8 +2,8 @@
  * The dev server: http://localhost:3100. Renders every page per request from
  * the same templates, data layer and createEnvironment as build.js (noCache:
  * templates are re-read on every render), and serves components/, client/,
- * lib/ and fonts/ from the repo with Cache-Control: no-cache and an ETag, as
- * the Zeldman adapters do. Images are processed into dist/images (cached by
+ * lib/, fonts/ and public/ (at the root) from the repo with Cache-Control:
+ * no-cache and an ETag, as the Zeldman adapters do. Images are processed into dist/images (cached by
  * hash) and served from there. Restart after editing a component's .js
  * `static props`; everything else is live.
  *
@@ -28,7 +28,7 @@ const TYPES = {
     '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
     '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.woff2': 'font/woff2', '.otf': 'font/otf',
-    '.txt': 'text/plain; charset=utf-8',
+    '.txt': 'text/plain; charset=utf-8', '.ico': 'image/x-icon',
 };
 // URL prefix → directory on disk.
 const STATIC = [
@@ -69,6 +69,7 @@ const server = createServer(async (req, res) => {
         let pathname;
         try { pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname); } catch { pathname = '/404.html#'; }
         if (pathname === '/client/covers.css') return send(res, 200, TYPES['.css'], (await load()).coversCss);
+        if (pathname === '/client/slides.css') return send(res, 200, TYPES['.css'], (await load()).slidesCss);
         for (const [prefix, dir] of STATIC) {
             if (!pathname.startsWith(prefix)) continue;
             if (prefix === '/lib/' && pathname.startsWith('/lib/zeldman/')) break;
@@ -76,6 +77,9 @@ const server = createServer(async (req, res) => {
             if (path.startsWith(dir + sep) && serveFile(req, res, path)) return;
             break;
         }
+        // public/ holds the files that sit at the site's root (the favicons).
+        const rootFile = normalize(join(root, 'public', pathname));
+        if (rootFile.startsWith(join(root, 'public') + sep) && serveFile(req, res, rootFile)) return;
         const data = await load();
         const all = routes(data, config);
         const page = all.find(r => r.path === pathname || r.path === `${pathname}/`);

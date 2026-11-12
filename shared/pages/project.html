@@ -1,7 +1,58 @@
 {% extends 'shared/pages/base.html' %}
+{#- A project page: header, the photos one at a time, then the project's information. `project` is the project, as server/content.js shapes it. -#}
 {% block head %}
-<link rel="stylesheet" href="/components/project-detail.css">
+<link rel="stylesheet" href="/client/project.css">
+{% if project.slides | length %}
+<link rel="stylesheet" href="/client/slides.css">
+<link rel="stylesheet" href="/components/project-slides.css">
+{% endif %}
+{% if project.slides | length > 1 %}
+<script src="/lib/vendor/nunjucks.min.js" defer></script>
+<script src="/lib/vendor/idiomorph.min.js" defer></script>
+<script type="module" src="/client/project.js"></script>
+{% endif %}
 {% endblock %}
 {% block content %}
-{% include 'components/project-detail/detail.html' %}
+<header class="project-head">
+<p class="back"><a href="/">Back</a></p>
+<h1><a href="#project-info">{{ project.title }}</a></h1>
+</header>
+<main class="project">
+{% if project.slides | length %}
+<project-slides
+  id="slides-{{ project.slug }}"
+  images="{{ project.slides | dump | e }}"
+  label="Photos of {{ project.title }}"
+></project-slides>
+{% endif %}
+<section class="project-info" id="project-info" aria-label="About {{ project.title }}">
+<div class="row"><span class="years">{{ project.years }}</span><span class="what"><span class="title">{{ project.title }}</span>{% if project.tags | length %}<span class="type">{{ project.tags | join(', ') }}</span>{% endif %}</span></div>
+{% if project.body or project.role or project.client %}
+<div class="text">
+{% if project.body %}
+<div class="description">
+{{ project.body | safe }}
+</div>
+{% endif %}
+{% if project.role or project.client %}
+<div class="meta">
+{% if project.role %}
+<p><span class="label">role:</span> {{ project.role }}</p>
+{% endif %}
+{% if project.client %}
+<p><span class="label">for:</span> {{ project.client }}</p>
+{% endif %}
+</div>
+{% endif %}
+</div>
+{% endif %}
+{% if project.photoLinks | length %}
+<ul class="links">
+{% for l in project.photoLinks %}
+<li><a href="{{ l.url }}">{{ l.label }}</a></li>
+{% endfor %}
+</ul>
+{% endif %}
+</section>
+</main>
 {% endblock %}

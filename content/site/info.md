@@ -2,12 +2,10 @@
 title: "Info"
 ---
 
-My name is Tolomeo (they, them).
+**I’m Tolomeo** *(they/them)*. I publish, create programs and visuals so that we might know our own political power.
 
-I create programs and visuals so that people can know their own political power.
+I am the founding publisher and editor at [Landline](https://landlinepress.nl), and my background includes university lecturing, mentoring, program development, curriculum building, team management, print design, and editorial illustration.
 
-I am the founding editor and publisher at [Landline](https://landlinepress.nl), and my experience includes university lecturing, mentoring, program development, publishing, curriculum building, team management, print design, and editorial illustration.
-
-My approach is interactive, inquisitive and playful.
+My approach is trusting, inquisitive and playful.
 
 Contact me at [hello@tolomeo.org](mailto:hello@tolomeo.org)

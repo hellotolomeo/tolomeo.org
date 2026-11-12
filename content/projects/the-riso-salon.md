@@ -6,8 +6,7 @@ years: '2024'
 year_start: 2024
 year_end: 2024
 tags:
-- program
-- exhibition
+- pop-up exhibition
 role:
 - program manager
 - print design mentor
@@ -15,17 +14,11 @@ client: Onomatopee
 parent: the-riso-studio
 published: true
 cover: /images/projects/the-riso-salon/the-riso-salon-cover.jpg
-cover_style: small
-cover_focus:
-- 48
-- 51
-cover_zoom: 1.33
 images:
 - image: /images/projects/the-riso-salon/riso-salon-01.jpg
-  alt: Save the Tsukumogami! risoprinted poster
-- image: /images/projects/the-riso-salon/riso-salon-02.jpg
   alt: "The RISO Salon: risoprinted art prints hung on wire grids on a white brick wall"
-hover_image: /images/projects/the-riso-salon/riso-salon-02.jpg
+- image: /images/projects/the-riso-salon/riso-salon-02.jpg
+  alt: Save the Tsukumogami! risoprinted poster
 photo_links: []
 ---
 

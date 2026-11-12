@@ -6,8 +6,8 @@ years: 2023 - 2026
 year_start: 2023
 year_end: 2026
 tags:
-- department
 - program
+- department
 role:
 - department design
 - program manager
@@ -15,19 +15,15 @@ client: Onomatopee
 parent: null
 published: true
 cover: /images/projects/the-riso-studio/the-riso-studio-cover.jpg
-cover_style: polaroid
-cover_focus:
-- 50
-- 14
-cover_zoom: 1.02
 images:
 - image: /images/projects/the-riso-studio/riso-studio-01.jpg
-  alt: Tolomeo, in a red shirt, laughing in front of a wall of risoprinted colour-test posters at Onomatopee
+  alt: A participant loading the ink drum into a risograph in the RISO Studio
 - image: /images/projects/the-riso-studio/riso-studio-02.jpg
-  alt: Two people at work in the riso studio, binding prints in front of shelves of risograph drums
+  alt: Tolomeo, in a red shirt, laughing in front of a wall of risoprinted colour-test posters at Onomatopee
 - image: /images/projects/the-riso-studio/riso-studio-03.jpg
+  alt: Two people at work in the riso studio, binding prints in front of shelves of risograph drums
+- image: /images/projects/the-riso-studio/riso-studio-04.jpg
   alt: A tattooed hand reaching toward the open drum bay of a risograph
-hover_image: /images/projects/the-riso-studio/riso-studio-02.jpg
 photo_links: []
 ---
 

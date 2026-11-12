@@ -1,9 +1,12 @@
 /**
- * Markdown → HTML, once, in the data layer. The site prints paragraphs and
- * links and nothing else: headings, list items, quotes and code become
- * paragraphs, inline emphasis becomes plain text, images become their alt
- * text, and raw HTML is escaped (the CMS's source mode can type any, and
- * marked does not sanitize). Bare e-mail addresses become mailto: links (GFM).
+ * Markdown → HTML, once, in the data layer. The site prints paragraphs, links,
+ * bold and slanted text and nothing else: headings, list items, quotes and
+ * code become paragraphs, images become their alt text, and raw HTML is
+ * escaped (the CMS's source mode can type any, and marked does not sanitize).
+ * Bare e-mail addresses become mailto: links (GFM). **Bold** is the Bold
+ * weight. *Italic* is the design's slant: the font has no italic, so each
+ * word is its own <span> that the stylesheet skews (word by word, so slanted
+ * text still wraps).
  * One scoped instance; the global `marked` is never configured.
  */
 import { Marked } from 'marked';
@@ -34,8 +37,8 @@ const md = new Marked({
         },
         hr() { return ''; },
         html({ text, block }) { return block ? wrap(escape(text)) : escape(text); },
-        strong({ tokens }) { return this.parser.parseInline(tokens); },
-        em({ tokens }) { return this.parser.parseInline(tokens); },
+        strong({ tokens }) { return `<strong>${this.parser.parseInline(tokens)}</strong>`; },
+        em({ tokens }) { return `<em>${words(this.parser.parseInline(tokens))}</em>`; },
         del({ tokens }) { return this.parser.parseInline(tokens); },
         codespan({ text }) { return escape(text); },
         br() { return ' '; },
@@ -47,6 +50,11 @@ const md = new Marked({
         },
     },
 });
+
+// Inline HTML with every word in its own <span>; tags and the spaces between words stay as they are.
+function words(html) {
+    return html.replace(/(<[^>]*>)|([^<\s]+)/g, (m, tag, word) => tag ?? `<span>${word}</span>`);
+}
 
 function wrap(inline) {
     return inline.trim() ? `<p>${inline.trim()}</p>\n` : '';
@@ -62,7 +70,14 @@ export function markdown(src) {
     return src && typeof src === 'string' ? md.parse(src).trim() : '';
 }
 
-/** One line of Markdown (the contact line) → inline HTML with links, no <p>. */
+/** One line of Markdown (the intro line, a caption) → inline HTML, no <p>. */
 export function markdownInline(src) {
     return src && typeof src === 'string' ? md.parseInline(src).trim() : '';
+}
+
+const ENTITIES = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" };
+
+/** One line of Markdown → its words only (a meta description). */
+export function markdownText(src) {
+    return markdownInline(src).replace(/<[^>]*>/g, '').replace(/&(amp|lt|gt|quot|#39);/g, m => ENTITIES[m]).replace(/\s+/g, ' ').trim();
 }

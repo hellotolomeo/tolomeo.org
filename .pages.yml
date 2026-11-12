@@ -125,15 +125,19 @@ content:
             - exhibition
             - graphic illustration
             - installation
+            - interactive installation
             - logo
             - mentorship
             - performance
+            - pop-up exhibition
+            - print fundraiser
             - printed banner
             - printed card
             - printed flyer
             - product
             - program
             - public program
+            - publication
             - service
             - wallpaper
             - workshop
@@ -156,7 +160,7 @@ content:
         options:
           format: markdown
           media: false
-        description: "Paragraphs and links only; other formatting is simplified on the site."
+        description: "Paragraphs, links, bold and italic (italic shows slanted); other formatting is simplified on the site."
 
       - name: cover
         label: Thumbnail photo (cover)
@@ -164,60 +168,7 @@ content:
         options:
           path: images/projects
           extensions: [jpg, jpeg, png, webp, avif, gif, svg, heic, heif, tif, tiff, JPG, JPEG, PNG, WEBP, HEIC, HEIF, TIF, TIFF]
-        description: "The photo in the grid on the home page. Press Select, open projects, then your project's folder (the first time: Create folder, named like the slug) and upload or drag photos in there. Don't use the Upload button next to Select: it puts photos in images/projects, outside the project's folder. Empty = an empty box."
-
-      - name: cover_style
-        label: Thumbnail style
-        type: select
-        default: polaroid
-        options:
-          values:
-            - value: polaroid
-              label: "Polaroid — a landscape print with a white border"
-            - value: polaroid-tall
-              label: "Polaroid, tall — a portrait print with a white border"
-            - value: fill
-              label: "Fill — the photo fills the whole box"
-            - value: small
-              label: "Small — narrow and centred, no border (good for posters)"
-            - value: pair
-              label: "Pair — the thumbnail and the hover photo (or else the first project photo) side by side"
-            - value: none
-              label: "None — leave the box empty"
-        description: "How the thumbnail sits in its box on the home page."
-
-      - name: cover_focus
-        label: Thumbnail focus (across, down)
-        hidden: true # no longer used: thumbnails are never cropped (kept so old values survive saves)
-        type: number
-        # No list.min: a new project starts with an empty list, and min would block its
-        # first save. Empty or one number is fine; the site fills in 50 for what's missing.
-        list:
-          max: 2
-          collapsible: false
-        options:
-          min: 0
-          max: 100
-          step: any
-        description: "Which part of the photo stays in view. Always fill both numbers: across, then down (50, 50 is the centre; 50, 20 keeps the top). Easiest: use the thumbnail tuner at tolomeo.org/tools/thumbnail/ and copy its numbers."
-
-      - name: cover_zoom
-        label: Thumbnail zoom
-        hidden: true # no longer used: thumbnails are never cropped (kept so old values survive saves)
-        type: number
-        options:
-          min: 1
-          max: 4
-          step: any
-        description: "1 = the photo just fills its frame; 1.5 = closer."
-
-      - name: hover_image
-        label: Hover photo
-        type: image
-        options:
-          path: images/projects
-          extensions: [jpg, jpeg, png, webp, avif, gif, svg, heic, heif, tif, tiff, JPG, JPEG, PNG, WEBP, HEIC, HEIF, TIF, TIFF]
-        description: "Optional. Shown in place of the thumbnail while someone points at the thumbnail. Usually one of the project's photos. Leave empty for none."
+        description: "The photo in the grid on the home page, shown whole in a paper frame. Press Select, open projects, then your project's folder (the first time: Create folder, named like the slug) and upload or drag photos in there. Don't use the Upload button next to Select: it puts photos in images/projects, outside the project's folder. Empty = an empty box."
 
       - name: images
         label: Project photos
@@ -237,7 +188,11 @@ content:
             label: Description of the photo
             type: string
             description: "Describe the photo for people who can't see it."
-        description: "The photos on the project page, in this order. Drag to reorder. Press Select and pick or upload photos inside your project's folder (images/projects/<slug>), not with the Upload button next to Select."
+          - name: caption
+            label: Caption
+            type: string
+            description: "Optional. Shown under the photo on the project page. Put *asterisks* around words to slant them, e.g. a *Book Title*."
+        description: "The photos on the project page, shown one at a time in this order. Drag to reorder. Press Select and pick or upload photos inside your project's folder (images/projects/<slug>), not with the Upload button next to Select."
 
       - name: photo_links
         label: Links to more photos
@@ -277,15 +232,7 @@ content:
       - name: intro
         label: Intro
         type: text
-        description: "The sentence at the top left of the home page."
-      - name: contact_line
-        label: Contact line
-        type: string
-        description: "Markdown with the two links: [hello@tolomeo.org](mailto:hello@tolomeo.org) and [info](/info/). Keep the [square] and (round) brackets as they are; change only the words."
-      - name: email
-        label: Email
-        type: string
-        description: "Your public email address."
+        description: "The line at the top of the home page. Your name is written [Tolomeo](/info/): that makes it bold and a link to the Info page. Keep the [square] and (round) brackets as they are; change the other words freely."
 
   - name: info
     label: Info page
@@ -309,4 +256,4 @@ content:
         options:
           format: markdown
           media: false
-        description: "Paragraphs and links only; other formatting is simplified on the site."
+        description: "Paragraphs, links, bold and italic (italic shows slanted); other formatting is simplified on the site."

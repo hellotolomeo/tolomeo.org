@@ -1,12 +1,13 @@
 ---
 title: Does Marxism Support Decolonization?
 slug: does-marxism-support-decolonization
-order: 3
+order: 1
 years: '2026'
 year_start: 2026
 year_end: 2026
 tags:
 - book
+- publication
 role:
 - publisher
 - editor
@@ -15,25 +16,19 @@ client: Landline
 parent: null
 published: true
 cover: /images/projects/does-marxism-support-decolonization/does-marxism-support-decolonization-cover.jpg
-cover_style: polaroid
-cover_focus:
-- 50
-- 55
-cover_zoom: 1.48
 images:
 - image: /images/projects/does-marxism-support-decolonization/marxism-01.jpg
-  alt: Does Marxism Support Decolonization?, image 1
+  alt: A hand holding the risoprinted first edition of Does Marxism Support Decolonization?
+  caption: Risoprinted first edition of title *Does Marxism Support Decolonization? An Indigenous Analysis of a Eurocentric Theory*, published by Landline Press
 - image: /images/projects/does-marxism-support-decolonization/marxism-02.jpg
-  alt: Does Marxism Support Decolonization?, image 2
+  alt: The open book showing its title page
+  caption: "*Does Marxism Support Decolonization?* is edited by myself, with foreword by Keiran Stewart-Assheton. The author chose to remain anonymous."
 - image: /images/projects/does-marxism-support-decolonization/marxism-03.jpg
-  alt: Does Marxism Support Decolonization?, image 3
+  alt: The open book showing its colophon
+  caption: "*Does Marxism Support Decolonization?* is printed in an edition of 300, and bound at Van Hees - Patist Boekbinderij in Zaltbommel, The Netherlands."
 - image: /images/projects/does-marxism-support-decolonization/marxism-04.jpg
-  alt: Does Marxism Support Decolonization?, image 4
-- image: /images/projects/does-marxism-support-decolonization/marxism-05.jpg
-  alt: Does Marxism Support Decolonization?, image 5
-- image: /images/projects/does-marxism-support-decolonization/marxism-06.jpg
-  alt: Does Marxism Support Decolonization?, image 6
-hover_image: /images/projects/does-marxism-support-decolonization/marxism-02.jpg
+  alt: The book on a stockist’s table among other political titles
+  caption: Stockists for *Does Marxism Support Decolonization?* include Southern Nomad (shown), Het Fort van Sjakoo Amsterdam, and KIOSK Rotterdam.
 photo_links: []
 ---
 

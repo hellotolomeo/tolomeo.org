@@ -6,12 +6,12 @@ export function routes(data, config) {
     const index = {
         page: 'shared/pages/index.html',
         context: {
-            pageTitle: 'Index',
-            description: data.site.intro,
+            // The home page's tab title is the name alone.
+            title: 'Tolomeo',
+            description: data.site.description,
             site: data.site,
             projects: data.indexProjects,
             match: config.FILTER_MATCH,
-            hoverSwap: config.HOVER_SWAP,
         },
     };
     const list = [
@@ -21,14 +21,9 @@ export function routes(data, config) {
         {
             path: '/info/',
             page: 'shared/pages/info.html',
-            context: { pageTitle: 'Info', info: data.info, description: data.site.intro },
+            context: { pageTitle: 'Info', info: data.info, description: data.site.description },
         },
         { path: '/404.html', page: 'shared/pages/404.html', context: { pageTitle: 'Nothing here' } },
-        {
-            path: '/tools/thumbnail/',
-            page: 'shared/pages/thumbnail.html',
-            context: { pageTitle: 'Thumbnail preview', noindex: true, projects: data.indexProjects },
-        },
     ];
     if (config.PROJECT_VIEW === 'page') {
         for (const project of data.projects) {

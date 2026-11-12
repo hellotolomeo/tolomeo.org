@@ -1,0 +1,57 @@
+{#- A project's photos, one at a time: the current one framed in the middle, a chevron on either side of it, its caption under it. -#}
+{#- `index` exists only in the browser; the server renders the first photo as the current one. -#}
+{% set index = index | default(0) %}
+<ol class="slides" aria-label="{{ label }}">
+{% for g in images %}
+<li class="slide{% if loop.index0 == index %} current{% endif %}">
+{% if not loop.first %}
+<button
+  type="button"
+  class="arrow prev"
+  data-action="prev"
+  aria-label="Previous image"
+><svg
+  aria-hidden="true"
+  width="16.5"
+  height="19"
+  viewBox="0 0 16.5 19"
+><path d="M16.112 0.642 L1.45 9.5 L16.112 18.358"></path></svg></button>
+{% endif %}
+<picture class="frame">{% if g.webp %}<source
+  type="image/webp"
+  srcset="{{ g.webp }}"
+  sizes="{{ g.sizes }}"
+>{% endif %}<img
+  src="{{ g.src }}"
+{% if g.srcset %}
+  srcset="{{ g.srcset }}"
+  sizes="{{ g.sizes }}"
+{% endif %}
+  width="{{ g.width }}"
+  height="{{ g.height }}"
+  alt="{{ g.alt }}"
+  loading="{{ 'eager' if loop.index0 <= index + 1 else 'lazy' }}"
+  decoding="sync"
+></picture>
+{% if not loop.last %}
+<button
+  type="button"
+  class="arrow next"
+  data-action="next"
+  aria-label="Next image"
+><svg
+  aria-hidden="true"
+  width="16.5"
+  height="19"
+  viewBox="0 0 16.5 19"
+><path d="M0.388 0.642 L15.05 9.5 L0.388 18.358"></path></svg></button>
+{% endif %}
+{% if g.caption %}
+<p class="caption">{{ g.caption | safe }}</p>
+{% endif %}
+</li>
+{% endfor %}
+</ol>
+{% if images | length > 1 %}
+<p class="status visually-hidden" role="status">Image {{ index + 1 }} of {{ images | length }}: {{ images[index].alt }}</p>
+{% endif %}

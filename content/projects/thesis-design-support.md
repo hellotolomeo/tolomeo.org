@@ -1,5 +1,5 @@
 ---
-title: Thesis Design Support
+title: Thesis Print Design Support
 slug: thesis-design-support
 order: 2.2
 years: '2025'
@@ -15,15 +15,14 @@ client: Onomatopee
 parent: the-riso-studio
 published: true
 cover: /images/projects/thesis-design-support/thesis-design-support-cover.jpg
-cover_style: fill
-cover_focus:
-- 50
-- 46
-cover_zoom: 1
 images:
 - image: /images/projects/thesis-design-support/thesis-01.jpg
+  alt: Open spread of a risoprinted thesis book with pink type and patterns
+- image: /images/projects/thesis-design-support/thesis-02.jpg
+  alt: A fanned stack of blue books titled Planting Droughts
+  caption: As part of the 2025 Thesis Support program Design Academy Masters student QXK created and produced Planting Droughts. Photo credit Page Not Found.
+- image: /images/projects/thesis-design-support/thesis-03.jpg
   alt: "Open call poster: Thesis Publication Support at Onomatopee"
-hover_image: ""
 photo_links: []
 ---
 

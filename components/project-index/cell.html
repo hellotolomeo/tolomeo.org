@@ -1,9 +1,0 @@
-{#- One grid cell's contents, by cover style; `p` is the project. The hover image is always there (lazy) and shown in the cover's place while the pointer is over the cell. -#}
-{% if p.style == 'pair' %}
-<span class="box a">{% set pic = p.cover %}{% include 'components/project-index/picture.html' %}</span><span class="box b">{% set pic = p.pair %}{% include 'components/project-index/picture.html' %}</span>
-{% elif p.style != 'none' %}
-<span class="box">{% set pic = p.cover %}{% include 'components/project-index/picture.html' %}</span>
-{% endif %}
-{% if hoverSwap and p.hover %}
-<span class="swap">{% set pic = p.hover %}{% include 'components/project-index/picture.html' %}</span>
-{% endif %}

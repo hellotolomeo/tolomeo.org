@@ -32,7 +32,8 @@ hash in `dist/images/`, so a rebuild only resizes new photos), and the files the
 npm run verify
 ```
 After a build: Playwright checks for the acceptance points (HTML before JavaScript, tag filtering,
-project URLs, 390px width, the CMS fields, zero DOM mutations on first render, no console errors).
+project URLs and their photo slideshow, 390px width, the CMS fields, the Index's proportions at
+1366px, zero DOM mutations on first render, no console errors).
 Needs Chromium for Playwright (`npx playwright install chromium`, or set `CHROMIUM_PATH`).
 
 ```bash
@@ -42,33 +43,40 @@ Optional bulk tool for many photos at once: makes 2000px web copies named `the-r
 in `images/projects/the-riso-salon/` and prints the `images:` list to paste. Never touches the
 originals. Uploading through the CMS works too; CI resizes and converts anything large or HEIC.
 
-The project text and photos were imported once from Claude Design's site update
-(`site-data.json`) with `scripts/import-site-data.js`; since then `content/` (edited in Pages CMS)
-is the source of truth. The old spreadsheet importer, `scripts/import-projects.py`, is superseded:
-don't run it, it would bring back the spreadsheet's typos and old titles.
+The project text, thumbnails and photos were imported from Claude Design's site kit
+(`site-data.json`, `thumbnails/`, `images/`) with `node scripts/import-site-data.js <kit-folder>`,
+last for the redesign of 11 Nov 2026; since then `content/` (edited in Pages CMS) is the source of
+truth. The old spreadsheet importer, `scripts/import-projects.py`, and the design-canvas cover
+migration, `scripts/import-covers.js`, are superseded: don't run them.
 
 ## How it fits together
 
 ```
 content/            Markdown + YAML front matter: projects/, site/index.md, site/info.md
 images/projects/    photos, one folder per project (the CMS writes full /images/… paths)
+public/             files copied to the site root as they are (the favicons)
+fonts/              Fluxisch Else Light and Bold (.woff2, .otf as fallback)
 site.config.js      the BRIEF §9 assumptions, one constant each
 build.js            content + images → dist/          server.js   the dev server
 server/             build-time only: content.js (data layer), markdown.js, images.js, routes.js,
                     zeldman/ (the vendored Node adapter)
-shared/pages/       page templates (index, project, info, 404, tools/thumbnail)
-components/         project-index (the home page: grid + list + filter), thumbnail-tuner,
-                    project-detail/ (the project page partial — the one file a final design replaces)
-client/             browser only: main.js, tuner.js, template-env.js, lib/ (BaseComponent), site.css
+shared/pages/       page templates (index, project, info, 404)
+components/         project-index (the home page: grid + list + filter),
+                    project-slides (a project page's photos, one at a time)
+client/             browser only: main.js and project.js (page entries), template-env.js,
+                    lib/ (BaseComponent), site.css, project.css
 lib/                vendor/ (nunjucks, idiomorph), filters.js, zeldman/ (upstream docs + UPSTREAM hash)
-scripts/            prepare-images, normalize-images (CI), import-covers and import-site-data (one-off), import-projects (superseded), verify
+scripts/            prepare-images, normalize-images (CI), import-site-data (one-off),
+                    import-covers and import-projects (superseded), verify
 ```
 
 Built with [the Zeldman Pattern](https://github.com/erikswedberg/zeldman): a component is a Nunjucks
 template, a stylesheet and a small class. The build renders each component's template inside its
 tag; in the browser the class renders the same template from its state and morphs the DOM, so the
 first render changes nothing. On the home page, `<project-index>` carries the published projects as
-JSON; a tag click is one `setState()` that removes only the rows and cells that stop matching.
+JSON; a tag click is one `setState()` that removes only the rows and cells that stop matching. On a
+project page, `<project-slides>` carries the photos; every one is in the HTML, and the chevrons, a
+click on the photo or the arrow keys change which one shows.
 
 ## Deploying
 

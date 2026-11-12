@@ -24,14 +24,14 @@ No terminal, no scripts.
 
 ## Edit the intro or the Info page
 
-- **Home page intro**: the sentence at the top of the home page, the contact line and your
-  email. The contact line uses links written like this:
-  `[hello@tolomeo.org](mailto:hello@tolomeo.org)` and `[info](/info/)`. Change the words
-  around them freely; keep the square and round brackets as they are.
+- **Home page intro**: the line at the top of the home page. Your name is written
+  `[Tolomeo](/info/)`: that makes it bold and a link to the Info page. Change the words
+  around it freely; keep the square and round brackets as they are.
 - **Info page**: the text of the Info page. Write normal paragraphs. To add a link, select
   the words and use the link button.
-- Only paragraphs and links show on the site. Bold, headings, lists and so on are turned
-  into plain text.
+- Paragraphs, links, **bold** and *italic* show on the site. Italic shows as slanted text
+  (the font has no italic of its own). Headings, lists and so on are turned into plain
+  paragraphs.
 
 Press **Save** when you're done.
 
@@ -50,7 +50,8 @@ Press **Save** when you're done.
    - **Tags**: the categories people can filter by. Pick from the list.
    - **Role**: what you did, one per line (**Add an item** for another). Shown as `role:`.
    - **Client**: shown as `for:`.
-   - **Description**: paragraphs and links.
+   - **Description**: paragraphs, links, bold and italic. Leave it empty if there is
+     nothing to say; the page then shows only the photos, the title and the labels.
 3. Press **Save**.
 
 **Drafts.** Turn **Published** off to keep a project hidden while you work on it. It is
@@ -100,32 +101,23 @@ Photos live in **Media**, in one folder per project: `images/projects/<slug>`.
 3. Fill in **Description of the photo**: say what is in it, for people who can't see it,
    e.g. "Three risograph posters pinned to a white wall". If you leave it empty, the
    project title is used.
-4. **Drag** the handle on the left of an item to change the order. The page shows them
-   left to right in this order.
-5. Press **Save**.
+4. Optional: **Caption** is a line shown under the photo on the project page. Put
+   asterisks around words to slant them, like a book title: `Printed for *Not My Sister*`.
+   Leave it empty for no caption.
+5. **Drag** the handle on the left of an item to change the order. The project page shows
+   the photos one at a time, in this order: the first one first, the rest with the arrows.
+6. Press **Save**.
 
 ## Set a thumbnail
 
 The thumbnail is the photo in the grid on the home page.
 
-1. **Thumbnail photo (cover)**: press **Select** and pick a photo from the project's folder.
-   Empty = an empty box in the grid.
-2. **Thumbnail style**:
-   - **Polaroid**: a landscape print with a white border, slightly off-grid.
-   - **Polaroid, tall**: the same, portrait.
-   - **Fill**: the photo fills the whole box.
-   - **Small**: narrow and centred, no border. Good for posters.
-   - **Pair**: the thumbnail plus the hover photo (or, without one, the first project photo), side by side.
-   - **None**: leave the box empty.
-3. Optional: **Hover photo** is shown instead of the thumbnail when someone points at it.
+- **Thumbnail photo (cover)**: press **Select** and pick a photo from the project's folder.
+  Empty = an empty box in the grid.
 
-The photo always shows whole, in its own proportions (nothing is cut off), centred in its
-box. The style only decides the frame and the size.
-
-**See it first: the thumbnail preview.** Go to **tolomeo.org/tools/thumbnail/**, pick the
-project, try the styles, and copy the one you like into **Thumbnail style** in Pages CMS.
-The preview shows photos already on the live site, so save a new thumbnail photo first
-and wait a couple of minutes.
+Every thumbnail looks the same: the photo shows whole, in its own proportions (nothing is
+cut off), centred in its box, in a paper-coloured frame. There is nothing else to set. If
+you want a tighter view, crop the photo before uploading it.
 
 ## Replace a photo
 
@@ -179,7 +171,7 @@ If photos are somewhere else (Google Drive, Dropbox, Flickr …), add them under
 - **Link text**: what the link says, e.g. `Photos by Jane Doe`.
 - **Web address**: the whole address, starting with `https://`.
 
-They show as links on the project page, below the photos.
+They show as links on the project page, under the project's text.
 
 ## What not to touch
 

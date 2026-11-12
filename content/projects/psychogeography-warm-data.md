@@ -1,7 +1,7 @@
 ---
 title: Psychogeography & Warm Data
 slug: psychogeography-warm-data
-order: 4
+order: 3
 years: '2026'
 year_start: 2026
 year_end: 2026
@@ -13,19 +13,13 @@ client: iArts Maastricht
 parent: null
 published: true
 cover: /images/projects/psychogeography-warm-data/psychogeography-warm-data-cover.jpg
-cover_style: polaroid
-cover_focus:
-- 50
-- 6
-cover_zoom: 1.02
 images:
 - image: /images/projects/psychogeography-warm-data/psychogeography-01.jpg
-  alt: Student map titled A Walk Through Whimsy, a winding path of spirals with handwritten notes
-- image: /images/projects/psychogeography-warm-data/psychogeography-02.jpg
-  alt: Sheet of labelled student sketches of things noticed on a city walk
-- image: /images/projects/psychogeography-warm-data/psychogeography-03.jpg
   alt: Students drawing their maps at a workshop table
-hover_image: /images/projects/psychogeography-warm-data/psychogeography-02.jpg
+- image: /images/projects/psychogeography-warm-data/psychogeography-02.jpg
+  alt: Student map titled A Walk Through Whimsy, a winding path of spirals with handwritten notes
+- image: /images/projects/psychogeography-warm-data/psychogeography-03.jpg
+  alt: Sheet of labelled student sketches of things noticed on a city walk
 photo_links: []
 ---
 

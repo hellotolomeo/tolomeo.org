@@ -1,7 +1,7 @@
 ---
 title: Stroomhuis The Opening
 slug: stroomhuis-the-opening
-order: 22
+order: 21
 years: '2022'
 year_start: 2022
 year_end: 2022
@@ -13,14 +13,10 @@ role:
 - risoprinter
 client: Stroomhuis
 parent: null
-published: false
-cover: ""
-cover_style: polaroid
-cover_focus:
-- 50
-- 50
-cover_zoom: 1
-images: []
-hover_image: ""
+published: true
+cover: /images/projects/stroomhuis-the-opening/stroomhuis-the-opening-cover.jpg
+images:
+- image: /images/projects/stroomhuis-the-opening/stroomhuis-opening-01.jpg
+  alt: "Stroomhuis The Opening flyer: an illustrated figure on a pink background"
 photo_links: []
 ---
