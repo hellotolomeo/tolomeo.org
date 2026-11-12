@@ -113,7 +113,7 @@ Photos live in **Media**, in one folder per project: `images/projects/<slug>`.
 The thumbnail is the photo in the grid on the home page.
 
 - **Thumbnail photo (cover)**: press **Select** and pick a photo from the project's folder.
-  Empty = an empty box in the grid.
+  Empty = a blank space in the grid (no frame); it still opens the project.
 
 Every thumbnail looks the same: the photo shows whole, in its own proportions (nothing is
 cut off), centred in its box, in a paper-coloured frame. There is nothing else to set. If

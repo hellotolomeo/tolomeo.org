@@ -27,6 +27,7 @@ import { extname, join, normalize, sep, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
 import { chromium } from 'playwright';
+import { markdown, markdownText } from '../server/markdown.js';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const dist = join(root, 'dist');
@@ -48,10 +49,12 @@ const fronts = readdirSync(projectsDir).filter(f => f.endsWith('.md'))
     .map(f => ({ file: f, ...matter(readFileSync(join(projectsDir, f), 'utf8'), {}) }));
 const published = fronts.filter(f => f.data.published === true);
 const html = (v) => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-// Markdown as the words a reader sees: links as their text, no emphasis marks.
-const words = (md) => String(md).replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[*_`#>]/g, '').replace(/\s+/g, ' ').trim();
+// One line of Markdown as the words a reader sees, by the site's own renderer.
+const words = (md) => markdownText(String(md));
 // HTML as its text, still escaped as html() escapes.
 const textOf = (h) => String(h).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ');
+// The first words of a Markdown body as the site prints them (escaped, like textOf).
+const opening = (md) => textOf(markdown(String(md))).trim().split(' ').slice(0, 4).join(' ');
 const photos = (p) => (p.data.images ?? []).map(im => (typeof im === 'string' ? { image: im } : im)).filter(im => im?.image);
 // Two tags to filter by, taken from the content: the most used, and the most used of the rest.
 const counts = new Map();
@@ -98,9 +101,9 @@ try {
         let photoMisses = [];
         for (const p of published) {
             const res = await fetch(`${base}/projects/${p.data.slug}/`);
-            const firstWords = words(p.content.trim().split('\n')[0] ?? '').split(' ').slice(0, 4).join(' ');
+            const firstWords = opening(p.content);
             const body = await res.text();
-            if (res.status !== 200 || !body.includes(`<h1><a href="#project-info">${html(p.data.title)}</a></h1>`) || !body.includes('id="project-info"') || (firstWords && !textOf(body).includes(html(firstWords)))) pageMisses.push(p.data.slug);
+            if (res.status !== 200 || !body.includes(`<h1><a href="#project-info">${html(p.data.title)}</a></h1>`) || !body.includes('id="project-info"') || (firstWords && !textOf(body).includes(firstWords))) pageMisses.push(p.data.slug);
             const shown = body.match(/<li class="slide[ "]/g)?.length ?? 0;
             const captions = photos(p).filter(im => im.caption && !textOf(body).includes(html(words(im.caption))));
             if (shown !== photos(p).length || captions.length) photoMisses.push(`${p.data.slug} (${shown}/${photos(p).length} photos, ${captions.length} captions missing)`);
@@ -108,8 +111,8 @@ try {
         check('1+3. every project page answers 200 with its title and description in the HTML', pageMisses.length === 0, pageMisses.join(', '));
         check('1+3. every project page has every photo and caption in the HTML', photoMisses.length === 0, photoMisses.join(', '));
         const info = await (await fetch(`${base}/info/`)).text();
-        const infoWords = words(matter(readFileSync(join(root, 'content/site/info.md'), 'utf8'), {}).content).split(' ').slice(0, 3).join(' ');
-        check('1. info HTML has its body', textOf(info).includes(html(infoWords)), infoWords);
+        const infoWords = opening(matter(readFileSync(join(root, 'content/site/info.md'), 'utf8'), {}).content);
+        check('1. info HTML has its body', Boolean(infoWords) && textOf(info).includes(infoWords), infoWords);
         const hidden = fronts.find(f => f.data.published !== true);
         if (hidden) {
             const gone = await fetch(`${base}/projects/${hidden.data.slug}/`);
@@ -285,6 +288,10 @@ try {
             await page.keyboard.press('ArrowLeft');
             const left = await look();
             check('3. a click on the photo goes on, the left arrow key goes back', third.current === 2 && left.current === 1, `${third.current}, ${left.current}`);
+            await page.focus('project-slides .current .next');
+            await page.keyboard.press('ArrowRight');
+            const kept = await page.evaluate(() => document.activeElement?.closest('project-slides .slide.current') !== null && document.activeElement?.classList.contains('arrow'));
+            check('3. an arrow key pressed while a chevron has focus keeps focus on a chevron of the new photo', kept);
             for (let i = 0; i < count + 1; i++) await page.keyboard.press('ArrowRight');
             const end = await look();
             await page.click('project-slides .current .frame');
@@ -349,6 +356,34 @@ try {
             check('6. at 1366px a cell is a quarter of the page, two to a row, and five list rows are one cell tall', m.quarter && m.ratio && m.fifth && m.columns, JSON.stringify(m));
             check('6. every thumbnail is whole, centred, framed and as large as its cell allows', m.thumbs);
             check('6. the two columns scroll on their own, and nothing draws a line', m.scrolls && m.lines === 0, JSON.stringify(m));
+
+            // Narrower, still side by side: a row whose text wraps takes whole row slots, so five slots are still one cell.
+            await page.setViewportSize({ width: 1024, height: 768 });
+            await page.waitForTimeout(50);
+            const narrow = await page.evaluate(() => {
+                const slot = document.querySelector('project-index .cell').getBoundingClientRect().height / 5;
+                const off = [...document.querySelectorAll('project-index .row')].filter((r) => {
+                    const n = r.getBoundingClientRect().height / slot;
+                    return Math.abs(n - Math.round(n)) > 0.01 || Math.round(n) < 1;
+                }).map(r => r.dataset.slug);
+                const quarter = Math.abs(document.querySelector('project-index .cell').getBoundingClientRect().width - document.documentElement.clientWidth / 4) < 0.5;
+                return { off, quarter };
+            });
+            check('6. at 1024px a cell is still a quarter of the page and every row is a whole number of fifths of a cell', narrow.quarter && narrow.off.length === 0, narrow.off.join(', '));
+
+            // A column scrolled to its end, then filtered down to something that no longer scrolls: no thumb left behind.
+            await page.setViewportSize({ width: 1366, height: 710 });
+            const rare = [...counts].filter(([, n]) => n <= 2).map(([t]) => t)[0];
+            if (rare && await page.evaluate(() => CSS.supports('animation-timeline: scroll()'))) {
+                const thumbs = () => page.evaluate(() => [...document.querySelectorAll('project-index .thumb')].map(t => getComputedStyle(t).visibility));
+                await page.evaluate(() => { for (const el of document.querySelectorAll('project-index .scroll, project-index .rows')) el.scrollTop = el.scrollHeight; });
+                await page.waitForTimeout(100);
+                const atEnd = await thumbs();
+                await page.evaluate((t) => document.querySelector(`project-index .tag[data-tag="${CSS.escape(t)}"]`).click(), rare);
+                await page.waitForTimeout(150);
+                const after = await thumbs();
+                check('6. the scroll thumbs show while a column scrolls and go when a filter leaves nothing to scroll', atEnd.every(v => v === 'visible') && after.every(v => v === 'hidden'), `${atEnd.join(',')} → ${after.join(',')}`);
+            }
         }
 
         // 4. 390px

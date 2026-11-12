@@ -1,5 +1,3 @@
-/* A project page: the 79px header, the photos (components/project-slides.css), then the
-   project's information, which the title in the header scrolls to. */
 .project-head {
   display: grid;
   grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(0, 1fr);
@@ -22,7 +20,6 @@
   text-decoration: none;
 }
 
-/* The page is the container: cqw here and in project-slides is a share of its width. */
 .project {
   display: block;
   container-type: inline-size;
@@ -32,7 +29,6 @@
   padding-bottom: 96px;
 }
 
-/* The first row is an Index row: the date 1.676% of the page in, the title 9.868%. */
 .project-info .row {
   display: grid;
   grid-template-columns: max(8.192cqw, 104px) minmax(0, 1fr);

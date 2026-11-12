@@ -211,7 +211,8 @@ function picture(value, slug, alt, images, warn, placeholder) {
     };
 }
 
-function relPath(value, slug) {
+/** An image value as written in content → its path under images/ (the four spellings above). */
+export function relPath(value, slug) {
     let v = value.trim().replace(/\\/g, '/');
     try { v = decodeURIComponent(v); } catch { /* not encoded */ }
     if (v.startsWith('/images/')) return v.slice('/images/'.length);

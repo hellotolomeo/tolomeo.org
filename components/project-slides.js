@@ -27,7 +27,7 @@ class ProjectSlides extends BaseComponent {
 
     click(e) {
         const action = e.target.closest('[data-action]')?.dataset.action;
-        if (action) this.go(action === 'prev' ? -1 : 1, true);
+        if (action) this.go(action === 'prev' ? -1 : 1);
         else if (e.target.closest('.frame')) this.go(1);
     }
 
@@ -40,13 +40,15 @@ class ProjectSlides extends BaseComponent {
         this.go(e.key === 'ArrowLeft' ? -1 : 1);
     }
 
-    go(step, fromArrow = false) {
+    go(step) {
         const index = Math.min(this.state.images.length - 1, Math.max(0, this.state.index + step));
         if (index === this.state.index) return;
+        // A focused chevron leaves with its photo, however the photo was changed (the chevron
+        // itself, or an arrow key while it had focus): focus goes to the same chevron of the
+        // new photo, or to the other one at either end.
+        const focused = this.contains(document.activeElement);
         this.setState({ index });
-        // The pressed chevron left with its photo: focus stays on the same chevron of the new
-        // photo, or on the other one at either end.
-        if (fromArrow) (this.querySelector(`.current .${step < 0 ? 'prev' : 'next'}`) ?? this.querySelector('.current .arrow'))?.focus();
+        if (focused) (this.querySelector(`.current .${step < 0 ? 'prev' : 'next'}`) ?? this.querySelector('.current .arrow'))?.focus();
     }
 }
 

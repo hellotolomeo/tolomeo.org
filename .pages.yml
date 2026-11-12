@@ -168,7 +168,7 @@ content:
         options:
           path: images/projects
           extensions: [jpg, jpeg, png, webp, avif, gif, svg, heic, heif, tif, tiff, JPG, JPEG, PNG, WEBP, HEIC, HEIF, TIF, TIFF]
-        description: "The photo in the grid on the home page, shown whole in a paper frame. Press Select, open projects, then your project's folder (the first time: Create folder, named like the slug) and upload or drag photos in there. Don't use the Upload button next to Select: it puts photos in images/projects, outside the project's folder. Empty = an empty box."
+        description: "The photo in the grid on the home page, shown whole in a paper frame. Press Select, open projects, then your project's folder (the first time: Create folder, named like the slug) and upload or drag photos in there. Don't use the Upload button next to Select: it puts photos in images/projects, outside the project's folder. Empty = a blank space in the grid."
 
       - name: images
         label: Project photos

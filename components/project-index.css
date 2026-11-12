@@ -1,8 +1,6 @@
-/* The home page under its 88px header. Every measure that the design gives as a share of the
-   1366px page is in cqw, on this element as the container, so the grid's relationships hold
-   at any width: a cell is a quarter of the page wide, and five list rows are one cell tall. */
 project-index {
   --row: 2.8886cqw;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12.4 14.3'%3E%3Cpath d='M0.393 0.639 L10.969 7.15 L0.393 13.661' fill='none' stroke='%23000' stroke-width='1.5'/%3E%3C/svg%3E");
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
@@ -21,9 +19,6 @@ project-index .grid {
   align-content: start;
 }
 
-/* A cell: 341.2 × 197.12 at 1366. Its thumbnail is whole, centred, and as large as fits in
-   91% of the cell's width and 86.5% of its height, frame included: 86.5% of the height is
-   49.9733% of the width. */
 project-index .cell {
   display: grid;
   place-items: center;
@@ -48,6 +43,7 @@ project-index .box img {
   display: block;
   width: 100%;
   height: 100%;
+  object-fit: contain;
 }
 
 project-index .rows {
@@ -56,14 +52,12 @@ project-index .rows {
   padding: 0;
 }
 
-/* A row: the date 1.676% of the page from the column's edge, the title 9.868%. The floors
-   keep the date clear of the title where the page is too narrow for those shares. */
 project-index .row {
   display: grid;
   grid-template-columns: max(8.192cqw, 104px) minmax(0, 1fr);
   align-content: center;
   align-items: baseline;
-  min-height: max(var(--row), 26px);
+  min-height: 26px;
   box-sizing: border-box;
   padding: 5px 16px 5px max(1.676cqw, 12px);
 }
@@ -88,10 +82,6 @@ project-index .title {
   text-decoration: none;
 }
 
-/* The pointed-at row (from the row or from its thumbnail): the title turns purple and a
-   chevron, 12.4 × 14.3 with a 1.5px stroke, sits 14px to its left. It is drawn at that size
-   in the middle of a whole-pixel box the height of the line: stretched to a 12.4 × 14.3 box
-   it would be snapped to 13 × 14 or 15. */
 project-index .row:is(.on, :hover) .title {
   color: var(--link);
 }
@@ -106,10 +96,6 @@ project-index .row:is(.on, :hover) .what::before {
   background: var(--link);
   -webkit-mask: var(--chevron) no-repeat center / 12.4px 14.3px;
   mask: var(--chevron) no-repeat center / 12.4px 14.3px;
-}
-
-project-index {
-  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12.4 14.3'%3E%3Cpath d='M0.393 0.639 L10.969 7.15 L0.393 13.661' fill='none' stroke='%23000' stroke-width='1.5'/%3E%3C/svg%3E");
 }
 
 project-index .tags {
@@ -155,9 +141,6 @@ project-index .track {
   }
 }
 
-/* Side by side: each column scrolls on its own under the header, with no native scrollbar
-   and no track. The thumbs are a scroll-driven animation (no script): the grid's at the
-   right edge of its column, the list's at the right edge of the page. */
 @media (min-width: 720px) {
   project-index {
     height: calc(100vh - 88px);
@@ -182,6 +165,17 @@ project-index .track {
     scroll-timeline: --column y;
     scrollbar-width: thin;
     scrollbar-color: var(--thumb) transparent;
+  }
+
+  project-index .grid {
+    grid-template-columns: repeat(2, 25cqw);
+    overflow-x: clip;
+  }
+
+  project-index .row {
+    min-height: var(--row);
+    padding-top: 0;
+    padding-bottom: 0;
   }
 
   project-index .track {
@@ -226,20 +220,36 @@ project-index .track {
     }
 
     project-index .thumb {
-      animation: project-index-thumb linear both;
-      animation-timeline: --column;
+      animation: project-index-thumb linear both, project-index-thumb-show linear both;
+      animation-timeline: --column, --column;
+      animation-range: normal, 0% 200%;
     }
+  }
+}
+
+@media (min-width: 720px) and (max-width: 1107.98px) {
+  project-index .row {
+    line-height: var(--row);
+  }
+
+  project-index .row:is(.on, :hover) .what::before {
+    top: calc((var(--row) - 16px) / 2);
   }
 }
 
 @keyframes project-index-thumb {
   from {
     top: 0;
-    visibility: visible;
   }
 
   to {
     top: calc(100% - var(--thumb-height));
+  }
+}
+
+@keyframes project-index-thumb-show {
+  from,
+  to {
     visibility: visible;
   }
 }

@@ -29,6 +29,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import matter from 'gray-matter';
+import { relPath } from '../server/content.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PROJECTS = path.join(ROOT, 'content/projects');
@@ -346,12 +347,13 @@ for (const p of projects) {
 }
 
 // Images nothing references any more: every file under images/projects/ that is neither a
-// cover nor a project photo of any content file as it now stands.
+// cover nor a project photo of any content file as it now stands, each reference resolved
+// the way the data layer resolves it.
 const used = new Set();
 for (const p of projects) {
   const data = matter(p.next, {}).data;
   for (const value of [data.cover, ...(data.images || []).map((im) => (typeof im === 'string' ? im : im?.image))]) {
-    if (value) used.add(path.join(ROOT, decodeURIComponent(String(value)).replace(/^\/+/, '')));
+    if (value) used.add(path.join(ROOT, 'images', relPath(String(value), p.slug)));
   }
 }
 const orphans = [];
