@@ -28,6 +28,8 @@
 
 html {
   background: var(--ground);
+  scrollbar-color: var(--thumb) transparent;
+  scrollbar-width: thin;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -68,9 +70,13 @@ em {
   font-style: normal;
 }
 
-em span {
+em span:not(.nb) {
   display: inline-block;
   transform: skewX(-6deg);
+}
+
+.nb {
+  white-space: nowrap;
 }
 
 :focus-visible {

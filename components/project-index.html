@@ -11,8 +11,16 @@
   href="{{ p.href }}"
   aria-label="{{ p.title }}"
   data-slug="{{ p.slug }}"
->{% if p.cover %}<picture class="box">{% if p.cover.webp %}<source type="image/webp" srcset="{{ p.cover.webp }}">{% endif %}<img
+>{% if p.cover %}<picture class="box">{% if p.cover.webp %}<source
+  type="image/webp"
+  srcset="{{ p.cover.webp }}"
+  sizes="{{ p.cover.sizes }}"
+>{% endif %}<img
   src="{{ p.cover.src }}"
+{% if p.cover.srcset %}
+  srcset="{{ p.cover.srcset }}"
+  sizes="{{ p.cover.sizes }}"
+{% endif %}
   width="{{ p.cover.width }}"
   height="{{ p.cover.height }}"
   alt=""

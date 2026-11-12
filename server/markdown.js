@@ -6,7 +6,9 @@
  * Bare e-mail addresses become mailto: links (GFM). **Bold** is the Bold
  * weight. *Italic* is the design's slant: the font has no italic, so each
  * word is its own <span> that the stylesheet skews (word by word, so slanted
- * text still wraps).
+ * text still wraps). A line may break on either side of such a word, so what
+ * touches the slanted text with no space (the comma after a *Title*, a bracket
+ * before it) is tied to its word in a no-wrap <span class="nb">, unskewed.
  * One scoped instance; the global `marked` is never configured.
  */
 import { Marked } from 'marked';
@@ -51,10 +53,37 @@ const md = new Marked({
     },
 });
 
-// Inline HTML with every word in its own <span>; tags and the spaces between words stay as they are.
+// Inline HTML with every word in its own <span>; tags and the spaces between words stay as they
+// are. Emphasis inside emphasis is one slanted run: its own <em> and word spans are dropped first.
 function words(html) {
-    return html.replace(/(<[^>]*>)|([^<\s]+)/g, (m, tag, word) => tag ?? `<span>${word}</span>`);
+    return html.replace(/<\/?(?:em|span)>/g, '').replace(/(<[^>]*>)|([^<\s]+)/g, (m, tag, word) => tag ?? `<span>${word}</span>`);
 }
+
+// Inline HTML with what touches each <em> tied to its first / last word: `<em><span>A</span>
+// <span>B</span></em>,` becomes `<em><span>A</span> <span class="nb"><span>B</span>,</span></em>`.
+// Left as it is where the slanted text does not start or end with a plain word (a link, bold).
+function tie(html) {
+    return html.replace(/([^\s<>]*)<em>((?:(?!<\/?em>).)*)<\/em>([^\s<>]*)/gs, (all, before, inner, after) => {
+        if (!before && !after) return all;
+        const one = inner.match(/^<span>([^<]*)<\/span>$/);
+        if (one) return `<em><span class="nb">${before}<span>${one[1]}</span>${after}</span></em>`;
+        let out = inner;
+        let pre = before;
+        let post = after;
+        if (before && /^<span>[^<]*<\/span>/.test(out)) {
+            out = out.replace(/^<span>([^<]*)<\/span>/, `<span class="nb">${esc$(before)}<span>$1</span></span>`);
+            pre = '';
+        }
+        if (after && /<span>[^<]*<\/span>$/.test(out)) {
+            out = out.replace(/<span>([^<]*)<\/span>$/, `<span class="nb"><span>$1</span>${esc$(after)}</span>`);
+            post = '';
+        }
+        return `${pre}<em>${out}</em>${post}`;
+    });
+}
+
+// A literal for the replacement side of String.replace: `$` has a meaning there.
+const esc$ = (s) => s.replace(/\$/g, '$$$$');
 
 function wrap(inline) {
     return inline.trim() ? `<p>${inline.trim()}</p>\n` : '';
@@ -67,12 +96,12 @@ function paragraphs(html) {
 
 /** Block Markdown (a description, the Info page) → paragraphs and links. */
 export function markdown(src) {
-    return src && typeof src === 'string' ? md.parse(src).trim() : '';
+    return src && typeof src === 'string' ? tie(md.parse(src)).trim() : '';
 }
 
 /** One line of Markdown (the intro line, a caption) → inline HTML, no <p>. */
 export function markdownInline(src) {
-    return src && typeof src === 'string' ? md.parseInline(src).trim() : '';
+    return src && typeof src === 'string' ? tie(md.parseInline(src)).trim() : '';
 }
 
 const ENTITIES = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" };

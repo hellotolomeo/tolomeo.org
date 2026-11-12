@@ -106,7 +106,7 @@ project-slides .caption {
   justify-self: center;
   align-self: start;
   box-sizing: border-box;
-  max-width: min(480px, 100%);
+  max-width: min(512px, 100%);
   margin: 16px 0 7.4px;
   padding: 0 16px;
   color: var(--caption);

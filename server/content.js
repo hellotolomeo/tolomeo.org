@@ -153,7 +153,7 @@ function shape(p, { images, warn }) {
 
 const link = (p) => ({ title: p.title, href: p.href });
 
-// The fields the index component reads; the cover at grid size only.
+// The fields the index component reads; the cover at grid sizes.
 function lean(p) {
     const c = p.cover;
     return {
@@ -163,8 +163,16 @@ function lean(p) {
         tags: p.tags,
         child: p.child,
         href: p.href,
-        cover: c ? { src: c.small, webp: c.smallWebp, width: c.width, height: c.height } : null,
+        cover: c ? { src: c.small, srcset: c.srcset, webp: c.webp || c.smallWebp, sizes: coverSizes(c), width: c.width, height: c.height } : null,
     };
+}
+
+// A thumbnail is as large as fits 91% of its cell's width and 86.5% of its height, less the 6px
+// frame (components/project-index.css); a cell is a quarter of the page wide, half below 720px.
+function coverSizes(c) {
+    const a = aspect(c) ?? 1.5;
+    const fit = (cell) => `min(calc(${Math.round(cell * 91) / 100}vw - 12px), calc((${Math.round(cell * 49.9733) / 100}vw - 12px) * ${a}))`;
+    return `(max-width: 719px) ${fit(50)}, ${fit(25)}`;
 }
 
 // One photo of a project page, as the project-slides component prints it; `caption` is HTML.

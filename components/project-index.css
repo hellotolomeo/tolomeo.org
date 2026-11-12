@@ -89,7 +89,9 @@ project-index .title {
 }
 
 /* The pointed-at row (from the row or from its thumbnail): the title turns purple and a
-   chevron, 12.4 × 14.3 with a 1.5px stroke, sits 14px to its left. */
+   chevron, 12.4 × 14.3 with a 1.5px stroke, sits 14px to its left. It is drawn at that size
+   in the middle of a whole-pixel box the height of the line: stretched to a 12.4 × 14.3 box
+   it would be snapped to 13 × 14 or 15. */
 project-index .row:is(.on, :hover) .title {
   color: var(--link);
 }
@@ -97,13 +99,13 @@ project-index .row:is(.on, :hover) .title {
 project-index .row:is(.on, :hover) .what::before {
   content: "";
   position: absolute;
-  left: -26.4px;
-  top: 0.85px;
-  width: 12.4px;
-  height: 14.3px;
+  left: -27.2px;
+  top: 0;
+  width: 14px;
+  height: 16px;
   background: var(--link);
-  -webkit-mask: var(--chevron) no-repeat center / 100% 100%;
-  mask: var(--chevron) no-repeat center / 100% 100%;
+  -webkit-mask: var(--chevron) no-repeat center / 12.4px 14.3px;
+  mask: var(--chevron) no-repeat center / 12.4px 14.3px;
 }
 
 project-index {
