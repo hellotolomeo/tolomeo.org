@@ -41,9 +41,18 @@ export function loadContent({ root, images, config, log = () => {} }) {
 
     const projects = order(raw.filter(p => p.published), warn)
         .map(p => shape(p, { images, warn }));
+    // The projects either side of each one, in the order the Index lists them (sub-items in
+    // their place): what the two arrows of a project page's information lead to. The first
+    // has no previous and the last no next; the fields are then ''.
     projects.forEach((p, i) => {
-        p.prev = i > 0 ? link(projects[i - 1]) : null;
-        p.next = i < projects.length - 1 ? link(projects[i + 1]) : null;
+        const before = projects[i - 1];
+        const after = projects[i + 1];
+        p.prevSlug = before?.slug ?? '';
+        p.prevTitle = before?.title ?? '';
+        p.prevHref = before?.href ?? '';
+        p.nextSlug = after?.slug ?? '';
+        p.nextTitle = after?.title ?? '';
+        p.nextHref = after?.href ?? '';
     });
 
     const tags = [...new Set(projects.flatMap(p => p.tags))].sort((a, b) => a.localeCompare(b));
@@ -168,8 +177,6 @@ function shape(p, { images, warn }) {
         photoLinks: p.photoLinks,
     };
 }
-
-const link = (p) => ({ title: p.title, href: p.href });
 
 // The fields the index component reads; the cover at grid sizes.
 function lean(p) {

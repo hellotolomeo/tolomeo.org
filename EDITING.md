@@ -47,12 +47,28 @@ Press **Save** when you're done.
    - **Order**: where it sits in the list (see below).
    - **Years**: shown exactly as you type it: `2026`, `2023–2026`, `2025, 2026`, `2023 –`.
    - **Start year / End year**: only used for sorting. Leave End year empty if it's ongoing.
-   - **Tags**: the categories people can filter by. Pick from the list.
+   - **Tags**: the categories people can filter by. Pick from the list. On the project's
+     own page they are shown as `type:`.
    - **Role**: what you did, one per line (**Add an item** for another). Shown as `role:`.
    - **Client**: shown as `for:`.
    - **Description**: paragraphs, links, bold and italic. Leave it empty if there is
-     nothing to say; the page then shows only the photos, the title and the labels.
+     nothing to say; the right-hand side of the project's text then stays empty.
 3. Press **Save**.
+
+**What the project's page shows.** The title is at the top of the page, and only there
+(clicking it jumps down to the text). After the photos comes the project's text, in two
+columns that meet in the middle of the page:
+
+- on the left: `type:` (the tags), `role:`, `for:` (the client) and, one line lower, the
+  years;
+- on the right: the description.
+
+A field you leave empty is left out, with its label. Beside the text are two arrows: the
+left one opens the project before this one, the right one the project after it, in the
+order of the list on the home page (the **Order** numbers, sub-projects in their place;
+drafts are skipped). The first project has no left arrow and the last one no right arrow.
+On a phone it is one column: type, role, for and years, then the description, then the two
+arrows.
 
 **Drafts.** Turn **Published** off to keep a project hidden while you work on it. It is
 then not on the home page and has no page of its own. Turn it on when it's ready.

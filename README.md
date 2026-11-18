@@ -32,8 +32,9 @@ hash in `dist/images/`, so a rebuild only resizes new photos), and the files the
 npm run verify
 ```
 After a build: Playwright checks for the acceptance points (HTML before JavaScript, tag filtering,
-project URLs and their photo sets (one slideshow each, the header that stays, the snapping), 390px
-width, the CMS fields, the Index's proportions at 1366px and its one-column layout below 720px, zero
+project URLs and their photo sets (one slideshow each, the header that stays, the snapping), the
+project information (two columns at the design's measures, the arrows to the neighbouring projects),
+390px width, the CMS fields, the Index's proportions at 1366px and its one-column layout below 720px, zero
 DOM mutations on first render, no console errors).
 Needs Chromium for Playwright (`npx playwright install chromium`, or set `CHROMIUM_PATH`).
 
@@ -79,7 +80,8 @@ JSON; a tag click is one `setState()` that removes only the rows and cells that 
 project page there is one `<project-slides>` per set of photos (`images[].set`), one under the
 other, each carrying its photos; every one is in the HTML, and the chevrons, a click on the photo
 or the arrow keys change which one shows in the set on screen. The header stays at the top of the
-window, and with a mouse or trackpad the page snaps from set to set, then to the information.
+window, and with a mouse or trackpad the page snaps from set to set, then to the information: plain
+HTML in two columns, with a link to the project before and the project after in the Index's order.
 
 ## Deploying
 
