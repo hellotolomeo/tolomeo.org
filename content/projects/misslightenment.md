@@ -1,7 +1,7 @@
 ---
 title: Misslightenment
 slug: misslightenment
-order: 11
+order: 12
 years: '2024'
 year_start: 2024
 year_end: 2024
@@ -20,3 +20,5 @@ images:
   alt: Misslightenment performance poster
 photo_links: []
 ---
+
+Book design, typeface creation, and book production for a risoprinted and stamp-cut-out performance booklet to accompany the multi-year, international visual dance performance "Misslightenment" by Greek artist Eleni Ploumi.

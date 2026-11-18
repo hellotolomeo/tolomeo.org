@@ -1,7 +1,7 @@
 ---
 title: International Women’s Day
 slug: international-womens-day
-order: 15
+order: 16
 years: '2023'
 year_start: 2023
 year_end: 2023
@@ -21,3 +21,5 @@ images:
   alt: "Banner: Zonder vrouwenemancipatie geen socialisme, zonder socialisme geen vrouwenemancipatie!"
 photo_links: []
 ---
+
+Graphic illustration for banner and poster for International Women’s Day commissioned by the Dutch Communist Party.

@@ -1,7 +1,7 @@
 ---
 title: Chapter Symbols
 slug: chapter-symbols
-order: 1.1
+order: 2.1
 years: '2026'
 year_start: 2026
 year_end: 2026
@@ -14,44 +14,54 @@ parent: does-marxism-support-decolonization
 published: true
 cover: /images/projects/chapter-symbols/chapter-symbols-cover.jpg
 images:
-- image: /images/projects/chapter-symbols/chapter-symbols-01.jpg
-  alt: Spread from Does Marxism Support Decolonization? with the chapter symbol for Part 2, On Self-Determination
-- image: /images/projects/chapter-symbols/chapter-symbols-02.jpg
-  alt: Chapter symbol for Part 2, On Self-Determination
-- image: /images/projects/chapter-symbols/chapter-symbols-03.jpg
-  alt: Book spread with the Part 2 chapter symbol, pages 6–7
-- image: /images/projects/chapter-symbols/chapter-symbols-04.jpg
-  alt: Chapter symbol for Part 4, On Annexation
-- image: /images/projects/chapter-symbols/chapter-symbols-05.jpg
-  alt: Book spread with the Part 4 chapter symbol, pages 18–19
-- image: /images/projects/chapter-symbols/chapter-symbols-06.jpg
-  alt: Chapter symbol for Part 5, On Autonomy
-- image: /images/projects/chapter-symbols/chapter-symbols-07.jpg
-  alt: Book spread with the Part 5 chapter symbol, pages 26–27
-- image: /images/projects/chapter-symbols/chapter-symbols-08.jpg
-  alt: Chapter symbol for Part 7, On Population
-- image: /images/projects/chapter-symbols/chapter-symbols-09.jpg
-  alt: Book spread with the Part 7 chapter symbol, pages 32–33
-- image: /images/projects/chapter-symbols/chapter-symbols-10.jpg
-  alt: Chapter symbol for Part 8, On Chauvinism
-- image: /images/projects/chapter-symbols/chapter-symbols-11.jpg
-  alt: Book spread with the Part 8 chapter symbol, pages 36–37
-- image: /images/projects/chapter-symbols/chapter-symbols-12.jpg
-  alt: Chapter symbol for Part 9, On National Antipathies
-- image: /images/projects/chapter-symbols/chapter-symbols-13.jpg
-  alt: Book spread with the Part 9 chapter symbol, pages 44–45
-- image: /images/projects/chapter-symbols/chapter-symbols-14.jpg
-  alt: Chapter symbol for Part 10, On Colonialism
-- image: /images/projects/chapter-symbols/chapter-symbols-15.jpg
-  alt: Book spread with the Part 10 chapter symbol, pages 46–47
-- image: /images/projects/chapter-symbols/chapter-symbols-16.jpg
-  alt: Chapter symbol for Part 13, Isn’t This ‘Revisionism’?
-- image: /images/projects/chapter-symbols/chapter-symbols-17.jpg
-  alt: Book spread with the Part 13 chapter symbol, pages 68–69
-- image: /images/projects/chapter-symbols/chapter-symbols-18.jpg
-  alt: Chapter symbol for Part 14, A Message to Europeans
-- image: /images/projects/chapter-symbols/chapter-symbols-19.jpg
-  alt: Book spread with the Part 14 chapter symbol, pages 72–73
+- image: /images/projects/chapter-symbols/1-1-dmsdbook-illustration-all.jpg
+  caption: Illustrated set of diagrams to symbolize the content of each chapter (and cover) of *Does Marxism Support Decolonization?*.
+  set: 1
+- image: /images/projects/chapter-symbols/1-2-does-marxism-scanned-interior.jpg
+  caption: “On Contradictions” diagram from the first chapter of *Does Marxism Support Decolonization?*.
+  set: 1
+- image: /images/projects/chapter-symbols/1-3-does-marxism-scanned-interior.jpg
+  caption: “On Self-Determination” diagram from the second chapter of *Does Marxism Support Decolonization?*.
+  set: 1
+- image: /images/projects/chapter-symbols/1-4-does-marxism-scanned-interior.jpg
+  caption: “On Smashing the Bourgeois State” diagram from the third chapter of *Does Marxism Support Decolonization?*.
+  set: 1
+- image: /images/projects/chapter-symbols/1-5-does-marxism-scanned-interior.jpg
+  caption: “On Annexation” diagram from the fourth chapter of *Does Marxism Support Decolonization?*.
+  set: 1
+- image: /images/projects/chapter-symbols/1-6-does-marxism-scanned-interior.jpg
+  caption: “On Autonomy” diagram from the fifth chapter of *Does Marxism Support Decolonization?*.
+  set: 1
+- image: /images/projects/chapter-symbols/1-7-does-marxism-scanned-interior.jpg
+  caption: “On Centralism” diagram from the sixth chapter of *Does Marxism Support Decolonization?*.
+  set: 1
+- image: /images/projects/chapter-symbols/1-8-does-marxism-scanned-interior.jpg
+  caption: “On Population” diagram from the seventh chapter of *Does Marxism Support Decolonization?*.
+  set: 1
+- image: /images/projects/chapter-symbols/1-9-does-marxism-scanned-interior.jpg
+  caption: “On Chauvinism” diagram from the eighth chapter of *Does Marxism Support Decolonization?*.
+  set: 1
+- image: /images/projects/chapter-symbols/1-10-does-marxism-scanned-interior.jpg
+  caption: “On National Antipathies” diagram from the ninth chapter of *Does Marxism Support Decolonization?*.
+  set: 1
+- image: /images/projects/chapter-symbols/1-11-does-marxism-scanned-interior.jpg
+  caption: “On Colonialism” diagram from the tenth chapter of *Does Marxism Support Decolonization?*.
+  set: 1
+- image: /images/projects/chapter-symbols/1-12-does-marxism-scanned-interior.jpg
+  caption: “Would Lenin or Stalin” diagram from the eleventh chapter of *Does Marxism Support Decolonization?*.
+  set: 1
+- image: /images/projects/chapter-symbols/1-13-does-marxism-scanned-interior.jpg
+  caption: “Some Decolonial Critiques” diagram from the twelfth chapter of *Does Marxism Support Decolonization?*.
+  set: 1
+- image: /images/projects/chapter-symbols/1-14-does-marxism-scanned-interior.jpg
+  caption: “Isn’t This Revisionism?” diagram from the thirteenth chapter of *Does Marxism Support Decolonization?*.
+  set: 1
+- image: /images/projects/chapter-symbols/1-15-does-marxism-scanned-interior.jpg
+  caption: “A Message” diagram from the fourteenth and last chapter of *Does Marxism Support Decolonization?*.
+  set: 1
+- image: /images/projects/chapter-symbols/2-1-does-marxism-scanned-cover-symbols.jpg
+  caption: Cover design with custom symbol of a rotating machete overlaying a hammer and sickle.
+  set: 2
 photo_links: []
 ---
 

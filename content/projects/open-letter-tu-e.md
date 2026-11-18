@@ -1,7 +1,7 @@
 ---
 title: Open Letter TU/e
 slug: open-letter-tu-e
-order: 12
+order: 13
 years: '2024'
 year_start: 2024
 year_end: 2024
@@ -19,3 +19,5 @@ images:
   alt: Sign the Open Letter graphic
 photo_links: []
 ---
+
+Call-to-action asking the public sign an open letter calling on Technical University of Eindhoven to end complicity in the Gaza genocide by severing ties with Israeli organizations.

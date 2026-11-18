@@ -1,14 +1,14 @@
 ---
 title: Defining the Battle Lines
 slug: defining-the-battle-lines
-order: 6.1
+order: 7.1
 years: '2023'
 year_start: 2023
 year_end: 2023
 tags:
 - exhibition
 role:
-- curator
+- co-curator
 client: Landline, Onomatopee
 parent: not-my-sister
 published: true
@@ -28,3 +28,5 @@ images:
   alt: "Green risoprint on a table: On Triple Oppression & the Bronx Slave Market"
 photo_links: []
 ---
+
+Defining the Battle Lines: On Proletarian Feminism and Triple Oppression presents a crucial and timely analysis on gender liberation spanning the globe. A joint project between Onomatopee and Revolting Press, this installation accompanies the book launch of Not My Sister: Proletarian Women Define the Battle Lines. Both the installation and publication revolve around three pieces of writing from communist women — from early revolutionary Soviet Union to Depression-era New York to the guerrilla enclaves of India. Although they come from extremely different geopolitical and historical contexts, all three works share a conviction: that the fight to end gender-based oppression is inseparable from the fight to end class society.

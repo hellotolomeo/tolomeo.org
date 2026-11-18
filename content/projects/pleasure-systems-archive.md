@@ -1,7 +1,7 @@
 ---
 title: Pleasure Systems Archive
 slug: pleasure-systems-archive
-order: 23
+order: 24
 years: '2018'
 year_start: 2018
 year_end: 2018
@@ -11,7 +11,7 @@ role:
 - editorial designer
 client: ""
 parent: null
-published: true
+published: false
 cover: /images/projects/pleasure-systems-archive/pleasure-systems-archive-cover.jpg
 images:
 - image: /images/projects/pleasure-systems-archive/pleasure-systems-01.jpg

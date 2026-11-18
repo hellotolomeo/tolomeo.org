@@ -1,7 +1,7 @@
 ---
 title: Wallpaper for Asteroid
 slug: wallpaper-for-asteroid
-order: 19
+order: 20
 years: '2021'
 year_start: 2021
 year_end: 2021
@@ -20,3 +20,5 @@ images:
   alt: Drawing of a comet with a rainbow tail among small floating objects on peach paper
 photo_links: []
 ---
+
+Illustration for wallpaper in a baby’s bedroom.

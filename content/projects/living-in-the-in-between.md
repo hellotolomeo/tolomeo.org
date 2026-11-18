@@ -1,7 +1,7 @@
 ---
 title: Living in the In-Between
 slug: living-in-the-in-between
-order: 9
+order: 10
 years: '2026'
 year_start: 2026
 year_end: 2026
@@ -18,3 +18,5 @@ images:
   alt: Illustration of a person in clown makeup putting on lipstick, with a quote by Eden
 photo_links: []
 ---
+
+Thesis booklet resulting from in-depth book design coaching sessions with iArts Bachelors student Alex Correia in his first book design project.

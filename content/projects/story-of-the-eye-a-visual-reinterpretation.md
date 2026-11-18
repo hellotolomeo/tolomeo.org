@@ -1,7 +1,7 @@
 ---
 title: Story of the Eye (A Visual Reinterpretation)
 slug: story-of-the-eye-a-visual-reinterpretation
-order: 22
+order: 23
 years: '2018'
 year_start: 2018
 year_end: 2018
@@ -23,3 +23,5 @@ images:
   alt: Close-up of a page with a circular image and its source caption
 photo_links: []
 ---
+
+Book design juxtaposing scraped visuals from the internet to accompany every page of Georges Bataille’s 1928 classic Story of the Eye. A perspective on how the content of this story may have been communicated visually if told today.

@@ -1,7 +1,7 @@
 ---
 title: For Sila, Ahmed, Sally, and Farouk
 slug: for-sila-ahmed-sally-and-farouk
-order: 13
+order: 14
 years: '2024'
 year_start: 2024
 year_end: 2024
@@ -24,3 +24,5 @@ images:
   alt: "1 box of milk is $50 in Gaza: help Baby Sila escape starvation"
 photo_links: []
 ---
+
+Graphic illustrations for fundraising campaign to fund the evacuations of 4 siblings from Gaza. 3 young children (1, 3, and 5-years old) were successfully evacuated January 2025. Efforts to evacuate the oldest brother Farouk continue. If you want to support you can do so through [GoFundMe](https://www.gofundme.com/f/help-farouk-and-his-family) or [Chuffed](https://chuffed.org/project/keep-farouk-alive).

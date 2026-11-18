@@ -1,7 +1,7 @@
 ---
 title: Partner toys (18+)
 slug: partner-toys-18
-order: 24
+order: 25
 years: '2016'
 year_start: 2016
 year_end: 2016
@@ -40,3 +40,7 @@ images:
   alt: A hand placing a pink curved toy in the tray beside the green anatomical model
 photo_links: []
 ---
+
+Most sex toys break or disintegrate in a matter of years. These instruments are designed to last a lifetime. Properly sanded, polished, and taken care of, wooden objects can remain in excellent condition for centuries.
+
+During the research and development process, I studied tools that require similar arm movements to the toys I was creating. I looked at palm grip devices, screwdrivers, saws, whisks, garden hoes. After drawing to-scale sketch replicas of said devices, I compared the drawings against different hand sizes in order to achieve a “one size fits all” handle. Then took body measurements, in differing states of arousal, to inform the size and shape for the insertion points. The data I collected after testing the prototypes was then integrated into my final sets of technical drawings that were then used as the basis for cutting and shaping blocks of maple. In-house, I completed all finishing work: fine sanding, staining with 0 VOC milk paint, varnishing using low toxicity whey-based polyurethane, and cloth polishing. I went through several phases of testing and revising the wooden toys before arriving at the final set.

@@ -1,7 +1,7 @@
 ---
 title: Points of Transition
 slug: points-of-transition
-order: 7
+order: 8
 years: '2021'
 year_start: 2021
 year_end: 2021

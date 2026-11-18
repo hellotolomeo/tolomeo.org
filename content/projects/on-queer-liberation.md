@@ -1,12 +1,12 @@
 ---
 title: On Queer Liberation
 slug: on-queer-liberation
-order: 18
+order: 19
 years: '2023'
 year_start: 2023
 year_end: 2023
 tags:
-- public program
+- lecture
 role:
 - lecturer
 client: Queerhoven
@@ -18,3 +18,5 @@ images:
   alt: Where Does Pride Come From? poster
 photo_links: []
 ---
+
+Lecture during Gay Pride month in Eindhoven as part of Queerhoven’s Pride program at Dynamo.

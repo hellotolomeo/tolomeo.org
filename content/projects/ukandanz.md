@@ -1,7 +1,7 @@
 ---
 title: Ukandanz
 slug: ukandanz
-order: 10
+order: 11
 years: '2026'
 year_start: 2026
 year_end: 2026
@@ -10,7 +10,7 @@ tags:
 - commission
 role:
 - illustrator
-client: Threshold
+client: ""
 parent: null
 published: true
 cover: /images/projects/ukandanz/ukandanz-cover.jpg
@@ -19,3 +19,5 @@ images:
   alt: Ukandanz gig poster
 photo_links: []
 ---
+
+Hand-lettered poster illustration for an Ethiopian-French band Ukandanz show at Dutch art venue KeVN on Saturday February 14th 2026.

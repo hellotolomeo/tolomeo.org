@@ -1,13 +1,12 @@
 ---
 title: Not My Sister
 slug: not-my-sister
-order: 6
+order: 7
 years: '2023'
 year_start: 2023
 year_end: 2023
 tags:
 - book
-- publication
 role:
 - publisher
 - editor

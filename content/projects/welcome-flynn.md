@@ -1,7 +1,7 @@
 ---
 title: Welcome Flynn
 slug: welcome-flynn
-order: 20
+order: 21
 years: '2023'
 year_start: 2023
 year_end: 2023
@@ -20,3 +20,5 @@ images:
   alt: "Welcome Flynn card: green linework on a bright pink risoprint"
 photo_links: []
 ---
+
+Hand-lettered and hand-illustrated graphic for birth announcement card, printed on Munken 300g paper with the Landline Press MF9350 risograph.
