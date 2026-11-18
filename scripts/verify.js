@@ -29,10 +29,10 @@
  *      page scrolls freely.
  *   5. CMS: every front-matter key in content/ is a field in .pages.yml, and every
  *      tag in use is in the tags select.
- *   6. The Index's proportions at 1366px: a cell is a quarter of the page, five
- *      list rows are one cell tall, thumbnails are whole, centred and framed.
- *      The list at 720, 800, 1024, 1366 and 1920px: every row one line and one
- *      fifth of a cell tall; the date, the title and the type each in a column
+ *   6. The Index's proportions at 1366px: a cell is a quarter of the page, a list
+ *      row is 23px tall, thumbnails are whole, centred and framed.
+ *      The list at 720, 800, 1024, 1366 and 1920px: every row one line and 23px
+ *      tall, whatever the width; the date, the title and the type each in a column
  *      where the design puts it; text that fits its column is not faded and does
  *      not move; text that does not is cut with a fade, and while its row or its
  *      thumbnail is pointed at it slides left at 100px a second until its end is
@@ -937,14 +937,14 @@ try {
                 return {
                     quarter: Math.abs(cell.width - page / 4) < 0.5,
                     ratio: Math.abs(cell.width / cell.height - 341.2 / 197.12) < 0.005,
-                    fifth: rows.every(r => Math.abs(box(r).height - cell.height / 5) < 0.1),
+                    row: rows.every(r => Math.abs(box(r).height - 23) < 0.1),
                     columns: Math.abs(box(cells[1]).x - cell.width) < 0.5 && Math.abs(box(cells[2]).y - cell.y - cell.height) < 0.5,
                     thumbs: thumbs.every(t => t.fits && t.full && t.centred && t.whole),
                     scrolls: document.documentElement.scrollHeight <= innerHeight,
                     lines,
                 };
             });
-            check('6. at 1366px a cell is a quarter of the page, two to a row, and five list rows are one cell tall', m.quarter && m.ratio && m.fifth && m.columns, JSON.stringify(m));
+            check('6. at 1366px a cell is a quarter of the page, two to a row, and every list row is 23px tall', m.quarter && m.ratio && m.row && m.columns, JSON.stringify(m));
             check('6. every thumbnail is whole, centred, framed and as large as its cell allows', m.thumbs);
             check('6. the two columns scroll on their own, and nothing draws a line', m.scrolls && m.lines === 0, JSON.stringify(m));
 
@@ -986,7 +986,7 @@ try {
                     page: document.documentElement.clientWidth,
                     left: index.left,
                     width: index.width,
-                    slot: document.querySelector('project-index .cell').getBoundingClientRect().height / 5,
+                    slot: 23,
                     ground: getComputedStyle(document.body).backgroundColor.match(/\d+/g).slice(0, 3).map(Number),
                     rows: [...document.querySelectorAll('project-index .row')].map((r) => {
                         const b = r.getBoundingClientRect();
@@ -1146,7 +1146,7 @@ try {
             // test. (Not with no mask at all: on some systems a browser smooths text under a mask in another
             // way than text on the plain ground, GitHub's runners among them, and then every letter differs.)
             for (const width of [1366, 1536]) {
-                await show(width, Math.ceil(88 + published.length * width * 0.028886 + 40));
+                await show(width, 88 + published.length * 23 + 40);
                 const m = await list();
                 const shot = async () => sharp(await page.screenshot()).raw().toBuffer({ resolveWithObject: true });
                 const masked = await shot();
@@ -1212,7 +1212,7 @@ try {
 
                 const tall = m.rows.filter(r => Math.abs(r.height - m.slot) > 0.05 || Math.abs(r.dateLines - 1) > 0.01 || r.cells.some(c => Math.abs(c.lines - 1) > 0.01 || Math.abs(c.middle) > 0.5));
                 const span = m.rows.at(-1).bottom - m.rows[0].top;
-                check(`6. at ${width}px every row of the list is one line, in the middle of a row one fifth of a cell tall (${m.slot.toFixed(2)}px), so five rows are one cell`, m.rows.length === published.length && tall.length === 0 && Math.abs(span - m.rows.length * m.slot) <= 0.02 * m.rows.length + 0.05, `${tall.slice(0, 5).map(r => `${r.slug} ${r.height}px`).join(', ')}; ${m.rows.length} rows in ${span}px`);
+                check(`6. at ${width}px every row of the list is one line, in the middle of a row ${m.slot}px tall, the same at every width`, m.rows.length === published.length && tall.length === 0 && Math.abs(span - m.rows.length * m.slot) <= 0.02 * m.rows.length + 0.05, `${tall.slice(0, 5).map(r => `${r.slug} ${r.height}px`).join(', ')}; ${m.rows.length} rows in ${span}px`);
 
                 const off = m.rows.filter(r => !near(r.date, want.date) || !near(r.cells[0].left, want.title) || !near(r.cells[0].width, want.titleWidth) || (r.cells[1] && (!near(r.cells[1].left, want.type) || !near(r.cells[1].width, want.typeWidth))));
                 const types = m.rows.filter(r => r.cells[1]).map(r => r.cells[1].left);

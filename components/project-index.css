@@ -1,5 +1,5 @@
 project-index {
-  --row: 2.8886cqw;
+  --row: 23px;
   --ring: 5px;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12.4 14.3'%3E%3Cpath d='M0.393 0.639 L10.969 7.15 L0.393 13.661' fill='none' stroke='%23000' stroke-width='1.5'/%3E%3C/svg%3E");
   display: flex;
