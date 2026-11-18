@@ -1142,13 +1142,15 @@ try {
             // a column starts on a fraction of a pixel, and a hard stop on that very edge erased the pixels
             // in which a bullet or a first letter begins (most at 1536px). Every row is in the window; each
             // column, from its ring room to its end (to where its fade begins when its text is cut), is
-            // the same picture with the mask and with the mask taken off for the test.
+            // the same picture with the mask and with a mask that hides nothing put in its place for the
+            // test. (Not with no mask at all: on some systems a browser smooths text under a mask in another
+            // way than text on the plain ground, GitHub's runners among them, and then every letter differs.)
             for (const width of [1366, 1536]) {
                 await show(width, Math.ceil(88 + published.length * width * 0.028886 + 40));
                 const m = await list();
                 const shot = async () => sharp(await page.screenshot()).raw().toBuffer({ resolveWithObject: true });
                 const masked = await shot();
-                const bared = await page.addStyleTag({ content: 'project-index .clip { -webkit-mask: none !important; mask: none !important; }' });
+                const bared = await page.addStyleTag({ content: 'project-index .clip { -webkit-mask: linear-gradient(#000, #000) !important; mask: linear-gradient(#000, #000) !important; }' });
                 const bare = await shot();
                 await bared.evaluate(el => el.remove());
                 const at = (img, x, y) => [0, 1, 2].map(c => img.data[(y * img.info.width + x) * img.info.channels + c]);
