@@ -123,8 +123,10 @@ Photos live in **Media**, in one folder per project: `images/projects/<slug>`.
 5. Optional: **Set** splits the photos into groups. Photos with the same number are shown
    together, one at a time with the arrows. The page shows set 1 first; scrolling down
    brings set 2, then set 3, and after the last set the project's text. Leave it at 1 (or
-   empty) if the project has one group of photos. A set has no title on the page; only the
-   photos' captions show.
+   empty) if the project has one group of photos. To start a second group, type 2 in **Set** on
+   each photo that belongs to it (3 for a third, and so on). A photo you add starts in
+   set 1, wherever it sits in the list: change its **Set** if it belongs to another group.
+   A set has no title on the page; only the photos' captions show.
 6. **Drag** the handle on the left of an item to change the order. The project page shows
    the photos one at a time, in this order: the first one first, the rest with the arrows.
    With sets, the photos of a set keep this order among themselves; which set comes first

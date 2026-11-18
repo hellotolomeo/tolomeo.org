@@ -6,6 +6,11 @@
 > with captions. The current values are in `CLAUDE.md`, "Design". The stack, the content model
 > (less `cover_style`, `cover_focus`, `cover_zoom`, `hover_image`; plus `images[].caption`), the
 > image pipeline, the CMS and the acceptance points below still stand.
+>
+> **Since 18 Nov 2026** the content model also has `images[].set` (a project page shows its photos
+> in numbered sets under a header that stays, snapping from set to set, then the project's
+> information in two columns with arrows to the neighbouring projects), and the Index below 720px
+> is one column of thumbnails, each with its title under it. See `CLAUDE.md`, "Design".
 
 Portfolio site for Tolomeo, an artist researcher, publisher and educator in the Netherlands.
 Read this file completely before writing code. `CLAUDE.md` holds the standing rules;

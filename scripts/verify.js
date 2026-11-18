@@ -576,6 +576,31 @@ try {
                 check('3. nothing of the information is in the window while a set of photos is at rest', early.length === 0, early.join('; '));
                 check('3. the header stays at the top of the window while the page scrolls, Back and the title on top', header.length === 0 && end.y > 0, header.join('; '));
                 check('3. each set at rest fills the window under the header as the one slideshow does: same frame, same place, chevrons 28px either side', frames.length === 0, frames.join('; '));
+                // The header's own links are always in the window: reaching them with the keyboard must not move the
+                // page (they lie in the band that html's scroll-padding calls out of view), and the browser's Back
+                // after the title link returns to the set the visitor was on.
+                await open(walked);
+                await page.keyboard.press('End');
+                await rest(page);
+                const stood = await page.evaluate(() => scrollY);
+                const tabbed = [];
+                for (let i = 0; i < 2; i++) {
+                    await page.keyboard.press('Tab');
+                    await rest(page);
+                    tabbed.push(await page.evaluate(() => `${document.activeElement?.closest('.project-head') ? 'a header link' : 'elsewhere'} at ${scrollY}`));
+                }
+                check('3. the keyboard reaching Back and the title in the header does not move the page', stood > 0 && tabbed.every(t => t === `a header link at ${stood}`), `at ${stood}; then ${tabbed.join(', ')}`);
+                if (start.sets.length > 1) {
+                    await open(walked);
+                    const second = await wheel();
+                    await page.click('.project-head h1 a');
+                    await rest(page);
+                    const there = await page.evaluate(() => scrollY);
+                    await page.goBack();
+                    await rest(page);
+                    const returned = await page.evaluate(() => scrollY);
+                    check('3. the browser\'s Back after the title link returns to the set the visitor was on', there > second.y && Math.abs(returned - second.y) <= 1, `on set 2 at ${second.y}, the title link to ${there}, Back to ${returned}`);
+                }
             }
 
             if (!multi) check('3. sets: ok (no multi-set project in content; the checks that need two sets were skipped)', true);
@@ -658,6 +683,13 @@ try {
                     free = Math.abs(inside.y - (at.y - 60)) <= 1;
                 }
                 check(`3. the bottom of the longest information section can be reached by wheel at 720 × 500, and it scrolls freely inside (${longest.data.slug}: ${Math.round(at.info.height)}px${taller ? '' : ', not taller than the window'})`, reached && free, `rests at ${at.y} of ${at.max}, the section ends at ${at.info.bottom}`);
+                // Page Up from the bottom of a section taller than the window stops at the section's top, as the
+                // wheel does, instead of passing it and landing on the photos.
+                if (taller) {
+                    let up = at;
+                    for (let i = 0; i < 8 && (i === 0 || up.info.top < restAt(up) - 1); i++) { await page.keyboard.press('PageUp'); await rest(page); up = await lie(page); }
+                    check('3. Page Up through a long information section stops with its top at rest, not on the photos (720 × 500)', infoOff(up) === '', `the information's top at ${up.info.top}`);
+                }
                 await page.setViewportSize({ width: 1366, height: 710 });
             }
 

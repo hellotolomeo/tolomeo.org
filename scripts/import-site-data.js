@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+// SUPERSEDED: don't run it. It was run once, for the redesign of 11 Nov 2026; on 18 Nov 2026 the
+// owner's own project list, captions and photos replaced what it wrote. Run again it would put the
+// kit's photo lists, titles and texts back, drop every images[].set, unpublish the projects the kit
+// does not list and delete the photos added since. Kept as the record of that migration.
+//
 // One-off content migration from a Claude Design site kit: a folder holding site-data.json,
 // thumbnails/<slug>.jpg and images/<slug>/…. The kit is the source of truth for the Index
 // list, the thumbnail grid and every project page at the moment it is imported; afterwards

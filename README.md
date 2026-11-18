@@ -46,11 +46,12 @@ Optional bulk tool for many photos at once: makes 2000px web copies named `the-r
 in `images/projects/the-riso-salon/` and prints the `images:` list to paste. Never touches the
 originals. Uploading through the CMS works too; CI resizes and converts anything large or HEIC.
 
-The project text, thumbnails and photos were imported from Claude Design's site kit
-(`site-data.json`, `thumbnails/`, `images/`) with `node scripts/import-site-data.js <kit-folder>`,
-last for the redesign of 11 Nov 2026; since then `content/` (edited in Pages CMS) is the source of
-truth. The old spreadsheet importer, `scripts/import-projects.py`, and the design-canvas cover
-migration, `scripts/import-covers.js`, are superseded: don't run them.
+The project text, thumbnails and photos were first imported from Claude Design's site kit with
+`scripts/import-site-data.js` (for the redesign of 11 Nov 2026) and then replaced by the owner's
+own list, captions and photos on 18 Nov 2026; since then `content/` (edited in Pages CMS) is the
+source of truth. That importer, the old spreadsheet importer `scripts/import-projects.py` and the
+design-canvas cover migration `scripts/import-covers.js` are all superseded: don't run them (the
+first would put the kit's photos and texts back and drop the photo sets).
 
 ## How it fits together
 
@@ -69,8 +70,8 @@ components/         project-index (the home page: grid + list + filter),
 client/             browser only: main.js and project.js (page entries), template-env.js,
                     lib/ (BaseComponent), site.css, project.css
 lib/                vendor/ (nunjucks, idiomorph), filters.js, zeldman/ (upstream docs + UPSTREAM hash)
-scripts/            prepare-images, normalize-images (CI), import-site-data (one-off),
-                    import-covers and import-projects (superseded), verify
+scripts/            prepare-images, normalize-images (CI), verify; import-site-data,
+                    import-covers and import-projects (superseded: don't run)
 ```
 
 Built with [the Zeldman Pattern](https://github.com/erikswedberg/zeldman): a component is a Nunjucks
