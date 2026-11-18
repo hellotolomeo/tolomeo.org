@@ -1,6 +1,8 @@
-{#- A project's photos, one at a time: the current one framed in the middle, a chevron on either side of it, its caption under it. -#}
-{#- `index` exists only in the browser; the server renders the first photo as the current one. -#}
+{#- One set of a project's photos, one at a time: the current one framed in the middle, a chevron on either side of it, its caption under it. -#}
+{#- `index` and `near` exist only in the browser; the server renders the first photo as the current one. -#}
+{#- The current photo and the next load right away in the set at the top of the page (`eager`), and in any other once it has come on screen (`near`). -#}
 {% set index = index | default(0) %}
+{% set ahead = eager or (near | default(false)) %}
 <ol class="slides" aria-label="{{ label }}">
 {% for g in images %}
 <li class="slide{% if loop.index0 == index %} current{% endif %}">
@@ -30,7 +32,7 @@
   width="{{ g.width }}"
   height="{{ g.height }}"
   alt="{{ g.alt }}"
-  loading="{{ 'eager' if loop.index0 <= index + 1 else 'lazy' }}"
+  loading="{{ 'eager' if ahead and loop.index0 <= index + 1 else 'lazy' }}"
   decoding="sync"
 ></picture>
 {% if not loop.last %}

@@ -7,16 +7,17 @@
  * field is defaulted here. Image values may be a full public path
  * (/images/projects/x/a.jpg, what the CMS writes), a path under images/, or a
  * bare file name (resolved under images/projects/<slug>/). `images` entries
- * may be { image, alt, caption } objects or bare strings; a caption is one line
- * of Markdown.
+ * may be { image, alt, caption, set } objects or bare strings; a caption is one
+ * line of Markdown; `set` is the number of the group the photo is shown in (1
+ * when it is left out), and a project page shows its sets one under the other.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import matter from 'gray-matter';
 import { markdown, markdownInline, markdownText } from './markdown.js';
 
-// Grid cells take the 600px file; a project page shows one photo at a time, as large as fits
-// (components/project-slides.css).
+// Grid cells take the 600px file; a project page shows each set of photos one photo at a time,
+// as large as fits (components/project-slides.css).
 
 /**
  * @param {{ root: string, images: Map<string, object>, config: object, log?: Function }} options
@@ -70,6 +71,8 @@ function readFront(path) {
 const str = (v) => (v === null || v === undefined ? '' : v instanceof Date ? v.toISOString().slice(0, 10) : String(v)).trim();
 const list = (v) => (Array.isArray(v) ? v : v === null || v === undefined || v === '' ? [] : [v]);
 const num = (v, fallback) => (Number.isFinite(Number(v)) && v !== '' && v !== null ? Number(v) : fallback);
+// A whole number from 1 (a photo's set), or null for anything else.
+const whole = (v) => (Number.isInteger(num(v, null)) && num(v, null) >= 1 ? num(v, null) : null);
 
 // Front matter with every field present and typed.
 function normalize({ data, content }, file, warn) {
@@ -87,9 +90,13 @@ function normalize({ data, content }, file, warn) {
         parent: str(data.parent) || null,
         published: data.published === true,
         cover: str(data.cover),
-        images: list(data.images).map(entry => (typeof entry === 'string'
-            ? { image: str(entry), alt: '', caption: '' }
-            : { image: str(entry?.image), alt: str(entry?.alt), caption: str(entry?.caption) })).filter(e => e.image),
+        images: list(data.images).map((entry) => {
+            if (typeof entry === 'string') return { image: str(entry), alt: '', caption: '', set: 1 };
+            // Left out (the CMS drops an empty field), a photo is in set 1.
+            const set = whole(entry?.set);
+            if (set === null && str(entry?.set) !== '') warn(`${slug}: photo set "${str(entry?.set)}" is not a whole number from 1; shown in set 1`);
+            return { image: str(entry?.image), alt: str(entry?.alt), caption: str(entry?.caption), set: set ?? 1 };
+        }).filter(e => e.image),
         photoLinks: list(data.photo_links)
             .map(l => ({ label: str(l?.label) || str(l?.url), url: str(l?.url) }))
             .filter(l => /^https?:\/\//i.test(l.url)),
@@ -130,10 +137,18 @@ function shape(p, { images, warn }) {
     const pic = (value, alt = '', placeholder = false) => picture(value, p.slug, alt, images, warn, placeholder);
     // Only the grid needs an image where one is missing; elsewhere a missing photo is left out.
     const cover = pic(p.cover, '', true);
-    const slides = p.images
-        .map(({ image, alt, caption }) => ({ pic: pic(image, alt || p.title), caption: markdownInline(caption) }))
-        .filter(s => s.pic)
-        .map(s => slide(s.pic, s.caption));
+    const photos = p.images
+        .map(({ image, alt, caption, set }) => ({ pic: pic(image, alt || p.title), caption: markdownInline(caption), set }))
+        .filter(s => s.pic);
+    // The sets in ascending number order (the numbers need not be consecutive, nor the list
+    // grouped); inside a set the photos keep their order in the list. A set is one
+    // <project-slides>: its id is what client/slides.css hangs each photo's proportions on.
+    const numbers = [...new Set(photos.map(s => s.set))].sort((a, b) => a - b);
+    const sets = numbers.map((n, i) => ({
+        id: `slides-${p.slug}-${i + 1}`,
+        label: numbers.length > 1 ? `Photos of ${p.title}, set ${i + 1} of ${numbers.length}` : `Photos of ${p.title}`,
+        slides: photos.filter(s => s.set === n).map(s => slide(s.pic, s.caption)),
+    }));
     return {
         slug: p.slug,
         title: p.title,
@@ -146,7 +161,9 @@ function shape(p, { images, warn }) {
         href: `/projects/${p.slug}/`,
         body: markdown(p.body),
         cover,
-        slides,
+        sets,
+        // The page loads its scripts only if some set has a photo to move to.
+        scripted: sets.some(s => s.slides.length > 1),
         photoLinks: p.photoLinks,
     };
 }
@@ -225,6 +242,7 @@ const aspect = (pic) => (pic?.width && pic?.height ? Math.round((pic.width / pic
 
 // A slide is as large as fits its frame's room (components/project-slides.css: the width left
 // between the arrows, the height left between the header and the caption), less the 6px frame.
+// Every set has the same room: each is one window tall under the header.
 function slideSizes(g) {
     const a = aspect(g) ?? 1.5;
     const tall = `calc((100vh - 154px) * ${a})`;
@@ -244,14 +262,16 @@ export function coversCss(projects, config) {
     return rules.join('\n') + '\n';
 }
 
-/** client/slides.css: one rule per project photo (components/project-slides.css). */
+/** client/slides.css: one rule per project photo, by its set's element and its place in the set (components/project-slides.css). */
 export function slidesCss(projects) {
     const rules = [];
     for (const p of projects) {
-        p.slides.forEach((s, i) => {
-            const a = aspect(s);
-            if (a) rules.push(`#slides-${p.slug} .slide:nth-child(${i + 1}){--a:${a}}`);
-        });
+        for (const set of p.sets) {
+            set.slides.forEach((s, i) => {
+                const a = aspect(s);
+                if (a) rules.push(`#${set.id} .slide:nth-child(${i + 1}){--a:${a}}`);
+            });
+        }
     }
     return rules.join('\n') + '\n';
 }

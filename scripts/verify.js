@@ -10,9 +10,14 @@
  *      stops matching (surviving rows and cells are the same nodes) and touches
  *      nothing else but the tag buttons' state; back/forward restore.
  *   3. Project pages: every published project's URL answers with its page, with
- *      every photo in the HTML; the photos show one at a time (chevrons, a click
- *      on the photo, the arrow keys), and all of them with JavaScript off.
- *   4. 390px: no horizontal scroll on any route.
+ *      every photo in the HTML, one slideshow per set of photos; a set's photos
+ *      show one at a time (chevrons, a click on the photo, the arrow keys, which
+ *      move the set on screen and no other), and all of them with JavaScript
+ *      off; the header stays at the top of the window, the page snaps from set
+ *      to set and then to the information, and each set at rest sits under the
+ *      header as the design's one slideshow does.
+ *   4. 390px: no horizontal scroll on any route; on a touch screen a project
+ *      page scrolls freely.
  *   5. CMS: every front-matter key in content/ is a field in .pages.yml, and every
  *      tag in use is in the tags select.
  *   6. The Index's proportions at 1366px: a cell is a quarter of the page, five
@@ -26,6 +31,7 @@ import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { extname, join, normalize, sep, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
+import sharp from 'sharp';
 import { chromium } from 'playwright';
 import { markdown, markdownText } from '../server/markdown.js';
 
@@ -56,6 +62,14 @@ const textOf = (h) => String(h).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ');
 // The first words of a Markdown body as the site prints them (escaped, like textOf).
 const opening = (md) => textOf(markdown(String(md))).trim().split(' ').slice(0, 4).join(' ');
 const photos = (p) => (p.data.images ?? []).map(im => (typeof im === 'string' ? { image: im } : im)).filter(im => im?.image);
+// A project's photos by set, as the page shows them: a photo's set is its `set` (a whole number
+// from 1; 1 when it is left out), the sets are in ascending number order, and the photos of a
+// set keep their order in the list.
+const setOf = (im) => (typeof im.set === 'number' || typeof im.set === 'string') && im.set !== '' && Number.isInteger(Number(im.set)) && Number(im.set) >= 1 ? Number(im.set) : 1;
+const setsOf = (p) => [...new Set(photos(p).map(setOf))].sort((a, b) => a - b).map(n => photos(p).filter(im => setOf(im) === n));
+const firstSet = (p) => setsOf(p)[0] ?? [];
+// A photo's file name without its extension: the built file's name starts with it.
+const stem = (im) => decodeURIComponent(String(im.image)).split('/').pop().replace(/\.[^.]+$/, '');
 // Two tags to filter by, taken from the content: the most used, and the most used of the rest.
 const counts = new Map();
 for (const p of published) for (const t of p.data.tags ?? []) counts.set(t, (counts.get(t) ?? 0) + 1);
@@ -80,10 +94,99 @@ await new Promise(r => server.listen(0, '127.0.0.1', r));
 const base = `http://127.0.0.1:${server.address().port}`;
 
 const routes = ['/', '/projects/', '/info/', '/404.html', ...published.map(p => `/projects/${p.data.slug}/`)];
-// The project pages the slideshow checks use: the one with the most photos, one with a single photo, one with captions.
-const many = [...published].sort((a, b) => photos(b).length - photos(a).length)[0];
+// The project pages the slideshow checks use: the one whose first set has the most photos, one with a single photo, one with captions.
+const many = [...published].sort((a, b) => firstSet(b).length - firstSet(a).length)[0];
 const single = published.find(p => photos(p).length === 1);
-const captioned = published.find(p => photos(p).length > 1 && photos(p).some(im => im.caption));
+const captioned = published.find(p => firstSet(p).length > 1 && firstSet(p).some(im => im.caption));
+// A project with more than one set, if the content has one (rather one where a later set has
+// photos to move through), and one with a single set of several photos.
+const multis = published.filter(p => setsOf(p).length > 1);
+const multi = multis.find(p => setsOf(p).slice(1).some(s => s.length > 1)) ?? multis[0];
+const oneSet = [...published].filter(p => setsOf(p).length === 1).sort((a, b) => photos(b).length - photos(a).length)[0];
+// The project with the most to read: its information is the tallest.
+const longest = [...published].filter(p => photos(p).length).sort((a, b) => b.content.length - a.content.length)[0];
+// A page's scripts load only if some set has a photo to move to.
+const scripted = (p) => setsOf(p).some(s => s.length > 1);
+
+// The page has come to rest: its scroll position has stopped changing (a snap, or a smooth scroll, is over).
+const rest = async (page) => {
+    let last = NaN;
+    for (let i = 0, same = 0; i < 120; i++) {
+        await page.waitForTimeout(50);
+        const y = await page.evaluate(() => scrollY);
+        if (y !== last) same = 0;
+        else if (++same >= 3) break;
+        last = y;
+    }
+    return last;
+};
+// Every slideshow of a project page has rendered (a page whose sets all hold one photo loads no script).
+const slidesReady = (page) => page.waitForFunction(() => !document.scripts.length || [...document.querySelectorAll('project-slides')].every(el => el.rendered));
+// A project page as it lies in the window: the header, each set with its current photo's frame, chevrons and caption, the information.
+const lie = (page) => page.evaluate(() => {
+    const box = (el) => { if (!el) return null; const b = el.getBoundingClientRect(); return { top: b.top, bottom: b.bottom, left: b.left, right: b.right, width: b.width, height: b.height }; };
+    const seen = (el) => Boolean(el) && el.getClientRects().length > 0;
+    // The element itself is what is at its middle: nothing lies over it.
+    const onTop = (el) => { const b = el.getBoundingClientRect(); const at = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return Boolean(at) && (at === el || el.contains(at)); };
+    return {
+        y: scrollY,
+        max: document.documentElement.scrollHeight - innerHeight,
+        vw: document.documentElement.clientWidth,
+        vh: innerHeight,
+        wide: document.documentElement.scrollWidth,
+        mouse: matchMedia('(hover: hover) and (pointer: fine)').matches,
+        snap: getComputedStyle(document.documentElement).scrollSnapType,
+        head: box(document.querySelector('.project-head')),
+        headOnTop: onTop(document.querySelector('.back a')) && onTop(document.querySelector('.project-head h1 a')),
+        sets: [...document.querySelectorAll('project-slides')].map((el) => {
+            const slides = [...el.querySelectorAll('.slide')];
+            const shown = slides.filter(seen);
+            const now = shown[0];
+            const img = now?.querySelector('img');
+            return {
+                ...box(el),
+                label: el.querySelector('.slides')?.getAttribute('aria-label') ?? '',
+                count: slides.length,
+                shown: shown.length,
+                current: slides.indexOf(now),
+                index: el.state?.index ?? 0,
+                files: slides.map(sl => decodeURIComponent(sl.querySelector('img').getAttribute('src')).split('/').pop()),
+                a: img ? Math.round((img.getAttribute('width') / img.getAttribute('height')) * 10000) / 10000 : null,
+                frame: box(now?.querySelector('.frame')),
+                prev: seen(now?.querySelector('.prev')) ? box(now.querySelector('.prev')) : null,
+                next: seen(now?.querySelector('.next')) ? box(now.querySelector('.next')) : null,
+                caption: seen(now?.querySelector('.caption')) ? box(now.querySelector('.caption')) : null,
+            };
+        }),
+        info: box(document.querySelector('#project-info')),
+        row: box(document.querySelector('#project-info .row')),
+    };
+});
+// What the design gives the current photo of a set (CLAUDE.md, "Slideshow"): the set is the window
+// less the 79px header; the frame is the largest that fits the page less, on each side, a 44px
+// chevron target, a 14.25px gap and a 16px edge, and the set's height less the 63px caption room,
+// its 6px border included; it is centred in the page, the caption room under it, a chevron 14.25px
+// from either side. For a photo of 1.4995 at 1366 × 710 that is the 845.72 × 567.98 frame at
+// 260.14, 79 the one slideshow had before there were sets. Returns what is off, or ''.
+const offDesign = (set, at) => {
+    const near = (a, b) => Math.abs(a - b) <= 0.5;
+    const off = [];
+    if (!set.frame) return 'no photo shown';
+    const room = Math.max(63, set.caption ? set.caption.height + 23.4 : 0);
+    const width = Math.min(at.vw - 2 * (44 + 14.25 + 16) - 12, (Math.max(160, at.vh - 79 - 63) - 12) * set.a);
+    const frame = { width: width + 12, height: width / set.a + 12 };
+    if (!near(set.width, at.vw) || !near(set.height, Math.max(at.vh - 79, frame.height + room))) off.push(`set ${set.width}×${set.height}`);
+    if (!near(set.frame.width, frame.width) || !near(set.frame.height, frame.height)) off.push(`frame ${set.frame.width}×${set.frame.height}, not ${frame.width}×${frame.height}`);
+    if (!near(set.frame.left, (at.vw - frame.width) / 2)) off.push(`frame left ${set.frame.left}`);
+    if (!near(set.frame.top - set.top, (set.height - frame.height - room) / 2)) off.push(`frame ${set.frame.top - set.top} under the set's top`);
+    if (set.count > 1 && !set.prev && !set.next) off.push('no chevron');
+    for (const arrow of [set.prev, set.next]) {
+        if (!arrow) continue;
+        const gap = arrow === set.prev ? set.frame.left - arrow.right : arrow.left - set.frame.right;
+        if (!near(gap, 14.25) || !near(arrow.width, 44) || !near(arrow.height, 44) || !near(arrow.top + 22, set.frame.top + set.frame.height / 2)) off.push(`chevron ${gap} from the frame`);
+    }
+    return off.join('; ');
+};
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 try {
@@ -106,10 +209,13 @@ try {
             if (res.status !== 200 || !body.includes(`<h1><a href="#project-info">${html(p.data.title)}</a></h1>`) || !body.includes('id="project-info"') || (firstWords && !textOf(body).includes(firstWords))) pageMisses.push(p.data.slug);
             const shown = body.match(/<li class="slide[ "]/g)?.length ?? 0;
             const captions = photos(p).filter(im => im.caption && !textOf(body).includes(html(words(im.caption))));
-            if (shown !== photos(p).length || captions.length) photoMisses.push(`${p.data.slug} (${shown}/${photos(p).length} photos, ${captions.length} captions missing)`);
+            // One slideshow per set, in set order, each with its set's photos.
+            const perSet = (body.match(/<project-slides\b[\s\S]*?<\/project-slides>/g) ?? []).map(el => el.match(/<li class="slide[ "]/g)?.length ?? 0);
+            const wantSets = setsOf(p).map(set => set.length);
+            if (shown !== photos(p).length || captions.length || perSet.join() !== wantSets.join()) photoMisses.push(`${p.data.slug} (${shown}/${photos(p).length} photos, ${captions.length} captions missing, sets of ${perSet.join('+') || 0} not ${wantSets.join('+') || 0})`);
         }
         check('1+3. every project page answers 200 with its title and description in the HTML', pageMisses.length === 0, pageMisses.join(', '));
-        check('1+3. every project page has every photo and caption in the HTML', photoMisses.length === 0, photoMisses.join(', '));
+        check('1+3. every project page has every photo and caption in the HTML, one slideshow per set', photoMisses.length === 0, photoMisses.join(', '));
         const info = await (await fetch(`${base}/info/`)).text();
         const infoWords = opening(matter(readFileSync(join(root, 'content/site/info.md'), 'utf8'), {}).content);
         check('1. info HTML has its body', Boolean(infoWords) && textOf(info).includes(infoWords), infoWords);
@@ -146,13 +252,14 @@ try {
                 return inside;
             };
         });
-        const slideshows = published.filter(p => photos(p).length > 1).map(p => [`/projects/${p.data.slug}/`, 'project-slides']);
+        // Every component on the page: a project page has one <project-slides> per set.
+        const slideshows = published.filter(scripted).map(p => [`/projects/${p.data.slug}/`, 'project-slides']);
         for (const [path, tag] of [['/', 'project-index'], ['/projects/', 'project-index'], ...slideshows]) {
             await page.goto(base + path);
-            await page.waitForFunction(t => document.querySelector(t)?.rendered, tag);
+            await page.waitForFunction((t) => { const els = [...document.querySelectorAll(t)]; return els.length > 0 && els.every(el => el.rendered); }, tag);
             const first = await page.evaluate(() => window.__mutations());
             check(`zero mutations on first render: ${path}`, first.length === 0, first.slice(0, 5).join('; '));
-            const forced = await page.evaluate(t => { document.querySelector(t).render(); return window.__mutations(); }, tag);
+            const forced = await page.evaluate((t) => { for (const el of document.querySelectorAll(t)) el.render(); return window.__mutations(); }, tag);
             check(`zero mutations on el.render(): ${path}`, forced.length === 0, forced.slice(0, 5).join('; '));
         }
 
@@ -257,14 +364,15 @@ try {
         await page.waitForURL(`**/projects/${first.data.slug}/`);
         check('3. a grid cell opens its project page', (await page.textContent('h1')).trim() === String(first.data.title).trim());
 
-        // 3. the photos, one at a time
-        if (many && photos(many).length > 2) {
-            const count = photos(many).length;
+        // 3. the photos of a set, one at a time (the first set: the one on screen when the page opens)
+        const top = 'project-slides:first-of-type';
+        if (many && firstSet(many).length > 2) {
+            const count = firstSet(many).length;
             await page.goto(`${base}/projects/${many.data.slug}/`);
-            await page.waitForFunction(() => document.querySelector('project-slides')?.rendered);
+            await slidesReady(page);
             const look = () => page.evaluate(() => {
                 const seen = (el) => Boolean(el) && el.getClientRects().length > 0;
-                const slides = [...document.querySelectorAll('project-slides .slide')];
+                const slides = [...document.querySelectorAll('project-slides:first-of-type .slide')];
                 const shown = slides.filter(seen);
                 return {
                     shown: shown.length,
@@ -277,44 +385,175 @@ try {
             const start = await look();
             check('3. a project page shows its first photo only, with no "previous"', start.shown === 1 && start.current === 0 && !start.prev && start.next, JSON.stringify(start));
             await page.evaluate(() => window.__mutations());
-            await page.click('project-slides .current .next');
+            await page.click(`${top} .current .next`);
             const second = await look();
             const muts = await page.evaluate(() => window.__mutations());
             const other = muts.filter(m => !['attributes LI [class]', 'attributes IMG [loading]', 'characterData #text'].includes(m));
             check('3. the "next" chevron shows the second photo, between two chevrons, and keeps focus', second.shown === 1 && second.current === 1 && second.prev && second.next && second.focus.includes('next'), JSON.stringify(second));
             check('3. changing photo touches only the current class, the next photo\'s loading and the status line', other.length === 0, other.slice(0, 5).join('; '));
-            await page.click('project-slides .current .frame');
+            await page.click(`${top} .current .frame`);
             const third = await look();
             await page.keyboard.press('ArrowLeft');
             const left = await look();
             check('3. a click on the photo goes on, the left arrow key goes back', third.current === 2 && left.current === 1, `${third.current}, ${left.current}`);
-            await page.focus('project-slides .current .next');
+            await page.focus(`${top} .current .next`);
             await page.keyboard.press('ArrowRight');
-            const kept = await page.evaluate(() => document.activeElement?.closest('project-slides .slide.current') !== null && document.activeElement?.classList.contains('arrow'));
+            const kept = await page.evaluate(() => document.activeElement?.closest('project-slides:first-of-type .slide.current') !== null && document.activeElement?.classList.contains('arrow'));
             check('3. an arrow key pressed while a chevron has focus keeps focus on a chevron of the new photo', kept);
             for (let i = 0; i < count + 1; i++) await page.keyboard.press('ArrowRight');
             const end = await look();
-            await page.click('project-slides .current .frame');
+            await page.click(`${top} .current .frame`);
             const still = await look();
             check('3. the last photo has no "next", and a click on it stays', end.current === count - 1 && end.prev && !end.next && still.current === count - 1, JSON.stringify(end));
             await page.click('.project-head h1 a');
             await page.waitForFunction(() => location.hash === '#project-info');
-            await page.waitForTimeout(700);
-            const info = await page.evaluate(() => { const top = document.querySelector('#project-info').getBoundingClientRect().top; return top < innerHeight; });
-            check('3. the title scrolls to the project information', info);
+            await rest(page);
+            const info = await lie(page);
+            check('3. the title scrolls the project information to directly under the header', Math.abs(info.row.top - info.head.bottom) <= 1 && info.head.top === 0, `first row at ${info.row.top}, header to ${info.head.bottom}`);
         }
         if (captioned) {
-            const at = photos(captioned).findIndex(im => im.caption);
+            const at = firstSet(captioned).findIndex(im => im.caption);
             await page.goto(`${base}/projects/${captioned.data.slug}/`);
-            await page.waitForFunction(() => document.querySelector('project-slides')?.rendered);
+            await slidesReady(page);
             for (let i = 0; i < at; i++) await page.keyboard.press('ArrowRight');
-            const shown = await page.evaluate(() => [...document.querySelectorAll('project-slides .caption')].filter(c => c.getClientRects().length).map(c => c.textContent.replace(/\s+/g, ' ').trim()));
-            check('3. a photo\'s caption shows under it, and only its own', shown.length === 1 && shown[0] === words(photos(captioned)[at].caption), shown.join(' | '));
+            const shown = await page.evaluate(() => [...document.querySelectorAll('project-slides:first-of-type .caption')].filter(c => c.getClientRects().length).map(c => c.textContent.replace(/\s+/g, ' ').trim()));
+            check('3. a photo\'s caption shows under it, and only its own', shown.length === 1 && shown[0] === words(firstSet(captioned)[at].caption), shown.join(' | '));
         }
         if (single) {
             await page.goto(`${base}/projects/${single.data.slug}/`);
             const lone = await page.evaluate(() => ({ arrows: document.querySelectorAll('project-slides .arrow').length, slides: document.querySelectorAll('project-slides .slide').length, scripts: document.scripts.length }));
             check('3. a project with one photo has no chevrons and no script', lone.arrows === 0 && lone.slides === 1 && lone.scripts === 0, JSON.stringify(lone));
+        }
+
+        // 3. sets: every set is a slideshow of its own, one window tall under a header that stays
+        // put; with a mouse or trackpad the page snaps from set to set, then to the information.
+        {
+            await page.setViewportSize({ width: 1366, height: 710 });
+            const open = async (p) => {
+                await page.goto(`${base}/projects/${p.data.slug}/`);
+                await slidesReady(page);
+                await page.mouse.move(683, 400);
+                return lie(page);
+            };
+            // One turn of the wheel, more than half a set: the page goes on to the next stop.
+            const wheel = async (down = true) => {
+                await page.mouse.wheel(0, (down ? 1 : -1) * Math.round((await page.evaluate(() => innerHeight) - 79) * 0.6));
+                await rest(page);
+                return lie(page);
+            };
+
+            // A one-set project is the design's one slideshow: its frame is where it was before there were sets.
+            if (oneSet) {
+                const at = await open(oneSet);
+                const off = offDesign(at.sets[0], at);
+                check(`3. a one-set project opens as the design's one slideshow: the set fills the window under the header, the frame as large as fits (${oneSet.data.slug})`, at.sets.length === 1 && off === '' && Math.abs(at.sets[0].top - 79) <= 0.5 && at.y === 0, off || `${at.sets.length} set, its top at ${at.sets[0].top}, the page at ${at.y}`);
+            }
+
+            // Set by set, then the information: where the page rests, and what the header does meanwhile.
+            const walked = multi ?? oneSet;
+            if (walked) {
+                const start = await open(walked);
+                const stops = [];
+                const header = [];
+                const frames = [];
+                const note = (at, i) => {
+                    if (at.head.top !== 0 || !at.headOnTop) header.push(`at ${at.y}: header top ${at.head.top}, Back and title ${at.headOnTop ? 'on top' : 'covered'}`);
+                    if (i < at.sets.length) {
+                        if (Math.abs(at.sets[i].top - at.head.bottom) > 1) stops.push(`set ${i + 1} rests at ${at.sets[i].top}, header to ${at.head.bottom}`);
+                        const off = offDesign(at.sets[i], at);
+                        if (off) frames.push(`set ${i + 1}: ${off}`);
+                    } else if (Math.abs(at.row.top - at.head.bottom) > 1) stops.push(`the information rests at ${at.row.top}, header to ${at.head.bottom}`);
+                };
+                note(start, 0);
+                for (let i = 1; i <= start.sets.length; i++) note(await wheel(), i);
+                const end = await lie(page);
+                const back = await wheel(false);
+                if (Math.abs(back.sets.at(-1).top - back.head.bottom) > 1) stops.push(`back up: the last set rests at ${back.sets.at(-1).top}`);
+                check(`3. after a turn of the wheel the page rests with the next set, and after the last set the information, directly under the header (${walked.data.slug}, ${start.sets.length} set${start.sets.length > 1 ? 's' : ''})`, start.mouse && start.snap.includes('mandatory') && stops.length === 0, start.mouse ? stops.join('; ') : 'this browser has no fine pointer: the page does not snap');
+                check('3. the header stays at the top of the window while the page scrolls, Back and the title on top', header.length === 0 && end.y > 0, header.join('; '));
+                check('3. each set at rest fills the window under the header as the one slideshow does: same frame, same place, chevrons 28px either side', frames.length === 0, frames.join('; '));
+            }
+
+            if (!multi) check('3. sets: ok (no multi-set project in content; the checks that need two sets were skipped)', true);
+            else {
+                const want = setsOf(multi);
+                const title = String(multi.data.title).trim();
+                const start = await open(multi);
+                const wrong = [];
+                if (start.sets.length !== want.length) wrong.push(`${start.sets.length} slideshows for ${want.length} sets`);
+                start.sets.forEach((set, i) => {
+                    const files = want[i] ?? [];
+                    if (set.count !== files.length || set.files.some((f, n) => !f.startsWith(`${stem(files[n] ?? { image: '?' })}.`))) wrong.push(`set ${i + 1} holds ${set.files.join(', ')}`);
+                    if (set.shown !== 1 || set.current !== 0) wrong.push(`set ${i + 1} shows ${set.shown} photos, the current one number ${set.current + 1}`);
+                    if (set.label !== `Photos of ${title}, set ${i + 1} of ${want.length}`) wrong.push(`set ${i + 1} is named "${set.label}"`);
+                    if (i > 0 && set.top < start.sets[i - 1].bottom - 0.5) wrong.push(`set ${i + 1} overlaps the one before`);
+                });
+                check(`3. one slideshow per set, in set order, each with its own photos and showing its first (${multi.data.slug}: ${want.map(set => set.length).join(' + ')})`, wrong.length === 0, wrong.slice(0, 4).join('; '));
+
+                const indexes = async () => (await lie(page)).sets.map(set => set.current);
+                const only = (i, n) => want.map((_, k) => (k === i ? n : 0)).join();
+                // A later set with photos to move through, if there is one.
+                const later = want.findIndex((set, i) => i > 0 && set.length > 1);
+                if (later < 0) check('3. sets: ok (no later set with more than one photo in content; its chevron check was skipped)', true);
+                else {
+                    await page.evaluate(i => document.querySelectorAll('project-slides')[i].scrollIntoView({ behavior: 'instant' }), later);
+                    await rest(page);
+                    await page.click(`project-slides:nth-of-type(${later + 1}) .current .next`);
+                    const moved = (await indexes()).join();
+                    const focus = await page.evaluate(i => document.activeElement?.closest('project-slides') === document.querySelectorAll('project-slides')[i] && document.activeElement.classList.contains('arrow'), later);
+                    check(`3. the "next" chevron of set ${later + 1} moves set ${later + 1} only, and keeps focus on a chevron of that set`, moved === only(later, 1) && focus, moved);
+                }
+
+                // The arrow keys: the set in the middle of the window, and no other.
+                const keyed = later > 0 ? later : 1;
+                await open(multi);
+                await page.evaluate(i => document.querySelectorAll('project-slides')[i].scrollIntoView({ behavior: 'instant' }), keyed);
+                await rest(page);
+                await page.keyboard.press('ArrowRight');
+                const right = (await indexes()).join();
+                await page.keyboard.press('ArrowLeft');
+                const left = (await indexes()).join();
+                check(`3. with set ${keyed + 1} in the window the arrow keys move that set and no other`, right === only(keyed, Math.min(1, want[keyed].length - 1)) && left === only(-1, 0), `${right} then ${left}`);
+                await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
+                await rest(page);
+                await page.keyboard.press('ArrowRight');
+                const first = (await indexes()).join();
+                await page.click('.project-head h1 a');
+                await rest(page);
+                const there = await lie(page);
+                await page.keyboard.press('ArrowRight');
+                await page.keyboard.press('ArrowRight');
+                await page.keyboard.press('ArrowLeft');
+                const after = (await indexes()).join();
+                check('3. back at the top the keys move the first set; with the information in the window they move nothing', first === only(0, Math.min(1, want[0].length - 1)) && Math.abs(there.row.top - there.head.bottom) <= 1 && after === first, `${first} then ${after}`);
+            }
+
+            // A long information section is taller than a small window: all of it can be reached.
+            if (longest) {
+                await page.setViewportSize({ width: 720, height: 500 });
+                await open(longest);
+                // Here the page could scroll further than the section's top, so the link has to stop there itself.
+                await page.click('.project-head h1 a');
+                await rest(page);
+                const linked = await lie(page);
+                check('3. the title lands a long information section\'s first row directly under the header (720 × 500)', Math.abs(linked.row.top - linked.head.bottom) <= 1 && linked.y > 0, `first row at ${linked.row.top}, header to ${linked.head.bottom}, ${Math.round(linked.max - linked.y)}px left to scroll`);
+                await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
+                await rest(page);
+                let at = await lie(page);
+                for (let i = 0, last = -1; i < 60 && at.y !== last; i++) { last = at.y; at = await wheel(); }
+                const taller = at.info.height > at.vh - at.head.bottom + 1;
+                const reached = at.y >= at.max - 1 && at.info.bottom <= at.vh + 1;
+                // Inside a section taller than the window the page scrolls freely: a small turn back stays where it stops.
+                let free = true;
+                if (taller && at.info.height - (at.vh - at.head.bottom) > 90) {
+                    await page.mouse.wheel(0, -60);
+                    await rest(page);
+                    const inside = await lie(page);
+                    free = Math.abs(inside.y - (at.y - 60)) <= 1;
+                }
+                check(`3. the bottom of the longest information section can be reached by wheel at 720 × 500, and it scrolls freely inside (${longest.data.slug}: ${Math.round(at.info.height)}px${taller ? '' : ', not taller than the window'})`, reached && free, `rests at ${at.y} of ${at.max}, the section ends at ${at.info.bottom}`);
+                await page.setViewportSize({ width: 1366, height: 710 });
+            }
         }
 
         // 6. the Index's proportions at the design's width
@@ -414,14 +653,64 @@ try {
         page.on('pageerror', e => errs.push(`${page.url()}: ${e.message}`));
         let rowsShown = 0;
         let photosShown = -1;
+        let setsShown = [];
+        const snaps = {};
+        const snap = () => page.evaluate(() => getComputedStyle(document.documentElement).scrollSnapType);
+        // The photos that show, set by set, and whether each lies under the one before.
+        const stacked = () => page.evaluate(() => [...document.querySelectorAll('project-slides')].map((el) => {
+            const frames = [...el.querySelectorAll('.slide')].filter(sl => sl.getClientRects().length).map(sl => sl.querySelector('.frame').getBoundingClientRect());
+            return { shown: frames.length, under: frames.every((f, i) => i === 0 || f.top >= frames[i - 1].bottom), top: frames[0]?.top ?? 0, bottom: frames.at(-1)?.bottom ?? 0 };
+        }));
         for (const path of routes) {
             await page.goto(base + path);
             if (path === '/') rowsShown = await page.evaluate(() => document.querySelectorAll('project-index .row').length);
-            if (many && path === `/projects/${many.data.slug}/`) photosShown = await page.evaluate(() => [...document.querySelectorAll('project-slides .slide')].filter(s => s.getClientRects().length).length);
+            if (many && path === `/projects/${many.data.slug}/`) { photosShown = await page.evaluate(() => [...document.querySelectorAll('project-slides .slide')].filter(s => s.getClientRects().length).length); snaps.many = await snap(); }
+            if (multi && path === `/projects/${multi.data.slug}/`) setsShown = await stacked();
+            if (single && path === `/projects/${single.data.slug}/`) snaps.single = await snap();
         }
         check('no console errors with JavaScript off', errs.length === 0, errs.slice(0, 5).join(' | '));
         check('1. with JavaScript off the index shows every row', rowsShown === published.length);
         if (many) check('1. with JavaScript off a project page shows every photo', photosShown === photos(many).length, `${photosShown}/${photos(many).length}`);
+        // Photos one under the other are a state the page must not snap in (it scrolls freely); a page whose sets hold one photo each is in its final state without a script, and snaps.
+        if (many && firstSet(many).length > 1) check('3. with JavaScript off a page whose photos are one under the other does not snap', snaps.many === 'none', snaps.many);
+        if (single) check('3. a page with one photo snaps without a script', String(snaps.single).includes('mandatory'), snaps.single);
+        if (multi) {
+            const want = setsOf(multi).map(set => set.length);
+            const inOrder = setsShown.every((set, i) => set.under && (i === 0 || set.top >= setsShown[i - 1].bottom));
+            check('1. with JavaScript off every photo of every set shows, one under the other, in set order', setsShown.map(set => set.shown).join() === want.join() && inOrder, `${setsShown.map(set => set.shown).join(' + ')} of ${want.join(' + ')}`);
+        }
+        await context.close();
+    }
+
+    // 4. a touch screen, 390px wide: a project page scrolls freely (no snapping), its sets one
+    // under the other, and no photo shows through the header it passes under.
+    {
+        const shownOn = multi ?? oneSet ?? many;
+        const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+        const page = await context.newPage();
+        if (shownOn) {
+            await page.goto(`${base}/projects/${shownOn.data.slug}/`);
+            await slidesReady(page);
+            await page.waitForFunction(() => { const img = document.querySelector('project-slides .slide.current img'); return img.complete && img.naturalWidth > 0; });
+            await page.evaluate(() => document.fonts.ready);
+            const start = await lie(page);
+            // The header as it is with nothing under it; its last 8px are left clear for the shadow of a frame at rest under it.
+            const clip = { x: 0, y: 0, width: 390, height: Math.round(start.head.bottom) - 8 };
+            const pixels = async () => sharp(await page.screenshot({ clip })).raw().toBuffer();
+            const clear = await pixels();
+            // A place between two stops, with the first photo half under the header.
+            const y = Math.round(start.sets[0].frame.top + start.sets[0].frame.height / 2 - start.head.bottom / 2);
+            await page.evaluate(to => scrollTo({ top: to, behavior: 'instant' }), y);
+            await rest(page);
+            const at = await lie(page);
+            const under = at.sets[0].frame.top < 0 && at.sets[0].frame.bottom > at.head.bottom;
+            const covered = await pixels();
+            let differ = 0;
+            for (let i = 0; i < clear.length; i++) if (clear[i] !== covered[i]) differ++;
+            const stack = at.sets.every((set, i) => i === 0 || set.top >= at.sets[i - 1].bottom - 0.5);
+            check(`4. on a touch screen at 390px a project page scrolls freely, its sets one under the other, with no horizontal scroll (${shownOn.data.slug})`, !at.mouse && at.snap === 'none' && Math.abs(at.y - y) <= 1 && stack && at.wide <= 390, `asked for ${y}, rests at ${at.y}; snap ${at.snap}; ${at.wide}px wide`);
+            check('3. the header keeps its place and nothing of a photo passing under it shows through', under && at.head.top === 0 && at.headOnTop && differ === 0, under ? `${differ} of ${clear.length} colour values changed` : 'no photo was under the header');
+        }
         await context.close();
     }
 
@@ -436,9 +725,11 @@ try {
         const vocab = new Set((fields.get('tags')?.options?.values ?? []).map(v => (typeof v === 'object' ? v.value ?? v.name : v)));
         const used = [...new Set(fronts.flatMap(f => f.data.tags ?? []))].filter(t => !vocab.has(t));
         check('5. every tag in use is in the tags select', used.length === 0, used.join(', '));
-        const photoFields = new Set((fields.get('images')?.fields ?? []).map(f => f.name));
+        const photoFields = new Map((fields.get('images')?.fields ?? []).map(f => [f.name, f]));
         const photoKeys = [...new Set(fronts.flatMap(f => photos(f).flatMap(im => Object.keys(im))))].filter(k => !photoFields.has(k));
-        check('5. every key of a project photo (image, alt, caption) is a field in .pages.yml', photoKeys.length === 0, photoKeys.join(', '));
+        check('5. every key of a project photo (image, alt, caption, set) is a field in .pages.yml', photoKeys.length === 0, photoKeys.join(', '));
+        const set = photoFields.get('set');
+        check('5. a photo\'s set is a number field in .pages.yml, whole numbers from 1', set?.type === 'number' && set?.options?.min === 1 && set?.options?.step === 1, JSON.stringify(set ?? null));
         const files = (config.content ?? []).filter(c => c.type === 'file').map(c => c.path).sort();
         check('5. the two text pages are editable', JSON.stringify(files) === JSON.stringify(['content/site/index.md', 'content/site/info.md']), files.join(', '));
     }

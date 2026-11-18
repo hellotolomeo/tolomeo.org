@@ -104,9 +104,16 @@ Photos live in **Media**, in one folder per project: `images/projects/<slug>`.
 4. Optional: **Caption** is a line shown under the photo on the project page. Put
    asterisks around words to slant them, like a book title: `Printed for *Not My Sister*`.
    Leave it empty for no caption.
-5. **Drag** the handle on the left of an item to change the order. The project page shows
+5. Optional: **Set** splits the photos into groups. Photos with the same number are shown
+   together, one at a time with the arrows. The page shows set 1 first; scrolling down
+   brings set 2, then set 3, and after the last set the project's text. Leave it at 1 (or
+   empty) if the project has one group of photos. A set has no title on the page; only the
+   photos' captions show.
+6. **Drag** the handle on the left of an item to change the order. The project page shows
    the photos one at a time, in this order: the first one first, the rest with the arrows.
-6. Press **Save**.
+   With sets, the photos of a set keep this order among themselves; which set comes first
+   is decided by the set numbers, not by the order of the list.
+7. Press **Save**.
 
 ## Set a thumbnail
 

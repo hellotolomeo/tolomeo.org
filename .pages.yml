@@ -193,7 +193,15 @@ content:
             label: Caption
             type: string
             description: "Optional. Shown under the photo on the project page. Put *asterisks* around words to slant them, e.g. a *Book Title*."
-        description: "The photos on the project page, shown one at a time in this order. Drag to reorder. Press Select and pick or upload photos inside your project's folder (images/projects/<slug>), not with the Upload button next to Select."
+          - name: set
+            label: Set
+            type: number
+            default: 1
+            options:
+              min: 1
+              step: 1
+            description: "Photos with the same number are shown together, one at a time; the page shows set 1 first and the next set when you scroll down. Leave it at 1 (or empty) if the project has one group of photos."
+        description: "The photos on the project page, shown one at a time in this order. Drag to reorder. To split them into groups that follow each other down the page, give each photo a Set number. Press Select and pick or upload photos inside your project's folder (images/projects/<slug>), not with the Upload button next to Select."
 
       - name: photo_links
         label: Links to more photos

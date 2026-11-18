@@ -1,12 +1,12 @@
 {% extends 'shared/pages/base.html' %}
-{#- A project page: header, the photos one at a time, then the project's information. `project` is the project, as server/content.js shapes it. -#}
+{#- A project page: header, the sets of photos one under the other (each one photo at a time), then the project's information. `project` is the project, as server/content.js shapes it. -#}
 {% block head %}
 <link rel="stylesheet" href="/client/project.css">
-{% if project.slides | length %}
+{% if project.sets | length %}
 <link rel="stylesheet" href="/client/slides.css">
 <link rel="stylesheet" href="/components/project-slides.css">
 {% endif %}
-{% if project.slides | length > 1 %}
+{% if project.scripted %}
 <script src="/lib/vendor/nunjucks.min.js" defer></script>
 <script src="/lib/vendor/idiomorph.min.js" defer></script>
 <script type="module" src="/client/project.js"></script>
@@ -18,13 +18,14 @@
 <h1><a href="#project-info">{{ project.title }}</a></h1>
 </header>
 <main class="project">
-{% if project.slides | length %}
+{% for s in project.sets %}
 <project-slides
-  id="slides-{{ project.slug }}"
-  images="{{ project.slides | dump | e }}"
-  label="Photos of {{ project.title }}"
+  id="{{ s.id }}"
+  images="{{ s.slides | dump | e }}"
+  label="{{ s.label }}"
+  {{ 'eager' if loop.first }}
 ></project-slides>
-{% endif %}
+{% endfor %}
 <section class="project-info" id="project-info" aria-label="About {{ project.title }}">
 <div class="row"><span class="years">{{ project.years }}</span><span class="what"><span class="title">{{ project.title }}</span>{% if project.tags | length %}<span class="type">{{ project.tags | join(', ') }}</span>{% endif %}</span></div>
 {% if project.body or project.role or project.client %}

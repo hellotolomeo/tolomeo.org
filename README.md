@@ -32,8 +32,9 @@ hash in `dist/images/`, so a rebuild only resizes new photos), and the files the
 npm run verify
 ```
 After a build: Playwright checks for the acceptance points (HTML before JavaScript, tag filtering,
-project URLs and their photo slideshow, 390px width, the CMS fields, the Index's proportions at
-1366px, zero DOM mutations on first render, no console errors).
+project URLs and their photo sets (one slideshow each, the header that stays, the snapping), 390px
+width, the CMS fields, the Index's proportions at 1366px, zero DOM mutations on first render, no
+console errors).
 Needs Chromium for Playwright (`npx playwright install chromium`, or set `CHROMIUM_PATH`).
 
 ```bash
@@ -62,7 +63,7 @@ server/             build-time only: content.js (data layer), markdown.js, image
                     zeldman/ (the vendored Node adapter)
 shared/pages/       page templates (index, project, info, 404)
 components/         project-index (the home page: grid + list + filter),
-                    project-slides (a project page's photos, one at a time)
+                    project-slides (one set of a project page's photos, one at a time)
 client/             browser only: main.js and project.js (page entries), template-env.js,
                     lib/ (BaseComponent), site.css, project.css
 lib/                vendor/ (nunjucks, idiomorph), filters.js, zeldman/ (upstream docs + UPSTREAM hash)
@@ -75,8 +76,10 @@ template, a stylesheet and a small class. The build renders each component's tem
 tag; in the browser the class renders the same template from its state and morphs the DOM, so the
 first render changes nothing. On the home page, `<project-index>` carries the published projects as
 JSON; a tag click is one `setState()` that removes only the rows and cells that stop matching. On a
-project page, `<project-slides>` carries the photos; every one is in the HTML, and the chevrons, a
-click on the photo or the arrow keys change which one shows.
+project page there is one `<project-slides>` per set of photos (`images[].set`), one under the
+other, each carrying its photos; every one is in the HTML, and the chevrons, a click on the photo
+or the arrow keys change which one shows in the set on screen. The header stays at the top of the
+window, and with a mouse or trackpad the page snaps from set to set, then to the information.
 
 ## Deploying
 
