@@ -844,6 +844,29 @@ try {
         }
         check('4. no horizontal scroll at 390px on any route', wide.length === 0, wide.join(', '));
 
+        // 6. the intro line stays on the grid's side of the page: side by side (from 720px) it wraps before the
+        // middle, 16px short of it, and the header keeps its 88px, so the columns under it do not move.
+        const intro = [];
+        for (const width of [720, 807, 1024, 1366, 1920]) {
+            await page.setViewportSize({ width, height: 800 });
+            await page.goto(base + '/');
+            await page.evaluate(() => document.fonts.ready);
+            const m = await page.evaluate(() => {
+                const p = document.querySelector('.site-head p');
+                const range = document.createRange();
+                range.selectNodeContents(p);
+                const rects = [...range.getClientRects()].filter(r => r.width > 0);
+                return {
+                    right: Math.max(...rects.map(r => r.right)),
+                    lines: new Set(rects.map(r => Math.round(r.top))).size,
+                    head: document.querySelector('.site-head').getBoundingClientRect().height,
+                    middle: document.documentElement.clientWidth / 2,
+                };
+            });
+            if (m.right > m.middle - 16 + 0.5 || Math.abs(m.head - 88) > 0.5) intro.push(`${width}px: text to ${m.right.toFixed(1)}, middle ${m.middle}, ${m.lines} line(s), header ${m.head}`);
+        }
+        check('6. side by side, the intro line ends at least 16px before the middle of the page and the header stays 88px (720 to 1920px)', intro.length === 0, intro.join(' | '));
+
         // console errors on every route
         await page.setViewportSize({ width: 1328, height: 900 });
         for (const path of routes) { await page.goto(base + path); await page.waitForTimeout(30); }

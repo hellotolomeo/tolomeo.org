@@ -131,6 +131,10 @@ a span {
   .site-head {
     padding-left: 37px;
   }
+
+  .site-head p {
+    max-width: calc(50% - 26.5px);
+  }
 }
 
 .page {
