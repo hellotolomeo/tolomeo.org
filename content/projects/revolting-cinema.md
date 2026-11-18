@@ -17,10 +17,10 @@ cover: /images/projects/revolting-cinema/revolting-cinema-cover.jpg
 images:
 - image: /images/projects/revolting-cinema/1-revolting-cinema-tolomeo-1-membelah-benteng-talk-by-vincent.jpg
   alt: Audience listening to a speaker in a crowded room, with a cat on a chair
-  caption: Scene from screening of Jonathan Ardie's documentary film *Membelah Benteng* about being Chinese in Indonesia in the wake of the Dutch occupation.
+  caption: Scene from screening of Jonatan Ardia's documentary film *Membelah Benteng* about being Chinese in Indonesia in the wake of the Dutch occupation.
 - image: /images/projects/revolting-cinema/2-revolting-cinema-tolomeo-2-membelah-benteng.jpg
   alt: Revolting Cinema poster for Membelah Benteng at Stroomhuis
-  caption: Hand-lettered promotion illustration for screening of Jonathan Ardie's documentary film *Membelah Benteng*, 17 August 2023.
+  caption: Hand-lettered promotion illustration for screening of Jonatan Ardia's documentary film *Membelah Benteng*, 17 August 2023.
 - image: /images/projects/revolting-cinema/3-revolting-cinema-tolomeo-3-sarraounia-poster2.jpg
   alt: Revolting Cinema poster for Sarraounia at Van Abbehuis
   caption: Hand-lettered promotion illustration for screening of the 1986 historical drama *Sarraounia* "the true story of the African Queen who fought off French invaders in 1899," directed by Med Hondo, and sponsored by the Thomas Sankara administration.
