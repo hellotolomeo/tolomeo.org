@@ -6,7 +6,7 @@ years: '2022'
 year_start: 2022
 year_end: 2022
 tags:
-- printed card
+- print
 - commission
 role:
 - illustrator

@@ -6,7 +6,7 @@ years: '2023'
 year_start: 2023
 year_end: 2023
 tags:
-- printed banner
+- print
 - commission
 role:
 - illustrator

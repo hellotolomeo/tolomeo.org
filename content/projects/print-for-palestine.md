@@ -6,10 +6,8 @@ years: '2024'
 year_start: 2024
 year_end: 2024
 tags:
-- service
-- boycott
 - workshop
-- collaboration
+- print
 role:
 - coordinator
 - instructor
