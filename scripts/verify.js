@@ -37,8 +37,13 @@
  *      not move; text that does not is cut with a fade, and while its row or its
  *      thumbnail is pointed at it slides left at 100px a second until its end is
  *      clear of the fade, moving nothing else, and is back 0.2s after the pointer
- *      leaves; a tag that is cut is reached with Tab, is then whole in its
- *      column with its focus ring, and filters on Enter.
+ *      leaves (a pointer that comes back sooner sees no jump); the types stand
+ *      still while the pointer is on them, so a click with the mouse filters by
+ *      the tag it was aimed at; a tag that is cut is reached with Tab, is then
+ *      whole in its column with its focus ring, and filters on Enter. The mask
+ *      takes nothing off text that fits; a date too long for its column is cut,
+ *      not printed over the title; on a touch screen a column is dragged, and
+ *      only one whose text is cut.
  *   7. The Index below 720px: one thumbnail to a row, each whole, framed, centred
  *      and as large as fits, its title 10px under its frame and 32px before the
  *      next one, in the list titles' type; the same projects in the grid and the
@@ -1034,15 +1039,27 @@ try {
             });
             const row = async (slug) => (await list()).rows.find(r => r.slug === slug);
             // The pointer on a row (on its date, so on no link and no tag), the row brought into its column's window first.
+            const spot = (slug) => page.evaluate((slug) => {
+                const r = document.querySelector(`#row-${slug}`);
+                r.scrollIntoView({ block: 'center', behavior: 'instant' });
+                const b = r.querySelector('.years').getBoundingClientRect();
+                return { x: b.left + 4, y: b.top + b.height / 2 };
+            }, slug);
             const pointAt = async (slug) => {
-                const at = await page.evaluate((slug) => {
-                    const r = document.querySelector(`#row-${slug}`);
-                    r.scrollIntoView({ block: 'center', behavior: 'instant' });
-                    const b = r.querySelector('.years').getBoundingClientRect();
-                    return { x: b.left + 4, y: b.top + b.height / 2 };
-                }, slug);
+                const at = await spot(slug);
                 await page.mouse.move(at.x, at.y);
             };
+            // The middle of a tag of a row as it lies now (of what shows of it at rest, for one longer than its column).
+            const tagSpot = (slug, n) => page.evaluate(({ slug, n, FADE }) => {
+                const r = document.querySelector(`#row-${slug}`);
+                r.scrollIntoView({ block: 'center', behavior: 'instant' });
+                const tag = r.querySelectorAll('.tag')[n];
+                const b = tag.getBoundingClientRect();
+                const right = Math.min(b.right, tag.closest('.clip').getBoundingClientRect().right - FADE);
+                return { tag: tag.dataset.tag, x: (b.left + right) / 2, y: b.top + b.height / 2 };
+            }, { slug, n, FADE });
+            const filteredBy = (tag) => page.waitForFunction((t) => new URLSearchParams(location.search).get('filter') === t, tag, { timeout: 5000 }).then(() => true, () => false);
+            const travelled = (slug, i) => page.evaluate(({ slug, i }) => parseFloat(getComputedStyle(document.querySelectorAll(`#row-${slug} .clip`)[i].querySelector('.line')).getPropertyValue('--index-slid')) || 0, { slug, i });
             // One column of a row, frame by frame from now on: [the page's animation clock, the column's `start`].
             // Until the text has moved and then stood still for 20 frames ('stopped'), or until a text
             // would have travelled `until` px (the registered length that drives the slide); 15s at most.
@@ -1076,6 +1093,36 @@ try {
                     resolve(e.elapsedTime);
                 });
             }), { slug, i });
+            // One column of a row on tape, frame by frame, until taken off: [the animation clock, `start`, the share
+            // of the slide that shows (1 while the row is pointed at, down to 0 on the way home)].
+            const tape = (slug, i) => page.evaluate(({ slug, i }) => {
+                const px = (v) => parseFloat(v) || 0;
+                const cell = document.querySelectorAll(`#row-${slug} .clip`)[i];
+                const line = cell.querySelector('.line');
+                const samples = [];
+                window.__tape = { on: true, samples };
+                const frame = () => {
+                    if (!window.__tape.on) return;
+                    const ls = getComputedStyle(line);
+                    const lb = line.getBoundingClientRect();
+                    const lean = (lb.width - px(ls.width) - px(ls.paddingRight)) / 2;
+                    samples.push([document.timeline.currentTime, lb.left + lean - cell.getBoundingClientRect().left - px(getComputedStyle(cell).paddingLeft), px(ls.getPropertyValue('--index-keep'))]);
+                    requestAnimationFrame(frame);
+                };
+                requestAnimationFrame(frame);
+            }, { slug, i });
+            const untape = () => page.evaluate(() => { window.__tape.on = false; return window.__tape.samples; });
+            // On the way home: resolves once less than three quarters of the slide show (5s at most).
+            const partWay = (slug, i) => page.evaluate(({ slug, i }) => new Promise((resolve) => {
+                const line = document.querySelectorAll(`#row-${slug} .clip`)[i].querySelector('.line');
+                const from = performance.now();
+                const frame = () => {
+                    const keep = parseFloat(getComputedStyle(line).getPropertyValue('--index-keep'));
+                    if (keep < 0.75 || performance.now() - from > 5000) resolve(keep);
+                    else requestAnimationFrame(frame);
+                };
+                requestAnimationFrame(frame);
+            }), { slug, i });
             // The ink in three strips of a column of a row at rest, each as the furthest any pixel is from the
             // ground colour (0 to 255): the 17px of text before the fade, the last 5px of the fade (at most
             // 5/12 of the ink left there), and the 7px after the column's edge.
@@ -1090,6 +1137,64 @@ try {
                 };
                 return { text: most(0, 17), fade: most(25, 30), after: most(31, 38) };
             };
+
+            // The mask takes nothing off text that is not cut. Its opaque part starts 1px before the column:
+            // a column starts on a fraction of a pixel, and a hard stop on that very edge erased the pixels
+            // in which a bullet or a first letter begins (most at 1536px). Every row is in the window; each
+            // column, from its ring room to its end (to where its fade begins when its text is cut), is
+            // the same picture with the mask and with the mask taken off for the test.
+            for (const width of [1366, 1536]) {
+                await show(width, Math.ceil(88 + published.length * width * 0.028886 + 40));
+                const m = await list();
+                const shot = async () => sharp(await page.screenshot()).raw().toBuffer({ resolveWithObject: true });
+                const masked = await shot();
+                const bared = await page.addStyleTag({ content: 'project-index .clip { -webkit-mask: none !important; mask: none !important; }' });
+                const bare = await shot();
+                await bared.evaluate(el => el.remove());
+                const at = (img, x, y) => [0, 1, 2].map(c => img.data[(y * img.info.width + x) * img.info.channels + c]);
+                const apart = (a, b) => Math.max(...a.map((v, c) => Math.abs(v - b[c])));
+                let differ = 0;
+                let ink = 0;
+                const where = new Set();
+                for (const r of m.rows) {
+                    for (const c of r.cells) {
+                        const x0 = Math.floor(c.left - c.room) - 1;
+                        const x1 = c.text <= c.width - FADE + 0.01 ? Math.ceil(c.right) : Math.floor(c.right - FADE) - 1;
+                        for (let y = Math.ceil(r.top); y < Math.floor(r.bottom); y++) {
+                            for (let x = x0; x < x1; x++) {
+                                if (apart(at(masked, x, y), at(bare, x, y)) > 2) { differ++; where.add(r.slug); }
+                                if (x >= Math.floor(c.left) && x < Math.floor(c.left) + 3 && apart(at(bare, x, y), m.ground) > 24) ink++;
+                            }
+                        }
+                    }
+                }
+                check(`6. at ${width}px the columns' mask takes nothing off text that is not cut: not a pixel of a bullet or of a first letter on a column's left edge`,
+                    m.rows.length === published.length && m.rows.at(-1).bottom <= masked.info.height && ink > 0 && differ === 0, `${differ} pixels differ in ${[...where].slice(0, 5).join(', ')}; ${ink} inked pixels on the columns' first 3px`);
+            }
+
+            // A date too long for its column (the CMS takes any text there) is cut at the column's edge: it
+            // is not printed over the title, and it moves nothing. The first row is given one, through the
+            // component's own state, at a width where the date column is its narrowest (104px).
+            {
+                await show(1024, 768);
+                const rest = (await list()).rows[0];
+                const clip = { x: Math.ceil(rest.cells[0].left), y: Math.ceil(rest.top), width: 60, height: Math.floor(rest.bottom) - Math.ceil(rest.top) };
+                const strip = async () => sharp(await page.screenshot({ clip })).raw().toBuffer();
+                const before = await strip();
+                const date = await page.evaluate(() => {
+                    const el = document.querySelector('project-index');
+                    el.setState({ projects: el.state.projects.map((p, k) => (k === 0 ? { ...p, years: `${p.years}, and still ongoing today` } : p)) });
+                    const years = document.querySelector('project-index .row .years');
+                    const text = document.createRange();
+                    text.selectNodeContents(years);
+                    return { text: text.getBoundingClientRect().right, box: years.getBoundingClientRect().right, lines: text.getClientRects().length };
+                });
+                const long = (await list()).rows[0];
+                const same = Buffer.compare(before, await strip()) === 0;
+                check('6. at 1024px a date too long for its column is cut at the column\'s edge: one line, nothing of it over the title, nothing moved',
+                    date.text > date.box + 20 && date.lines === 1 && same && Math.abs(long.height - rest.height) < 0.01 && Math.abs(long.cells[0].left - rest.cells[0].left) < 0.01 && Math.abs(long.date - rest.date) < 0.01,
+                    `the date's text ends ${(date.text - date.box).toFixed(1)}px after its column, ${date.lines} line(s); the title's first 60px ${same ? 'are as they were' : 'changed'}`);
+            }
 
             for (const [width, height] of [[720, 800], [800, 600], [1024, 768], [1366, 710], [1920, 1080]]) {
                 await show(width, height);
@@ -1111,7 +1216,7 @@ try {
                 const types = m.rows.filter(r => r.cells[1]).map(r => r.cells[1].left);
                 const share = (want.title - m.left) / m.page * 100;
                 check(`6. at ${width}px the list's three columns are where the design puts them in every row: the date at ${want.date.toFixed(1)}, the title at ${want.title.toFixed(1)} (${share.toFixed(3)}% of the page), ${want.titleWidth.toFixed(1)} wide, the type at ${want.type.toFixed(1)}, ${want.typeWidth.toFixed(1)} wide, lined up`,
-                    off.length === 0 && Math.max(...types) - Math.min(...types) < 0.01 && (m.page * 0.08192 < 104 || near(share, 9.868)),
+                    off.length === 0 && (types.length === 0 || Math.max(...types) - Math.min(...types) < 0.01) && (m.page * 0.08192 < 104 || near(share, 9.868)),
                     off.slice(0, 3).map(r => `${r.slug}: date ${r.date}, title ${r.cells[0].left} + ${r.cells[0].width}, type ${r.cells[1]?.left} + ${r.cells[1]?.width}`).join('; '));
 
                 // Every column is a box that cuts (not a scroller: nothing to drag with a mouse), with the fade over its
@@ -1163,15 +1268,19 @@ try {
                     const samples = await watch;
                     const slid = await row(slug);
                     const end = slid.cells[i].start + cell.text;
-                    // The frames on the way, clear of both ends; a way too short to hold three of them is not timed.
-                    const moving = samples.filter(([, start]) => start < -3 && start > -worst.over + 3);
+                    // The frames on the way, clear of both ends: after the first 0.2s (20px), in which the text sets
+                    // off from up to 5px behind the straight line and is level with it at the end, and before the
+                    // stop. A way too short to hold three of them is not timed. No frame is a jump: the text is
+                    // never faster than at the end of that start (200px a second).
+                    const moving = samples.filter(([, start]) => start < -23 && start > -worst.over + 3);
+                    const fastest = Math.max(0, ...samples.slice(1).map(([t, start], k) => (samples[k][1] - start) / Math.max(t - samples[k][0], 1) * 1000));
                     const speed = moving.length >= 3 ? (moving[0][1] - moving.at(-1)[1]) / (moving.at(-1)[0] - moving[0][0]) * 1000 : NaN;
                     const drift = moving.length >= 3 ? Math.max(...moving.map(([t, start]) => Math.abs(start - (moving[0][1] - speed * (t - moving[0][0]) / 1000)))) : 0;
                     // The lean of the slanted types puts the top of their last letter up to 1px further right.
                     check(`6. at ${width}px pointing at its row slides the ${what} left until its end is inside the column and clear of the fade, and it stays there`,
                         slid.on && Math.abs(slid.cells[i].start + worst.over) <= 1 && end <= cell.width - FADE + 1 && end > cell.width - FADE - 1, `starts ${slid.cells[i].start}px left of its column, ends ${(cell.width - end).toFixed(2)}px before the edge`);
-                    check(`6. at ${width}px the ${what} slides at a steady 100px a second (${Number.isNaN(speed) ? 'too short a way to time' : `${speed.toFixed(1)}px/s over ${moving.length} frames, never more than ${drift.toFixed(2)}px off the line`})`,
-                        Number.isNaN(speed) ? worst.over < 40 : Math.abs(speed - 100) <= 10 && drift <= 1.5, `${samples.length} frames`);
+                    check(`6. at ${width}px the ${what} slides at a steady 100px a second after a 0.2s start (${Number.isNaN(speed) ? 'too short a way to time' : `${speed.toFixed(1)}px/s over ${moving.length} frames, never more than ${drift.toFixed(2)}px off the line`}; no frame faster than ${fastest.toFixed(0)}px/s)`,
+                        (Number.isNaN(speed) ? worst.over < 60 : Math.abs(speed - 100) <= 10 && drift <= 1.5) && fastest <= 260, `${samples.length} frames`);
                     const arrow = slid.chevron;
                     check(`6. at ${width}px the slide moves nothing else: the date, both columns and the chevron (14px left of the title's column) are where they were`,
                         near(slid.date, rest.date) && slid.cells.every((c, k) => Math.abs(c.left - rest.cells[k].left) < 0.01 && Math.abs(c.right - rest.cells[k].right) < 0.01)
@@ -1195,6 +1304,94 @@ try {
                     const after = await row(slug);
                     check(`6. at ${width}px pointing at the project's thumbnail slides the ${what} the same way, and it goes back when the pointer leaves`,
                         byThumb.on && Math.abs(byThumb.cells[i].start + worst.over) <= 1 && Math.abs(left - 0.2) < 0.005 && Math.abs(after.cells[i].start) < 0.01, `start ${byThumb.cells[i].start}, wanted ${-worst.over}; back in ${left}s to ${after.cells[i].start}`);
+
+                    // A pointer that leaves and is back before the 0.2s are over (it wobbles between two rows): the
+                    // text turns round and glides to where the slide stands, no faster than it was going home
+                    // (its way in 0.2s) plus the slide's own speed; it does not jump there in one frame. A way
+                    // too short to tell a glide from a jump is not tried.
+                    if (worst.over < 40) { check(`6. at ${width}px: ok (the ${what} is cut by too little to time a pointer that comes back; skipped)`, true); continue; }
+                    const at = await spot(slug);
+                    const there = follow(slug, i, 'stopped');
+                    await page.mouse.move(at.x, at.y);
+                    await there;
+                    await tape(slug, i);
+                    const turning = partWay(slug, i);
+                    await page.mouse.move(1, 1);
+                    await turning;
+                    const again = follow(slug, i, 'stopped');
+                    await page.mouse.move(at.x, at.y);
+                    await again;
+                    const taped = await untape();
+                    const low = taped.reduce((a, b) => (b[2] < a[2] ? b : a));
+                    const rush = Math.max(0, ...taped.slice(1).map(([t, start], k) => (taped[k][1] - start) / Math.max(t - taped[k][0], 1) * 1000));
+                    const limit = worst.over / 0.2 * 1.3 + 150;
+                    const ended = await row(slug);
+                    // Home before the pointer was back (a machine too busy to be back in 0.2s): nothing to judge.
+                    if (low[2] < 0.02) check(`6. at ${width}px: ok (the pointer was not back on the ${what}'s row within 0.2s; the check of a pointer that comes back was skipped)`, true);
+                    else check(`6. at ${width}px a pointer back on the row before the ${what} is home (${Math.round(low[2] * 100)}% of its slide still showing) sees it glide back to its end, not jump (${rush.toFixed(0)}px/s at most; a jump is over ${limit.toFixed(0)})`,
+                        rush <= limit && Math.abs(ended.cells[i].start + worst.over) <= 1 && ended.on, `${taped.length} frames, turned at ${low[1].toFixed(1)}px, ends at ${ended.cells[i].start}`);
+                    const settle = home(slug, i);
+                    await page.mouse.move(1, 1);
+                    await settle;
+                }
+
+                // The mouse on a type list that is cut. The list stands still while the pointer is on it, or a
+                // tag would slide away from under the pointer before the click. (1) The pointer comes down
+                // onto the list's first tag and waits there as long as the slide would have needed to carry
+                // that tag out of sight (the title of the same row, which does slide, is the clock): the list
+                // has not moved, and the click filters by that tag. (2) The row is pointed at on its date
+                // until the list is at its end, then the pointer goes to the last tag: the list stays at its
+                // end, and the click filters by that tag. (3) Leaving from there, the list is home in 0.2s and
+                // its travel is back at 0, so the next slide starts at the start.
+                const reach = long.filter(x => x.i === 1).sort((a, b) => b.over - a.over)[0];
+                if (!reach) check(`6. at ${width}px: ok (no type list is cut; the checks of a click with the mouse were skipped)`, true);
+                else {
+                    const { slug } = reach;
+                    const lastTag = reach.c.tags.length - 1;
+                    const first = await tagSpot(slug, 0);
+                    const clock = follow(slug, 0, Math.max(reach.c.tags[0].right, 0) + 30);
+                    await page.mouse.move(first.x, first.y - 2 * m.slot);
+                    await page.mouse.move(first.x, first.y, { steps: 3 });
+                    await clock;
+                    const held = await row(slug);
+                    await page.mouse.down();
+                    await page.mouse.up();
+                    const byFirst = await filteredBy(first.tag);
+                    check(`6. at ${width}px the types stand still under the pointer: the mouse on the first tag of the type list that is cut the most, a click once a slide would have carried it away, filters by that tag (${slug}: ${first.tag})`,
+                        held.on && Math.abs(held.cells[1].start) < 0.01 && byFirst, `on=${held.on}, the list at ${held.cells[1].start}, ${await page.evaluate(() => decodeURIComponent(location.search))}`);
+
+                    await show(width, height);
+                    let slid = follow(slug, 1, 'stopped');
+                    await pointAt(slug);
+                    await slid;
+                    const atEnd = await row(slug);
+                    const last = await tagSpot(slug, lastTag);
+                    const more = follow(slug, 0, await travelled(slug, 0) + 60);
+                    await page.mouse.move(last.x, last.y);
+                    await more;
+                    const stayed = await row(slug);
+                    await page.mouse.down();
+                    await page.mouse.up();
+                    const byLast = await filteredBy(last.tag);
+                    check(`6. at ${width}px once the row's slide has brought the last tag into the column, the pointer on that tag keeps the list at its end and a click filters by it (${slug}: ${last.tag})`,
+                        Math.abs(atEnd.cells[1].start + reach.over) <= 1 && stayed.on && Math.abs(stayed.cells[1].start - atEnd.cells[1].start) < 0.01 && byLast, `the list at ${atEnd.cells[1].start} → ${stayed.cells[1].start}, wanted ${-reach.over}; ${await page.evaluate(() => decodeURIComponent(location.search))}`);
+
+                    await show(width, height);
+                    slid = follow(slug, 1, 'stopped');
+                    await pointAt(slug);
+                    await slid;
+                    const end = await tagSpot(slug, lastTag);
+                    const pause = follow(slug, 0, await travelled(slug, 0) + 30);
+                    await page.mouse.move(end.x, end.y);
+                    await pause;
+                    const leaving = home(slug, 1);
+                    await page.mouse.move(1, 1);
+                    const took = await leaving;
+                    const reset = await page.waitForFunction((slug) => getComputedStyle(document.querySelectorAll(`#row-${slug} .clip`)[1].querySelector('.line')).getPropertyValue('--index-slid') === '0px', slug, { timeout: 3000 }).then(() => true, () => false);
+                    const gone = await row(slug);
+                    check(`6. at ${width}px leaving the row from a tag sends the list home in 0.2s, and its next slide starts at the start`,
+                        Math.abs(took - 0.2) < 0.005 && reset && Math.abs(gone.cells[1].start) < 0.01 && !gone.on, `${took}s, travel reset: ${reset}, the list at ${gone.cells[1].start}`);
+                    await show(width, height);
                 }
 
                 // The keyboard: a tag that is cut at rest is reached with Tab, is then whole inside its column
@@ -1475,7 +1672,7 @@ try {
                 const rows = await flow();
                 const boxed = rows.filter(r => r.boxes > 0 || !/^inline none 0(, inline-block none 0)?$/.test(r.lines) || Math.abs(r.gap - 15) > 0.5);
                 const wrapped = rows.filter(r => r.height > 26.5).length;
-                const pointed = rows.find(r => r.tags);
+                const pointed = rows.find(r => r.tags) ?? rows[0];
                 await page.evaluate((slug) => document.querySelector(`#row-${slug}`).scrollIntoView({ block: 'center', behavior: 'instant' }), pointed.slug);
                 const before = (await flow()).find(r => r.slug === pointed.slug);
                 await page.hover(`#row-${pointed.slug} .years`);
@@ -1565,6 +1762,51 @@ try {
             const want = setsOf(multi).map(set => set.length);
             const inOrder = setsShown.every((set, i) => set.under && (i === 0 || set.top >= setsShown[i - 1].bottom));
             check('1. with JavaScript off every photo of every set shows, one under the other, in set order', setsShown.map(set => set.shown).join() === want.join() && inOrder, `${setsShown.map(set => set.shown).join(' + ')} of ${want.join(' + ')}`);
+        }
+        await context.close();
+    }
+
+    // 6. a touch screen 820px wide (it cannot hover, and the list still has its columns): nothing
+    // slides; a column whose text is cut is dragged sideways, by exactly what is cut, so that its end
+    // stops where the fade begins, and shows no scrollbar; a column whose text fits cannot be dragged
+    // at all (the slanted types lean 0.84px over their own end, which a scroller counts and rounds up,
+    // so their way is up to 2px longer and one that just fits may give 1px); a tap on a tag filters.
+    {
+        const context = await browser.newContext({ viewport: { width: 820, height: 1180 }, deviceScaleFactor: 1, hasTouch: true });
+        const page = await context.newPage();
+        await page.goto(`${base}/`);
+        await page.waitForFunction(() => document.querySelector('project-index')?.rendered);
+        await page.evaluate(() => document.fonts.ready.then(() => true));
+        if (!await page.evaluate(() => matchMedia('(hover: none)').matches)) check('6. on a touch screen at 820px: ok (this browser says it can hover; the check was skipped)', true);
+        else {
+            const cells = await page.evaluate(() => [...document.querySelectorAll('project-index .clip')].map((c, k) => {
+                const px = (v) => parseFloat(v) || 0;
+                const line = c.querySelector('.line');
+                const cs = getComputedStyle(c);
+                const ls = getComputedStyle(line);
+                c.scrollLeft = 10000;
+                const tag = [...c.querySelectorAll('.tag')].at(-1)?.getBoundingClientRect();
+                const at = { k, slug: c.closest('.row').dataset.slug, over: px(ls.width) - (c.getBoundingClientRect().width - px(cs.paddingLeft) - 12), drag: c.scrollLeft, cut: cs.overflowX, bar: c.offsetHeight - c.clientHeight, moved: ls.translate, tags: Boolean(tag), last: tag ? c.getBoundingClientRect().right - tag.right : 12 };
+                c.scrollLeft = 0;
+                return at;
+            }));
+            const wrong = cells.filter(c => c.cut !== 'auto' || c.bar !== 0 || c.moved !== 'none' || (c.over <= 0.01 ? c.drag > 1 : c.drag < c.over - 1 || c.drag > c.over + 2.5 || c.last < 10.5));
+            const most = cells.filter(c => c.over > 0.01 && c.tags).sort((a, b) => b.over - a.over)[0];
+            let tapped = 'no type list is cut';
+            if (most) {
+                const spot = await page.evaluate((k) => {
+                    const c = document.querySelectorAll('project-index .clip')[k];
+                    c.scrollIntoView({ block: 'center', behavior: 'instant' });
+                    c.scrollLeft = 10000;
+                    const tag = [...c.querySelectorAll('.tag')].at(-1);
+                    const b = tag.getBoundingClientRect();
+                    return { tag: tag.dataset.tag, x: b.left + b.width / 2, y: b.top + b.height / 2 };
+                }, most.k);
+                await page.touchscreen.tap(spot.x, spot.y);
+                tapped = await page.waitForFunction((t) => new URLSearchParams(location.search).get('filter') === t, spot.tag, { timeout: 5000 }).then(() => spot.tag, () => '');
+            }
+            check(`6. on a touch screen at 820px nothing slides: the ${cells.filter(c => c.over > 0.01).length} columns whose text is cut are dragged sideways to their end and no further, the ${cells.filter(c => c.over <= 0.01).length} whose text fits cannot be dragged, none shows a scrollbar, and a tap on a tag dragged into view filters (${tapped})`,
+                cells.length > 0 && wrong.length === 0 && Boolean(tapped), wrong.slice(0, 4).map(c => `${c.slug}: ${c.cut}, cut by ${c.over.toFixed(1)}, drags ${c.drag}, last tag ${c.last.toFixed(1)} before the edge, ${c.moved}, bar ${c.bar}`).join('; '));
         }
         await context.close();
     }

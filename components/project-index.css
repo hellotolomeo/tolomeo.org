@@ -217,6 +217,11 @@ project-index .track {
     white-space: nowrap;
   }
 
+  project-index .years {
+    overflow: hidden;
+    overflow: clip visible;
+  }
+
   project-index .what {
     display: grid;
     grid-template-columns: minmax(0, 11fr) minmax(0, 10fr);
@@ -231,8 +236,8 @@ project-index .track {
     overflow: hidden;
     overflow: clip;
     container-type: inline-size;
-    -webkit-mask: linear-gradient(to right, transparent var(--ring), #000 var(--ring), #000 calc(100% - 1em), transparent);
-    mask: linear-gradient(to right, transparent var(--ring), #000 var(--ring), #000 calc(100% - 1em), transparent);
+    -webkit-mask: linear-gradient(to right, transparent calc(var(--ring) - 1px), #000 calc(var(--ring) - 1px), #000 calc(100% - 1em), transparent);
+    mask: linear-gradient(to right, transparent calc(var(--ring) - 1px), #000 calc(var(--ring) - 1px), #000 calc(100% - 1em), transparent);
   }
 
   project-index .clip:has(:focus-visible) {
@@ -271,7 +276,12 @@ project-index .track {
   project-index .row:is(.on, :hover) .line {
     --index-slid: 1000px;
     --index-keep: 1;
-    transition: --index-slid 10s linear, --index-keep 0s;
+    transition: --index-slid 10s linear, --index-keep 0.2s linear;
+  }
+
+  project-index .row:is(.on, :hover) .tags:hover {
+    --index-slid: 2000px;
+    transition: --index-slid 0s linear 86400s, --index-keep 0.2s linear;
   }
 
   project-index .clip:has(.tag:focus-visible) .line {
@@ -342,6 +352,7 @@ project-index .track {
   }
 
   project-index .line {
+    padding-right: 1em;
     translate: none;
   }
 }
