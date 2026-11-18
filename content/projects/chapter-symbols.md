@@ -65,4 +65,4 @@ images:
 photo_links: []
 ---
 
-Set of chapter illustrations I designed using digital tools (no AI) to accompany and frame each chapter of "Does Marxism Support Decolonization?" Each 9 dot grid-based illustration is developed to capture the essence of the book's chapter conversation in an abstract, diagrammatic form.
+Set of chapter illustrations I designed using digital tools (no AI) to accompany and frame each chapter of *Does Marxism Support Decolonization?* Each 9 dot grid-based illustration is developed to capture the essence of the book's chapter conversation in an abstract, diagrammatic form.

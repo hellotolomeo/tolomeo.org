@@ -27,4 +27,4 @@ photo_links: []
 
 Bringing to the forefront Indian and Soviet proletarian feminism and Black communist activism, this three-part compilation gives modern day feminists a global take on what is needed to eliminate gender oppression.
 
-Not My Sister features three critical works that define the battle lines within the program of gender liberation. Illuminating what solidarity looks like and the steps to achieve it. The sections of this book give three distinct perspectives on how and why alliance with white and wealthy women won’t result in collective freedom. All three segments study the goal of gender liberation and articulate what it takes to bring it to fruition.
+*Not My Sister* features three critical works that define the battle lines within the program of gender liberation. Illuminating what solidarity looks like and the steps to achieve it. The sections of this book give three distinct perspectives on how and why alliance with white and wealthy women won’t result in collective freedom. All three segments study the goal of gender liberation and articulate what it takes to bring it to fruition.

@@ -24,4 +24,4 @@ images:
 photo_links: []
 ---
 
-Book design juxtaposing scraped visuals from the internet to accompany every page of Georges Bataille’s 1928 classic Story of the Eye. A perspective on how the content of this story may have been communicated visually if told today.
+Book design juxtaposing scraped visuals from the internet to accompany every page of Georges Bataille’s 1928 classic *Story of the Eye*. A perspective on how the content of this story may have been communicated visually if told today.
