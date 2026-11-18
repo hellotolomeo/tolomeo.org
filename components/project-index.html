@@ -1,5 +1,6 @@
 {#- The home page under its header: the thumbnail grid on the left, the index list on the right, both from `projects`. -#}
 {#- Below 720px the grid is one column over the list, and `.name` (the title under its thumbnail) shows only there. -#}
+{#- A row is date | title | type. From 720px up `.clip` is a column one line tall that cuts its text, and `.line` is the text, which slides while the row is pointed at; below 720px neither makes a box of its own. -#}
 {#- `shown` and `hover` exist only in the browser; the server renders every project with nothing pointed at. -#}
 {% set shown = shown | default(projects) %}
 {% set hover = hover | default('') %}
@@ -39,13 +40,13 @@
   id="row-{{ p.slug }}"
   class="row{% if p.child %} child{% endif %}{% if hover == p.slug %} on{% endif %}"
   data-slug="{{ p.slug }}"
-><span class="years">{{ p.years }}</span><span class="what">{% if p.child %}<span class="bullet">•</span>{% endif %}<a class="title" href="{{ p.href }}">{{ p.title }}</a>{% if p.tags | length %}<span class="tags">{% for t in p.tags %}<button
+><span class="years">{{ p.years }}</span><span class="what"><span class="clip"><span class="line">{% if p.child %}<span class="bullet">•</span>{% endif %}<a class="title" href="{{ p.href }}">{{ p.title }}</a></span></span>{% if p.tags | length %}<span class="clip"><span class="line tags">{% for t in p.tags %}<button
   type="button"
   class="tag{% if t in filter %} on{% endif %}"
   data-action="tag"
   data-tag="{{ t }}"
   aria-pressed="{{ 'true' if t in filter else 'false' }}"
->{{ t }}</button>{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}</span></li>
+>{{ t }}</button>{% if not loop.last %}, {% endif %}{% endfor %}</span></span>{% endif %}</span></li>
 {% endfor %}
 </ul>
 <div class="track" aria-hidden="true"><span class="thumb"></span></div>

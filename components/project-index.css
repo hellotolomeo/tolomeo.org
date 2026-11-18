@@ -1,5 +1,6 @@
 project-index {
   --row: 2.8886cqw;
+  --ring: 5px;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12.4 14.3'%3E%3Cpath d='M0.393 0.639 L10.969 7.15 L0.393 13.661' fill='none' stroke='%23000' stroke-width='1.5'/%3E%3C/svg%3E");
   display: flex;
   flex-wrap: wrap;
@@ -75,6 +76,10 @@ project-index .name {
 project-index .what {
   position: relative;
   min-width: 0;
+}
+
+project-index .clip {
+  display: contents;
 }
 
 project-index .bullet {
@@ -204,9 +209,75 @@ project-index .track {
   }
 
   project-index .row {
-    min-height: var(--row);
+    align-items: center;
+    height: var(--row);
+    min-height: 0;
     padding-top: 0;
     padding-bottom: 0;
+    white-space: nowrap;
+  }
+
+  project-index .what {
+    display: grid;
+    grid-template-columns: minmax(0, 11fr) minmax(0, 10fr);
+    column-gap: 15px;
+    align-items: center;
+  }
+
+  project-index .clip {
+    display: block;
+    margin-left: calc(-1 * var(--ring));
+    padding-left: var(--ring);
+    overflow: hidden;
+    overflow: clip;
+    container-type: inline-size;
+    -webkit-mask: linear-gradient(to right, transparent var(--ring), #000 var(--ring), #000 calc(100% - 1em), transparent);
+    mask: linear-gradient(to right, transparent var(--ring), #000 var(--ring), #000 calc(100% - 1em), transparent);
+  }
+
+  project-index .clip:has(:focus-visible) {
+    margin-top: calc(-1 * var(--ring));
+    margin-bottom: calc(-1 * var(--ring));
+    padding-top: var(--ring);
+    padding-bottom: var(--ring);
+    -webkit-mask: linear-gradient(to right, #000 calc(100% - 1em), transparent);
+    mask: linear-gradient(to right, #000 calc(100% - 1em), transparent);
+  }
+
+  project-index .clip:has(.tag:focus-visible) {
+    overflow: hidden;
+    scroll-snap-type: x mandatory;
+    scroll-padding: 0 calc(1em + var(--ring)) 0 var(--ring);
+  }
+
+  project-index .tag:focus-visible {
+    scroll-snap-align: start;
+  }
+
+  project-index .line {
+    --index-slid: 0px;
+    --index-keep: 0;
+    display: block;
+    width: max-content;
+    padding-right: calc(1em + var(--ring));
+    translate: calc(max(-1 * var(--index-slid), min(0px, 100cqw + var(--ring) - 100%)) * var(--index-keep));
+    transition: --index-slid 0s linear 0.2s, --index-keep 0.2s linear;
+  }
+
+  project-index .tags {
+    margin-left: 0;
+  }
+
+  project-index .row:is(.on, :hover) .line {
+    --index-slid: 1000px;
+    --index-keep: 1;
+    transition: --index-slid 10s linear, --index-keep 0s;
+  }
+
+  project-index .clip:has(.tag:focus-visible) .line {
+    --index-slid: 0px;
+    --index-keep: 0;
+    transition: none;
   }
 
   project-index .track {
@@ -258,14 +329,39 @@ project-index .track {
   }
 }
 
-@media (min-width: 720px) and (max-width: 1107.98px) {
-  project-index .row {
-    line-height: var(--row);
+@media (min-width: 720px) and (hover: none) {
+  project-index .clip {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-padding: 0 calc(1em + var(--ring)) 0 var(--ring);
+    scrollbar-width: none;
   }
 
-  project-index .row:is(.on, :hover) .what::before {
-    top: calc((var(--row) - 16px) / 2);
+  project-index .clip::-webkit-scrollbar {
+    display: none;
   }
+
+  project-index .line {
+    translate: none;
+  }
+}
+
+@media (min-width: 720px) and (prefers-reduced-motion: reduce) {
+  project-index :is(.line, .row:is(.on, :hover) .line) {
+    transition: none;
+  }
+}
+
+@property --index-slid {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --index-keep {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
 }
 
 @keyframes project-index-thumb {

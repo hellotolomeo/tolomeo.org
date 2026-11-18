@@ -5,7 +5,9 @@ import BaseComponent from '../client/lib/BaseComponent.js';
  * one list of projects, filtered by tag. The active tags live in the URL
  * (?filter=a,b) and in `filter`; a change is one setState, and the morph
  * removes only the cells and rows that stop matching. Pointing at a thumbnail
- * or a row highlights that row (purple title, chevron).
+ * or a row highlights that row (purple title, chevron); from 720px up the
+ * stylesheet also slides that row's texts that are too long for their column,
+ * off the same `on` class, with no script.
  * Static pages never carry ?filter, so the first render matches the server's;
  * a filter in the URL is applied right after it.
  */

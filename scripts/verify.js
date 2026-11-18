@@ -31,11 +31,20 @@
  *      tag in use is in the tags select.
  *   6. The Index's proportions at 1366px: a cell is a quarter of the page, five
  *      list rows are one cell tall, thumbnails are whole, centred and framed.
+ *      The list at 720, 800, 1024, 1366 and 1920px: every row one line and one
+ *      fifth of a cell tall; the date, the title and the type each in a column
+ *      where the design puts it; text that fits its column is not faded and does
+ *      not move; text that does not is cut with a fade, and while its row or its
+ *      thumbnail is pointed at it slides left at 100px a second until its end is
+ *      clear of the fade, moving nothing else, and is back 0.2s after the pointer
+ *      leaves; a tag that is cut is reached with Tab, is then whole in its
+ *      column with its focus ring, and filters on Enter.
  *   7. The Index below 720px: one thumbnail to a row, each whole, framed, centred
  *      and as large as fits, its title 10px under its frame and 32px before the
  *      next one, in the list titles' type; the same projects in the grid and the
- *      list when a tag is clicked. From 720px up the titles are not displayed
- *      and the cells keep their fixed proportion.
+ *      list when a tag is clicked; the list without columns, a row's types
+ *      following its title and wrapping. From 720px up the titles are not
+ *      displayed and the cells keep their fixed proportion.
  *   + zero mutations on the first render and on a forced el.render();
  *   + zero console errors and page errors on every route, JS on and off.
  * Exits 1 if anything fails.
@@ -934,20 +943,6 @@ try {
             check('6. every thumbnail is whole, centred, framed and as large as its cell allows', m.thumbs);
             check('6. the two columns scroll on their own, and nothing draws a line', m.scrolls && m.lines === 0, JSON.stringify(m));
 
-            // Narrower, still side by side: a row whose text wraps takes whole row slots, so five slots are still one cell.
-            await page.setViewportSize({ width: 1024, height: 768 });
-            await page.waitForTimeout(50);
-            const narrow = await page.evaluate(() => {
-                const slot = document.querySelector('project-index .cell').getBoundingClientRect().height / 5;
-                const off = [...document.querySelectorAll('project-index .row')].filter((r) => {
-                    const n = r.getBoundingClientRect().height / slot;
-                    return Math.abs(n - Math.round(n)) > 0.01 || Math.round(n) < 1;
-                }).map(r => r.dataset.slug);
-                const quarter = Math.abs(document.querySelector('project-index .cell').getBoundingClientRect().width - document.documentElement.clientWidth / 4) < 0.5;
-                return { off, quarter };
-            });
-            check('6. at 1024px a cell is still a quarter of the page and every row is a whole number of fifths of a cell', narrow.quarter && narrow.off.length === 0, narrow.off.join(', '));
-
             // A column scrolled to its end, then filtered down to something that no longer scrolls: no thumb left behind.
             await page.setViewportSize({ width: 1366, height: 710 });
             const rare = [...counts].filter(([, n]) => n <= 2).map(([t]) => t)[0];
@@ -960,6 +955,293 @@ try {
                 await page.waitForTimeout(150);
                 const after = await thumbs();
                 check('6. the scroll thumbs show while a column scrolls and go when a filter leaves nothing to scroll', atEnd.every(v => v === 'visible') && after.every(v => v === 'hidden'), `${atEnd.join(',')} → ${after.join(',')}`);
+            }
+
+            // The list from 720px up: three rigid columns, every row one line. CLAUDE.md, "Index": the date starts
+            // 1.676% of the page (at least 12px) from the list's edge, in a column 8.192% of the page (at least
+            // 104px) wide; what is left before the 16px right padding is the title's column and the type's,
+            // 11 : 10, 15px apart. A column cuts its text and fades it out over its last 1em (12px); text that
+            // ends before the fade is left alone, text that reaches it slides left at 100px a second while its
+            // row is pointed at, until its end is clear of the fade, and goes back in 0.2s.
+            const FADE = 12;
+            const show = async (width, height) => {
+                await page.setViewportSize({ width, height });
+                await page.mouse.move(1, 1);
+                await page.goto(`${base}/`);
+                await page.waitForFunction(() => document.querySelector('project-index')?.rendered);
+                await page.evaluate(() => document.fonts.ready.then(() => true));
+            };
+            // The list as it lies: every row with its date, its chevron and its columns. A column's `start`
+            // is where its text begins against the column's left edge: 0 at rest, negative once it has slid
+            // (or been scrolled). The slanted types' box is wider than their layout by the lean on each side.
+            const list = () => page.evaluate(() => {
+                const px = (v) => parseFloat(v) || 0;
+                const index = document.querySelector('project-index .index').getBoundingClientRect();
+                return {
+                    page: document.documentElement.clientWidth,
+                    left: index.left,
+                    width: index.width,
+                    slot: document.querySelector('project-index .cell').getBoundingClientRect().height / 5,
+                    ground: getComputedStyle(document.body).backgroundColor.match(/\d+/g).slice(0, 3).map(Number),
+                    rows: [...document.querySelectorAll('project-index .row')].map((r) => {
+                        const b = r.getBoundingClientRect();
+                        const years = r.querySelector('.years').getBoundingClientRect();
+                        const what = r.querySelector('.what');
+                        const before = getComputedStyle(what, '::before');
+                        return {
+                            slug: r.dataset.slug,
+                            top: b.top,
+                            bottom: b.bottom,
+                            height: b.height,
+                            on: r.classList.contains('on'),
+                            date: years.left,
+                            dateLines: years.height / px(getComputedStyle(r).lineHeight),
+                            // The chevron's box: from the title column's left edge, and its middle from the row's.
+                            chevron: before.content === 'none' ? null : {
+                                left: px(before.left),
+                                width: px(before.width),
+                                height: px(before.height),
+                                middle: what.getBoundingClientRect().top + px(before.top) + px(before.height) / 2 - (b.top + b.height / 2),
+                                colour: before.backgroundColor,
+                            },
+                            cells: [...r.querySelectorAll('.clip')].map((c) => {
+                                const line = c.querySelector('.line');
+                                const cs = getComputedStyle(c);
+                                const ls = getComputedStyle(line);
+                                const cb = c.getBoundingClientRect();
+                                const lb = line.getBoundingClientRect();
+                                const text = px(ls.width);
+                                const lean = (lb.width - text - px(ls.paddingRight)) / 2;
+                                const left = cb.left + px(cs.paddingLeft);
+                                return {
+                                    left,
+                                    room: px(cs.paddingLeft),
+                                    right: cb.right,
+                                    width: cb.right - left,
+                                    text,
+                                    start: lb.left + lean - left,
+                                    lines: px(ls.height) / px(ls.lineHeight),
+                                    middle: lb.top + lb.height / 2 - (b.top + b.height / 2),
+                                    cut: cs.overflowX,
+                                    mask: cs.maskImage,
+                                    colour: ls.color.match(/\d+/g).slice(0, 3).map(Number),
+                                    tags: [...c.querySelectorAll('.tag')].map((t) => { const tb = t.getBoundingClientRect(); return { tag: t.dataset.tag, left: tb.left - left, right: tb.right - left, top: tb.top - cb.top, bottom: cb.bottom - tb.bottom }; }),
+                                };
+                            }),
+                        };
+                    }),
+                };
+            });
+            const row = async (slug) => (await list()).rows.find(r => r.slug === slug);
+            // The pointer on a row (on its date, so on no link and no tag), the row brought into its column's window first.
+            const pointAt = async (slug) => {
+                const at = await page.evaluate((slug) => {
+                    const r = document.querySelector(`#row-${slug}`);
+                    r.scrollIntoView({ block: 'center', behavior: 'instant' });
+                    const b = r.querySelector('.years').getBoundingClientRect();
+                    return { x: b.left + 4, y: b.top + b.height / 2 };
+                }, slug);
+                await page.mouse.move(at.x, at.y);
+            };
+            // One column of a row, frame by frame from now on: [the page's animation clock, the column's `start`].
+            // Until the text has moved and then stood still for 20 frames ('stopped'), or until a text
+            // would have travelled `until` px (the registered length that drives the slide); 15s at most.
+            const follow = (slug, i, until) => page.evaluate(({ slug, i, until }) => new Promise((resolve) => {
+                const px = (v) => parseFloat(v) || 0;
+                const cell = document.querySelectorAll(`#row-${slug} .clip`)[i];
+                const line = cell.querySelector('.line');
+                const samples = [];
+                const from = performance.now();
+                let still = 0;
+                const frame = () => {
+                    const ls = getComputedStyle(line);
+                    const lb = line.getBoundingClientRect();
+                    const lean = (lb.width - px(ls.width) - px(ls.paddingRight)) / 2;
+                    const start = lb.left + lean - cell.getBoundingClientRect().left - px(getComputedStyle(cell).paddingLeft);
+                    still = samples.length && Math.abs(samples.at(-1)[1] - start) < 0.01 ? still + 1 : 0;
+                    samples.push([document.timeline.currentTime, start]);
+                    const done = until === 'stopped' ? Math.abs(start) > 0.5 && still >= 20 : px(ls.getPropertyValue('--index-slid')) >= until;
+                    if (done || performance.now() - from > 15000) resolve(samples);
+                    else requestAnimationFrame(frame);
+                };
+                requestAnimationFrame(frame);
+            }), { slug, i, until });
+            // The way back, by its own event: how long the transition that takes the text home ran.
+            const home = (slug, i) => page.evaluate(({ slug, i }) => new Promise((resolve) => {
+                const line = document.querySelectorAll(`#row-${slug} .clip`)[i].querySelector('.line');
+                const give = setTimeout(() => resolve(-1), 10000);
+                line.addEventListener('transitionend', (e) => {
+                    if (e.target !== line || e.propertyName !== '--index-keep') return;
+                    clearTimeout(give);
+                    resolve(e.elapsedTime);
+                });
+            }), { slug, i });
+            // The ink in three strips of a column of a row at rest, each as the furthest any pixel is from the
+            // ground colour (0 to 255): the 17px of text before the fade, the last 5px of the fade (at most
+            // 5/12 of the ink left there), and the 7px after the column's edge.
+            const inkAt = async (r, cell, ground) => {
+                const edge = Math.floor(cell.right);
+                const clip = { x: edge - 30, y: Math.ceil(r.top), width: 38, height: Math.floor(r.bottom) - Math.ceil(r.top) };
+                const { data, info } = await sharp(await page.screenshot({ clip })).raw().toBuffer({ resolveWithObject: true });
+                const most = (x0, x1) => {
+                    let ink = 0;
+                    for (let y = 0; y < info.height; y++) for (let x = x0; x < x1; x++) for (let c = 0; c < 3; c++) ink = Math.max(ink, Math.abs(data[(y * info.width + x) * info.channels + c] - ground[c]));
+                    return ink;
+                };
+                return { text: most(0, 17), fade: most(25, 30), after: most(31, 38) };
+            };
+
+            for (const [width, height] of [[720, 800], [800, 600], [1024, 768], [1366, 710], [1920, 1080]]) {
+                await show(width, height);
+                const first = await page.evaluate(() => window.__mutations());
+                check(`6. zero mutations on first render at ${width}px: /`, first.length === 0, first.slice(0, 5).join('; '));
+                const m = await list();
+                const padding = Math.max(m.page * 0.01676, 12);
+                const dates = Math.max(m.page * 0.08192, 104);
+                const shared = m.width - padding - dates - 16 - 15;
+                const want = { date: m.left + padding, title: m.left + padding + dates, titleWidth: shared * 11 / 21, type: m.left + padding + dates + shared * 11 / 21 + 15, typeWidth: shared * 10 / 21 };
+                const near = (a, b) => Math.abs(a - b) <= 0.5;
+                const fits = (c) => c.text <= c.width - FADE + 0.01;
+
+                const tall = m.rows.filter(r => Math.abs(r.height - m.slot) > 0.05 || Math.abs(r.dateLines - 1) > 0.01 || r.cells.some(c => Math.abs(c.lines - 1) > 0.01 || Math.abs(c.middle) > 0.5));
+                const span = m.rows.at(-1).bottom - m.rows[0].top;
+                check(`6. at ${width}px every row of the list is one line, in the middle of a row one fifth of a cell tall (${m.slot.toFixed(2)}px), so five rows are one cell`, m.rows.length === published.length && tall.length === 0 && Math.abs(span - m.rows.length * m.slot) <= 0.02 * m.rows.length + 0.05, `${tall.slice(0, 5).map(r => `${r.slug} ${r.height}px`).join(', ')}; ${m.rows.length} rows in ${span}px`);
+
+                const off = m.rows.filter(r => !near(r.date, want.date) || !near(r.cells[0].left, want.title) || !near(r.cells[0].width, want.titleWidth) || (r.cells[1] && (!near(r.cells[1].left, want.type) || !near(r.cells[1].width, want.typeWidth))));
+                const types = m.rows.filter(r => r.cells[1]).map(r => r.cells[1].left);
+                const share = (want.title - m.left) / m.page * 100;
+                check(`6. at ${width}px the list's three columns are where the design puts them in every row: the date at ${want.date.toFixed(1)}, the title at ${want.title.toFixed(1)} (${share.toFixed(3)}% of the page), ${want.titleWidth.toFixed(1)} wide, the type at ${want.type.toFixed(1)}, ${want.typeWidth.toFixed(1)} wide, lined up`,
+                    off.length === 0 && Math.max(...types) - Math.min(...types) < 0.01 && (m.page * 0.08192 < 104 || near(share, 9.868)),
+                    off.slice(0, 3).map(r => `${r.slug}: date ${r.date}, title ${r.cells[0].left} + ${r.cells[0].width}, type ${r.cells[1]?.left} + ${r.cells[1]?.width}`).join('; '));
+
+                // Every column is a box that cuts (not a scroller: nothing to drag with a mouse), with the fade over its
+                // last 12px, and at rest its text starts at its left edge.
+                const fade = /^linear-gradient\(to right, .*rgb\(0, 0, 0\) calc\(100% - 12px\), rgba\(0, 0, 0, 0\)\)$/;
+                const loose = m.rows.flatMap(r => r.cells.filter(c => c.cut !== 'clip' || !fade.test(c.mask) || Math.abs(c.start) > 0.01).map(c => `${r.slug}: ${c.cut}, start ${c.start}, ${c.mask}`));
+                const cells = m.rows.flatMap(r => r.cells.map((c, i) => ({ slug: r.slug, i, over: c.text - (c.width - FADE), r, c })));
+                const long = cells.filter(x => !fits(x.c));
+                check(`6. at ${width}px every column cuts its text at its right edge, fades it out over the last 12px and shows it from its start (${long.length} of ${cells.length} texts reach the fade)`, loose.length === 0, loose.slice(0, 3).join('; '));
+
+                // A row whose texts both fit, the one that ends closest to a fade: nothing of it is under the
+                // fade, and it does not move while it is pointed at for as long as a text takes to travel 60px.
+                const whole = m.rows.filter(r => r.cells.every(fits)).sort((a, b) => Math.min(...a.cells.map(c => c.width - FADE - c.text)) - Math.min(...b.cells.map(c => c.width - FADE - c.text)))[0];
+                if (!whole) check(`6. at ${width}px: ok (no row whose title and types both fit; that check was skipped)`, true);
+                else {
+                    const spare = Math.min(...whole.cells.map(c => c.width - FADE - c.text));
+                    const tight = whole.cells.findIndex(c => c.width - FADE - c.text === spare);
+                    const watch = follow(whole.slug, tight, 60);
+                    await pointAt(whole.slug);
+                    const samples = await watch;
+                    const pointed = await row(whole.slug);
+                    const moved = Math.max(...samples.map(([, start]) => Math.abs(start)), ...pointed.cells.map(c => Math.abs(c.start)));
+                    const arrow = pointed.chevron;
+                    check(`6. at ${width}px a row whose texts fit is not faded (its longest ends ${spare.toFixed(1)}px before the fade) and does not move when pointed at; the chevron is 14px left of the title's column, in the row's middle (${whole.slug})`,
+                        spare >= -0.01 && pointed.on && samples.length > 3 && moved < 0.01
+                        && Boolean(arrow) && near(arrow.left, -27.2) && arrow.width === 14 && arrow.height === 16 && near(arrow.middle, 0) && near(pointed.cells[0].left, want.title) && near(pointed.date, want.date),
+                        `on=${pointed.on}, ${samples.length} frames, moved ${moved}px, chevron ${JSON.stringify(arrow)}`);
+                    await page.mouse.move(1, 1);
+                }
+
+                if (!long.length) { check(`6. at ${width}px: ok (every title and every type list fits its column; the checks of a text that is cut were skipped)`, true); continue; }
+                // The title that is cut the most and the type list that is cut the most.
+                for (const i of [0, 1]) {
+                    const worst = long.filter(x => x.i === i).sort((a, b) => b.over - a.over)[0];
+                    const what = i === 0 ? 'title' : 'type list';
+                    if (!worst) { check(`6. at ${width}px: ok (no ${what} is cut; its checks were skipped)`, true); continue; }
+                    const { slug } = worst;
+                    await page.evaluate((slug) => document.querySelector(`#row-${slug}`).scrollIntoView({ block: 'center', behavior: 'instant' }), slug);
+                    const rest = await row(slug);
+                    const cell = rest.cells[i];
+                    const ink = await inkAt(rest, cell, m.ground);
+                    const full = Math.max(...cell.colour.map((v, c) => Math.abs(v - m.ground[c])));
+                    check(`6. at ${width}px a ${what} too long for its column (by ${worst.over.toFixed(1)}px) is cut at the column's edge and faded before it: nothing after the edge, less than half the ink left in the fade's last 5px (${slug})`,
+                        ink.text > full * 0.6 && ink.after <= 6 && ink.fade <= full * 0.5, `${JSON.stringify(ink)} of ${full}`);
+
+                    // Pointed at: it slides left at 100px a second until its end is at the fade's start, and stays there.
+                    const watch = follow(slug, i, 'stopped');
+                    await pointAt(slug);
+                    const samples = await watch;
+                    const slid = await row(slug);
+                    const end = slid.cells[i].start + cell.text;
+                    // The frames on the way, clear of both ends; a way too short to hold three of them is not timed.
+                    const moving = samples.filter(([, start]) => start < -3 && start > -worst.over + 3);
+                    const speed = moving.length >= 3 ? (moving[0][1] - moving.at(-1)[1]) / (moving.at(-1)[0] - moving[0][0]) * 1000 : NaN;
+                    const drift = moving.length >= 3 ? Math.max(...moving.map(([t, start]) => Math.abs(start - (moving[0][1] - speed * (t - moving[0][0]) / 1000)))) : 0;
+                    // The lean of the slanted types puts the top of their last letter up to 1px further right.
+                    check(`6. at ${width}px pointing at its row slides the ${what} left until its end is inside the column and clear of the fade, and it stays there`,
+                        slid.on && Math.abs(slid.cells[i].start + worst.over) <= 1 && end <= cell.width - FADE + 1 && end > cell.width - FADE - 1, `starts ${slid.cells[i].start}px left of its column, ends ${(cell.width - end).toFixed(2)}px before the edge`);
+                    check(`6. at ${width}px the ${what} slides at a steady 100px a second (${Number.isNaN(speed) ? 'too short a way to time' : `${speed.toFixed(1)}px/s over ${moving.length} frames, never more than ${drift.toFixed(2)}px off the line`})`,
+                        Number.isNaN(speed) ? worst.over < 40 : Math.abs(speed - 100) <= 10 && drift <= 1.5, `${samples.length} frames`);
+                    const arrow = slid.chevron;
+                    check(`6. at ${width}px the slide moves nothing else: the date, both columns and the chevron (14px left of the title's column) are where they were`,
+                        near(slid.date, rest.date) && slid.cells.every((c, k) => Math.abs(c.left - rest.cells[k].left) < 0.01 && Math.abs(c.right - rest.cells[k].right) < 0.01)
+                        && Boolean(arrow) && near(arrow.left, -27.2) && arrow.width === 14 && arrow.height === 16 && near(arrow.middle, 0) && Math.abs(slid.height - rest.height) < 0.01,
+                        `date ${rest.date} → ${slid.date}, chevron ${JSON.stringify(arrow)}`);
+                    const gone = home(slug, i);
+                    await page.mouse.move(1, 1);
+                    const took = await gone;
+                    const back = await row(slug);
+                    check(`6. at ${width}px when the pointer leaves the ${what} is back at its start in 0.2s`, Math.abs(took - 0.2) < 0.005 && Math.abs(back.cells[i].start) < 0.01 && !back.on, `${took}s, start ${back.cells[i].start}`);
+
+                    // The same from the grid: the pointer on the project's thumbnail.
+                    await page.evaluate((slug) => document.querySelector(`#cell-${slug}`).scrollIntoView({ block: 'center', behavior: 'instant' }), slug);
+                    const fromGrid = follow(slug, i, 'stopped');
+                    await page.hover(`#cell-${slug}`);
+                    await fromGrid;
+                    const byThumb = await row(slug);
+                    const leaving = home(slug, i);
+                    await page.mouse.move(1, 1);
+                    const left = await leaving;
+                    const after = await row(slug);
+                    check(`6. at ${width}px pointing at the project's thumbnail slides the ${what} the same way, and it goes back when the pointer leaves`,
+                        byThumb.on && Math.abs(byThumb.cells[i].start + worst.over) <= 1 && Math.abs(left - 0.2) < 0.005 && Math.abs(after.cells[i].start) < 0.01, `start ${byThumb.cells[i].start}, wanted ${-worst.over}; back in ${left}s to ${after.cells[i].start}`);
+                }
+
+                // The keyboard: a tag that is cut at rest is reached with Tab, is then whole inside its column
+                // before the fade with room for its focus ring, stays there while the row is pointed at as
+                // well, and filters on Enter. When focus leaves, the column shows its start again. Rather a
+                // tag of which 32px or more show at rest: Chromium does not scroll to such a one by itself.
+                const showing = (x) => x.width - x.t.left;
+                const hidden = long.filter(x => x.i === 1).flatMap(x => x.c.tags.map((t, n) => ({ slug: x.slug, n, t, width: x.c.width, text: x.c.text })))
+                    .filter(x => x.t.right > x.width - FADE && x.t.right - x.t.left <= x.width - FADE - 5)
+                    .sort((a, b) => (showing(b) >= 32) - (showing(a) >= 32) || b.t.left - a.t.left)[0];
+                if (!hidden) { check(`6. at ${width}px: ok (no tag is cut at rest that would fit its column whole; the keyboard check was skipped)`, true); continue; }
+                const { slug, n } = hidden;
+                await page.evaluate((slug) => document.querySelector(`#row-${slug} .title`).focus(), slug);
+                for (let k = 0; k <= n; k++) await page.keyboard.press('Tab');
+                const focused = () => page.evaluate(({ slug, n }) => {
+                    const tag = document.querySelectorAll(`#row-${slug} .tag`)[n];
+                    return document.activeElement === tag && tag.matches(':focus-visible');
+                }, { slug, n });
+                const inside = (r) => { const t = r.cells[1].tags[n]; return t.left >= -1 && t.right <= r.cells[1].width - FADE + 1; };
+                await page.waitForFunction(({ slug, n, FADE }) => {
+                    const cell = document.querySelectorAll(`#row-${slug} .clip`)[1];
+                    const tag = cell.querySelectorAll('.tag')[n].getBoundingClientRect();
+                    return tag.right <= cell.getBoundingClientRect().right - FADE + 1;
+                }, { slug, n, FADE }, { timeout: 5000 }).catch(() => {});
+                const onTag = await focused();
+                const seen = await row(slug);
+                const tag = seen.cells[1].tags[n];
+                // The ring is 2px, 2px from the tag: 4px on every side must be inside the column's box and before the fade.
+                const ring = tag.left - 4 >= -seen.cells[1].room - 1 && tag.top >= 4 && tag.bottom >= 4 && tag.right + 4 <= seen.cells[1].width - FADE + 1;
+                check(`6. at ${width}px a tag cut at rest (${Math.max(0, showing(hidden)).toFixed(1)}px of its ${(hidden.t.right - hidden.t.left).toFixed(1)}px inside a ${hidden.width.toFixed(1)}px column) is reached with Tab and is then whole inside its column, clear of the fade, its focus ring uncut (${slug}: ${hidden.t.tag})`,
+                    onTag && inside(seen) && ring, `focused=${onTag}, tag ${tag.left.toFixed(2)} to ${tag.right.toFixed(2)} of ${seen.cells[1].width.toFixed(2)}, ${tag.top} / ${tag.bottom} above and below`);
+                // The row is pointed at as well (focus has already highlighted it): once its title would have travelled 60px, the tag has not moved.
+                const meanwhile = follow(slug, 0, 60);
+                await pointAt(slug);
+                await meanwhile;
+                const both = await row(slug);
+                check(`6. at ${width}px pointing at the row of the focused tag does not move the tag`, await focused() && Math.abs(both.cells[1].tags[n].left - tag.left) < 0.01 && Math.abs(both.cells[1].start - seen.cells[1].start) < 0.01, `${tag.left} → ${both.cells[1].tags[n].left}`);
+                await page.mouse.move(1, 1);
+                await page.keyboard.press('Enter');
+                const filtered = await page.waitForFunction((t) => new URLSearchParams(location.search).get('filter') === t && [...document.querySelectorAll('project-index .row')].every(r => r.querySelector(`.tag[data-tag="${CSS.escape(t)}"]`)), hidden.t.tag, { timeout: 5000 }).then(() => true, () => false);
+                const kept = await focused();
+                const shown = await row(slug);
+                check(`6. at ${width}px Enter on that tag filters by it, and it keeps focus, still whole inside its column`, filtered && kept && inside(shown), `${await page.evaluate(() => location.search)} focused=${kept}`);
+                await page.evaluate(() => document.activeElement.blur());
+                await page.waitForFunction((slug) => !document.querySelector(`#row-${slug}`).classList.contains('on'), slug, { timeout: 5000 }).catch(() => {});
+                const released = await row(slug);
+                check(`6. at ${width}px when focus has left, the type column shows its start again`, !released.on && Math.abs(released.cells[1].start) < 0.01 && released.cells[1].cut === 'clip', `start ${released.cells[1].start}, ${released.cells[1].cut}`);
             }
         }
 
@@ -1161,6 +1443,50 @@ try {
             }, tagA);
             check('7. at 390px a tag tapped on and then off again is still where it was tapped, not a grid\'s height away',
                 stay.filter === '' && stay.on >= 0 && stay.on < stay.window && stay.off >= 0 && stay.off < stay.window && (Math.abs(stay.off - stay.on) <= 1 || Math.abs(stay.off - stay.start) <= 1), JSON.stringify(stay));
+
+            // Below 720px the list is as it was before it had columns: a row's title and types are one flow
+            // that wraps, the types 15px after the title (or 15px in on a line of their own); the two
+            // columns make no box, so nothing is cut or faded, and nothing moves when a row is pointed at.
+            for (const [width, height] of [[390, 844], [719, 900]]) {
+                await open(width, height);
+                const flow = () => page.evaluate(() => {
+                    const px = (v) => parseFloat(v) || 0;
+                    return [...document.querySelectorAll('project-index .row')].map((r) => {
+                        const what = r.querySelector('.what').getBoundingClientRect();
+                        const last = [...r.querySelector('.title').getClientRects()].at(-1);
+                        const tags = r.querySelector('.tags');
+                        const tb = tags?.getBoundingClientRect();
+                        const ts = tags ? getComputedStyle(tags) : null;
+                        // The slanted types' box is wider than their layout by the lean on each side.
+                        const lean = tags ? (tb.width - px(ts.width)) / 2 : 0;
+                        const beside = tags && tb.top < last.bottom - 1 && tb.bottom > last.top + 1 && tb.left > last.left;
+                        return {
+                            slug: r.dataset.slug,
+                            on: r.classList.contains('on'),
+                            height: r.getBoundingClientRect().height,
+                            boxes: [...r.querySelectorAll('.clip')].filter(c => getComputedStyle(c).display !== 'contents').length,
+                            lines: [...r.querySelectorAll('.line')].map(l => { const s = getComputedStyle(l); return `${s.display} ${s.translate} ${px(s.paddingRight)}`; }).join(', '),
+                            gap: tags ? tb.left + lean - (beside ? last.right : what.left) : 15,
+                            beside,
+                            tags: tags ? [tb.left, tb.top, tb.width, tb.height].join(' ') : '',
+                        };
+                    });
+                });
+                const rows = await flow();
+                const boxed = rows.filter(r => r.boxes > 0 || !/^inline none 0(, inline-block none 0)?$/.test(r.lines) || Math.abs(r.gap - 15) > 0.5);
+                const wrapped = rows.filter(r => r.height > 26.5).length;
+                const pointed = rows.find(r => r.tags);
+                await page.evaluate((slug) => document.querySelector(`#row-${slug}`).scrollIntoView({ block: 'center', behavior: 'instant' }), pointed.slug);
+                const before = (await flow()).find(r => r.slug === pointed.slug);
+                await page.hover(`#row-${pointed.slug} .years`);
+                await page.waitForFunction((slug) => document.querySelector(`#row-${slug}`).classList.contains('on'), pointed.slug, { timeout: 5000 }).catch(() => {});
+                await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+                const during = (await flow()).find(r => r.slug === pointed.slug);
+                await away();
+                check(`7. at ${width}×${height} the list has no columns: a row's types follow its title in the same flow, 15px after it, wrapping as they need (${wrapped} of ${rows.length} rows take more than one line); nothing is cut, and nothing moves when a row is pointed at`,
+                    rows.length === published.length && boxed.length === 0 && during.on && during.tags === before.tags,
+                    `${boxed.slice(0, 3).map(r => `${r.slug}: ${r.boxes} boxes, ${r.lines}, gap ${r.gap}`).join('; ')} pointed: ${before.tags} → ${during.tags}`);
+            }
         }
 
         // 4. 390px
