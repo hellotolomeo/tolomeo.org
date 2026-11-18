@@ -117,10 +117,12 @@ Photos live in **Media**, in one folder per project: `images/projects/<slug>`.
 
 ## Set a thumbnail
 
-The thumbnail is the photo in the grid on the home page.
+The thumbnail is the photo in the grid on the home page. On a phone the thumbnails are one
+under the other, each with the project's title under it.
 
 - **Thumbnail photo (cover)**: press **Select** and pick a photo from the project's folder.
-  Empty = a blank space in the grid (no frame); it still opens the project.
+  Empty = a blank space in the grid (no frame), and on a phone just the project's title; it
+  still opens the project.
 
 Every thumbnail looks the same: the photo shows whole, in its own proportions (nothing is
 cut off), centred in its box, in a paper-coloured frame. There is nothing else to set. If

@@ -22,6 +22,11 @@
  *      tag in use is in the tags select.
  *   6. The Index's proportions at 1366px: a cell is a quarter of the page, five
  *      list rows are one cell tall, thumbnails are whole, centred and framed.
+ *   7. The Index below 720px: one thumbnail to a row, each whole, framed, centred
+ *      and as large as fits, its title 10px under its frame and 32px before the
+ *      next one, in the list titles' type; the same projects in the grid and the
+ *      list when a tag is clicked. From 720px up the titles are not displayed
+ *      and the cells keep their fixed proportion.
  *   + zero mutations on the first render and on a forced el.render();
  *   + zero console errors and page errors on every route, JS on and off.
  * Exits 1 if anything fails.
@@ -623,6 +628,191 @@ try {
                 const after = await thumbs();
                 check('6. the scroll thumbs show while a column scrolls and go when a filter leaves nothing to scroll', atEnd.every(v => v === 'visible') && after.every(v => v === 'hidden'), `${atEnd.join(',')} → ${after.join(',')}`);
             }
+        }
+
+        // 7. the Index on a phone: one column of thumbnails, each with its title under it
+        {
+            const titles = Object.fromEntries(published.map(p => [p.data.slug, String(p.data.title).trim()]));
+            // The pointer rests on the header, before the page loads and after: below 720px a cell is as wide
+            // as the page, so a pointer left anywhere over the grid would highlight a row.
+            const away = async () => {
+                await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
+                await page.mouse.move(1, 1);
+                await page.waitForTimeout(50);
+            };
+            const open = async (width, height) => {
+                await page.setViewportSize({ width, height });
+                await page.mouse.move(1, 1);
+                await page.goto(`${base}/`);
+                await page.waitForFunction(() => document.querySelector('project-index')?.rendered);
+                await page.evaluate(() => document.fonts.ready.then(() => true));
+            };
+
+            // From 720px up nothing shows of the titles, and every cell keeps its fixed proportion.
+            const fixed = () => page.evaluate(() => {
+                const names = [...document.querySelectorAll('project-index .name')];
+                const cells = [...document.querySelectorAll('project-index .cell')];
+                const quarter = document.documentElement.clientWidth / 4;
+                return {
+                    names: names.length,
+                    shown: names.filter(n => n.getClientRects().length > 0 || getComputedStyle(n).display !== 'none').length,
+                    off: cells.filter((c) => {
+                        const r = c.getBoundingClientRect();
+                        return Math.abs(r.width - quarter) > 0.5 || Math.abs(r.width / r.height - 341.2 / 197.12) > 0.005;
+                    }).length,
+                    pair: cells.length < 2 || Math.abs(cells[0].getBoundingClientRect().top - cells[1].getBoundingClientRect().top) < 0.5,
+                };
+            });
+            for (const [width, height] of [[1366, 710], [720, 800]]) {
+                await open(width, height);
+                const m = await fixed();
+                check(`7. at ${width}×${height} the titles under the thumbnails are not displayed and take no space: a cell is still a quarter of the page at 341.2 : 197.12, two to a row`, m.names === published.length && m.shown === 0 && m.off === 0 && m.pair, JSON.stringify(m));
+            }
+
+            // Below 720px: what is wrong with each cell, by slug.
+            const phone = () => page.evaluate((titles) => {
+                const page = document.documentElement.clientWidth;
+                const box = (el) => el.getBoundingClientRect();
+                const cells = [...document.querySelectorAll('project-index .cell')];
+                const rows = [...document.querySelectorAll('project-index .row')];
+                const bad = { rows: [], titles: [], thumbs: [] };
+                cells.forEach((c, i) => {
+                    const slug = c.dataset.slug;
+                    const a = box(c);
+                    const frame = c.querySelector('.box');
+                    const name = c.querySelector('.name');
+                    const next = cells[i + 1];
+                    const f = frame ? box(frame) : null;
+
+                    // one cell to a row, as wide as the page
+                    if (Math.abs(a.left) > 0.5 || Math.abs(a.width - page) > 0.5 || (i > 0 && a.top < box(cells[i - 1]).bottom - 0.5)) bad.rows.push(slug);
+
+                    // the title: shown, the project's own, under its frame and nearer to it than to the next one
+                    const n = name ? box(name) : null;
+                    const first = next ? next.querySelector('.box') ?? next.querySelector('.name') : null;
+                    const after = first ? box(first).top - n?.bottom : null;
+                    const under = f ? n?.top - f.bottom : null;
+                    const why = [];
+                    if (!name || name.getClientRects().length === 0 || getComputedStyle(name).visibility !== 'visible' || n.height < 16) why.push('not shown');
+                    else {
+                        if (name.textContent !== titles[slug]) why.push(`reads "${name.textContent}"`);
+                        if (n.top < a.top - 0.5 || n.bottom > a.bottom + 0.5) why.push('outside its cell');
+                        if (under !== null && !(under > 0 && Math.abs(under - 10) < 0.5)) why.push(`${under.toFixed(2)}px under its frame, not 10`);
+                        if (after !== null && !(after > 0 && Math.abs(after - 32) < 0.5)) why.push(`${after.toFixed(2)}px before the next, not 32`);
+                        if (under !== null && after !== null && !(under < after)) why.push('nearer to the next frame than to its own');
+                        if (n.width > page * 0.91 + 0.5 || Math.abs((n.left + n.right) / 2 - page / 2) > 0.5) why.push('not centred within 91% of the page');
+                    }
+                    if (why.length) bad.titles.push(`${slug}: ${why.join(', ')}`);
+
+                    // the thumbnail: whole, framed, centred, as large as fits 91% of the page's width and 49.9733% of it in height
+                    if (frame) {
+                        const s = getComputedStyle(frame);
+                        const img = frame.querySelector('img');
+                        const im = box(img);
+                        const wrong = [];
+                        if (Math.abs((f.width - 12) / (f.height - 12) - img.getAttribute('width') / img.getAttribute('height')) > 0.01
+                            || Math.abs(im.width - (f.width - 12)) > 0.5 || Math.abs(im.height - (f.height - 12)) > 0.5) wrong.push('cropped');
+                        if (!['Top', 'Right', 'Bottom', 'Left'].every(k => s[`border${k}Width`] === '6px') || s.boxShadow === 'none') wrong.push('not framed');
+                        if (Math.abs((f.left + f.right) / 2 - page / 2) > 0.5) wrong.push('not centred');
+                        if (f.width > page * 0.91 + 0.5 || f.height > page * 0.499733 + 0.5) wrong.push('too large');
+                        if (f.width < page * 0.91 - 0.5 && f.height < page * 0.499733 - 0.5) wrong.push('smaller than fits');
+                        if (f.top < a.top - 0.5 || f.bottom > a.bottom + 0.5) wrong.push('outside its cell');
+                        if (wrong.length) bad.thumbs.push(`${slug}: ${wrong.join(', ')}`);
+                    }
+                });
+                const list = box(document.querySelector('project-index .index'));
+                const last = cells.length ? box(cells[cells.length - 1]) : null;
+                return {
+                    ...bad,
+                    cells: cells.map(c => c.dataset.slug),
+                    list: rows.map(r => r.dataset.slug),
+                    under: !last || list.top >= last.bottom - 0.5,
+                    scroll: document.documentElement.scrollWidth - page,
+                };
+            }, titles);
+            const want = JSON.stringify(published.map(p => p.data.slug).sort());
+            for (const [width, height] of [[390, 844], [360, 740], [719, 900]]) {
+                await open(width, height);
+                if (width === 390) {
+                    const first = await page.evaluate(() => window.__mutations());
+                    check('7. zero mutations on first render at 390px: /', first.length === 0, first.slice(0, 5).join('; '));
+                    const forced = await page.evaluate(() => { document.querySelector('project-index').render(); return window.__mutations(); });
+                    check('7. zero mutations on el.render() at 390px: /', forced.length === 0, forced.slice(0, 5).join('; '));
+                }
+                const m = await phone();
+                const at = `at ${width}×${height}`;
+                check(`7. ${at} one cell to a row, each as wide as the page, the list under the grid, no horizontal scroll`, m.rows.length === 0 && m.under && m.scroll <= 0 && JSON.stringify([...m.cells].sort()) === want, `${m.rows.slice(0, 5).join(', ')} under=${m.under} scroll=${m.scroll} cells=${m.cells.length}`);
+                check(`7. ${at} every project's title shows under its thumbnail: 10px under its own frame, 32px before the next`, m.titles.length === 0 && m.cells.length === published.length, m.titles.slice(0, 5).join(' | '));
+                check(`7. ${at} every thumbnail is whole, framed, centred and as large as fits`, m.thumbs.length === 0, m.thumbs.slice(0, 5).join(' | '));
+            }
+
+            // The title's type is the list titles'; pointing at the thumbnail or focusing it turns it the link colour.
+            // The first cell: it is on screen, so neither pointing at it nor focusing it scrolls the page under the pointer.
+            await open(390, 844);
+            const slug = await page.evaluate(() => document.querySelector('project-index .cell').dataset.slug);
+            const type = await page.evaluate((slug) => {
+                const pick = (el) => { const s = getComputedStyle(el); return [s.fontFamily, s.fontWeight, s.fontSize, s.lineHeight, s.color].join(' / '); };
+                const cell = document.querySelector(`#cell-${slug}`);
+                return {
+                    name: pick(cell.querySelector('.name')),
+                    title: pick(document.querySelector(`#row-${slug} .title`)),
+                    align: getComputedStyle(cell.querySelector('.name')).textAlign,
+                    line: getComputedStyle(cell).textDecorationLine,
+                };
+            }, slug);
+            check('7. the title under a thumbnail is set like the list\'s titles, centred, not underlined', type.name === type.title && type.align === 'center' && type.line === 'none', JSON.stringify(type));
+            const colours = () => page.evaluate((slug) => ({
+                name: getComputedStyle(document.querySelector(`#cell-${slug} .name`)).color,
+                title: getComputedStyle(document.querySelector(`#row-${slug} .title`)).color,
+                on: [...document.querySelectorAll('project-index .row.on')].map(r => r.dataset.slug).join(','),
+                muts: window.__mutations(),
+            }), slug);
+            const rest = await colours();
+            await page.hover(`#cell-${slug}`);
+            await page.waitForTimeout(50);
+            const pointed = await colours();
+            await away();
+            const left = await colours();
+            await page.evaluate((slug) => document.querySelector(`#cell-${slug}`).focus({ preventScroll: true }), slug);
+            await page.waitForTimeout(50);
+            const focused = await colours();
+            await page.evaluate(() => document.activeElement.blur());
+            check('7. pointing at a thumbnail or focusing it turns its title the link colour, highlights its row and touches nothing else',
+                rest.name === rest.title && rest.on === ''
+                && pointed.name !== rest.name && pointed.name === pointed.title && pointed.on === slug
+                && left.name === rest.name && left.on === ''
+                && focused.name === pointed.name && focused.on === slug
+                && [...pointed.muts, ...left.muts, ...focused.muts].every(m => m === 'attributes LI [class]'),
+                JSON.stringify({ rest: rest.name, pointed: pointed.name, left: left.name, focused: focused.name, on: [pointed.on, focused.on] }));
+
+            // A tag clicked on a phone: the grid and the list show the same projects, and the survivors are the same nodes.
+            await open(390, 844);
+            await page.evaluate(() => {
+                window.__before = new Map([...document.querySelectorAll('project-index .row, project-index .cell')].map(e => [e.id, e]));
+                window.__mutations();
+            });
+            await page.click(`project-index .tag[data-tag=${JSON.stringify(tagA)}]`);
+            await page.waitForTimeout(50);
+            const kept = await page.evaluate(() => {
+                const all = [...document.querySelectorAll('project-index .row, project-index .cell')];
+                const muts = window.__mutations();
+                return {
+                    url: location.search,
+                    same: all.every(e => window.__before.get(e.id) === e),
+                    other: muts.filter(m => !m.startsWith('childList') && !/\[(class|aria-pressed)\]$/.test(m)),
+                };
+            });
+            await away();
+            const some = await phone();
+            const tag = JSON.stringify(tagged(tagA));
+            check(`7. at 390px clicking a tag filters the grid and the list alike (${tagA}), and the morph only removes`,
+                kept.url === `?filter=${encodeURIComponent(tagA)}` && JSON.stringify([...some.cells].sort()) === tag && JSON.stringify([...some.list].sort()) === tag && kept.same && kept.other.length === 0,
+                `${kept.url} cells=${some.cells.length} rows=${some.list.length} want=${tagged(tagA).length} ${kept.other.slice(0, 5).join('; ')}`);
+            check('7. at 390px the filtered grid keeps its layout: one cell to a row, titles under their thumbnails', some.rows.length === 0 && some.titles.length === 0 && some.thumbs.length === 0 && some.under && some.scroll <= 0, [...some.rows, ...some.titles, ...some.thumbs].slice(0, 5).join(' | '));
+            await page.click('project-index .tag.on');
+            await page.waitForTimeout(50);
+            const again = await page.evaluate(() => ({ url: location.search, cells: document.querySelectorAll('project-index .cell').length, rows: document.querySelectorAll('project-index .row').length }));
+            check('7. at 390px clicking the tag again brings every thumbnail and row back', again.url === '' && again.cells === published.length && again.rows === published.length, JSON.stringify(again));
         }
 
         // 4. 390px

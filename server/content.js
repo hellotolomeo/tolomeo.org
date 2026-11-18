@@ -16,8 +16,9 @@ import { join } from 'node:path';
 import matter from 'gray-matter';
 import { markdown, markdownInline, markdownText } from './markdown.js';
 
-// Grid cells take the 600px file; a project page shows each set of photos one photo at a time,
-// as large as fits (components/project-slides.css).
+// Grid cells offer every size of the cover and say how wide the thumbnail is (coverSizes), so the
+// browser takes the smallest file that is sharp enough; a project page shows each set of photos one
+// photo at a time, as large as fits (components/project-slides.css).
 
 /**
  * @param {{ root: string, images: Map<string, object>, config: object, log?: Function }} options
@@ -184,12 +185,13 @@ function lean(p) {
     };
 }
 
-// A thumbnail is as large as fits 91% of its cell's width and 86.5% of its height, less the 6px
-// frame (components/project-index.css); a cell is a quarter of the page wide, half below 720px.
+// A thumbnail is as large as fits 91% of its cell's width and 49.9733% of that width in height
+// (86.5% of a 341.2 : 197.12 cell), less the 6px frame (components/project-index.css); a cell is a
+// quarter of the page wide, and the whole page below 720px, where the grid is one column.
 function coverSizes(c) {
     const a = aspect(c) ?? 1.5;
     const fit = (cell) => `min(calc(${Math.round(cell * 91) / 100}vw - 12px), calc((${Math.round(cell * 49.9733) / 100}vw - 12px) * ${a}))`;
-    return `(max-width: 719px) ${fit(50)}, ${fit(25)}`;
+    return `(max-width: 719px) ${fit(100)}, ${fit(25)}`;
 }
 
 // One photo of a project page, as the project-slides component prints it; `caption` is HTML.

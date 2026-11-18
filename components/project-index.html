@@ -1,4 +1,5 @@
 {#- The home page under its header: the thumbnail grid on the left, the index list on the right, both from `projects`. -#}
+{#- Below 720px the grid is one column over the list, and `.name` (the title under its thumbnail) shows only there. -#}
 {#- `shown` and `hover` exist only in the browser; the server renders every project with nothing pointed at. -#}
 {% set shown = shown | default(projects) %}
 {% set hover = hover | default('') %}
@@ -26,7 +27,7 @@
   alt=""
   loading="lazy"
   decoding="async"
-></picture>{% endif %}</a>
+></picture>{% endif %}<span class="name">{{ p.title }}</span></a>
 {% endfor %}
 </div></div>
 <div class="track" aria-hidden="true"><span class="thumb"></span></div>
