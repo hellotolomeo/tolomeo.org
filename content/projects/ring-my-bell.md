@@ -14,8 +14,9 @@ role:
 client: Stroomhuis
 parent: null
 published: true
-cover: ""
-images: []
+cover: /images/projects/ring-my-bell/1-ring-my-bell.jpg
+images:
+- image: /images/projects/ring-my-bell/1-ring-my-bell.jpg
 photo_links: []
 ---
 
