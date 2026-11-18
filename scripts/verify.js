@@ -21,7 +21,10 @@
  *      what is empty leaves no line (the page template is also rendered here
  *      with each field emptied in turn); an arrow to the project before and one
  *      to the project after in the Index's order, none at either end; one
- *      column with the arrows under the text below 760px.
+ *      column with the arrows under the text below 760px. Where the information
+ *      rests: after a turn of the wheel, after the title link and on a page
+ *      opened at #project-info alike; clear of a header whose title wraps; a
+ *      project with no photos does not scroll for it.
  *   4. 390px: no horizontal scroll on any route; on a touch screen a project
  *      page scrolls freely.
  *   5. CMS: every front-matter key in content/ is a field in .pages.yml, and every
@@ -191,12 +194,14 @@ const lie = (page) => page.evaluate(() => {
         desc: box(document.querySelector('#project-info .description')),
     };
 });
-// The information at rest (CLAUDE.md, "The project page's scroll"): the section's top 72px from the top
-// of the window, 7px above the header's lower edge; in two columns (from 760px) that puts the first
-// line box of the description at 74px. Returns what is off, or ''.
+// The information at rest (CLAUDE.md, "The project page's scroll"). In two columns (from 760px): the
+// section's top 72px from the top of the window, 7px above the header's lower edge, which puts the
+// first line box of the description at 74px. In one column (below 760px): 16px lower, at 88px, clear
+// of a header whose title has wrapped onto a second line. Returns what is off, or ''.
+const restAt = (at) => (at.vw >= 760 ? 72 : 88);
 const infoOff = (at) => {
     const off = [];
-    if (Math.abs(at.info.top - 72) > 0.5) off.push(`the information's top at ${at.info.top}, not 72`);
+    if (Math.abs(at.info.top - restAt(at)) > 0.5) off.push(`the information's top at ${at.info.top}, not ${restAt(at)}`);
     if (at.desc && at.vw >= 760 && Math.abs(at.desc.top - 74) > 0.5) off.push(`the description's first line at ${at.desc.top}, not 74`);
     return off.join('; ');
 };
@@ -248,15 +253,17 @@ try {
             const firstWords = opening(p.content);
             const body = await res.text();
             // The information: the lines of the left column are the project's own and no others; the
-            // description is there only if there is one; the title is not printed in the section.
+            // description is there only if there is one; and the section prints nothing else (no row,
+            // no heading: the title is in the page header only). A client, a tag or a photo link may
+            // well hold the title's words, so this looks for text outside the three parts, not for the title.
             const section = sectionOf(body);
             const lines = linesOf(section);
             const want = factsOf(p).map(html);
-            const others = section.replace(/<div class="description">[\s\S]*?<\/div>/, '');
+            const others = section.replace(/<div class="description">[\s\S]*?<\/div>/, '').replace(/<ul class="links">[\s\S]*?<\/ul>/, '').replace(/<div class="facts">[\s\S]*?<\/div>/, '');
             const wrong = [];
             if (lines.join(' | ') !== want.join(' | ')) wrong.push(`lines "${lines.join(' | ')}", not "${want.join(' | ')}"`);
             if (/<div class="description">/.test(section) !== Boolean(p.content.trim())) wrong.push('description');
-            if (textOf(others).includes(html(titleOf[p.data.slug])) || /<h\d|class="(row|title)"/.test(section)) wrong.push('the title is printed in the section');
+            if (textOf(others).trim() || /<h\d|class="(row|title)"/.test(others)) wrong.push(`the section prints more than its lines, its description and its photo links: "${textOf(others).trim().slice(0, 40)}"`);
             if (wrong.length) infoMisses.push(`${p.data.slug}: ${wrong.join(', ')}`);
             // The arrows: to the project before and the one after in the home page's list, none at either end.
             const at = listed.indexOf(p.data.slug);
@@ -275,7 +282,7 @@ try {
         }
         check('1+3. every project page answers 200 with its title and description in the HTML', pageMisses.length === 0, pageMisses.join(', '));
         check('1+3. every project page has every photo and caption in the HTML, one slideshow per set', photoMisses.length === 0, photoMisses.join(', '));
-        check('3. every project\'s information prints its own type, role, client and years, each on a line and none for what is empty, its description if it has one, and not its title', infoMisses.length === 0, infoMisses.slice(0, 4).join('; '));
+        check('3. every project\'s information prints its own type, role, client and years, each on a line and none for what is empty, its description if it has one, and nothing else: not its title', infoMisses.length === 0, infoMisses.slice(0, 4).join('; '));
         check(`3. every project page's arrows lead to the project before and the one after in the Index's order, by name, with none before the first or after the last (${listed.length} projects)`, listed.length === published.length && arrowMisses.length === 0, arrowMisses.slice(0, 4).join('; '));
 
         // The page template with each field emptied in turn (the content need not have such a project).
@@ -290,7 +297,7 @@ try {
                 const got = linesOf(section);
                 const parts = { facts: lines.length > 0, about: true, description: true, links: false, neighbours: true, prev: true, next: true, ...has };
                 if (got.join(' | ') !== lines.join(' | ')) wrong.push(`${name}: lines "${got.join(' | ')}"`);
-                if (/<p[^>]*>\s*<\/p>|<span class="label">[^<]*<\/span>:\s*<\/p>/.test(section)) wrong.push(`${name}: an empty line or a label with nothing after it`);
+                if (/<p[^>]*>\s*<\/p>|<span class="label">[^<]*<\/span>\s*<\/p>/.test(section)) wrong.push(`${name}: an empty line or a label with nothing after it`);
                 for (const [part, there] of Object.entries(parts)) if (new RegExp(`class="${part}"`).test(section) !== there) wrong.push(`${name}: ${part} ${there ? 'missing' : 'printed'}`);
             };
             expect('everything filled in', {}, all);
@@ -635,16 +642,16 @@ try {
                 await page.click('.project-head h1 a');
                 await rest(page);
                 const linked = await lie(page);
-                check('3. the title lands a long information section with its top 72px from the top of the window (720 × 500)', infoOff(linked) === '' && linked.y > 0, `the information's top at ${linked.info.top}, ${Math.round(linked.max - linked.y)}px left to scroll`);
+                check('3. the title lands a long information section at rest, in one column with its top 88px from the top of the window (720 × 500)', infoOff(linked) === '' && linked.y > 0, `the information's top at ${linked.info.top}, ${Math.round(linked.max - linked.y)}px left to scroll`);
                 await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
                 await rest(page);
                 let at = await lie(page);
                 for (let i = 0, last = -1; i < 60 && at.y !== last; i++) { last = at.y; at = await wheel(); }
-                const taller = at.info.height > at.vh - 72 + 1;
+                const taller = at.info.height > at.vh - restAt(at) + 1;
                 const reached = at.y >= at.max - 1 && at.info.bottom <= at.vh + 1;
                 // Inside a section taller than the window the page scrolls freely: a small turn back stays where it stops.
                 let free = true;
-                if (taller && at.info.height - (at.vh - 72) > 90) {
+                if (taller && at.info.height - (at.vh - restAt(at)) > 90) {
                     await page.mouse.wheel(0, -60);
                     await rest(page);
                     const inside = await lie(page);
@@ -683,7 +690,7 @@ try {
                         about: box(q('.about')),
                         desc: box(q('.description')),
                         first: box(q('.description p')),
-                        tops: lines.map(p => box(p).top),
+                        lines: lines.map(p => ({ top: box(p).top, height: box(p).height })),
                         bases: [baseline(lines[0]), baseline(q('.description p'))],
                         labels: all('.label').map(l => `${l.textContent} ${getComputedStyle(l).fontWeight}`).join(', '),
                         heavy: all('.facts p, .description p').filter(p => getComputedStyle(p).fontWeight !== '300').length,
@@ -714,11 +721,15 @@ try {
                 check('3. at rest the description\'s first line box is 74px from the top of the window, after a turn of the wheel and after the title link alike, and the two columns\' first lines share a baseline',
                     near(m.first.top, 74) && near(linked.first.top, 74) && near(m.info.top, 72) && near(linked.info.top, 72) && near(m.bases[0], m.bases[1], 0.25) && m.facts.top >= m.info.top,
                     `after the wheel ${m.first.top}, after the link ${linked.first.top}; baselines at ${m.bases.join(' and ')}; the left column's top at ${m.facts.top}, the section's at ${m.info.top}`);
+                // In line steps of 18.73px (the step in the owner's image; 1.4 × the 13.38px it was drawn at): how many each entry takes (one, or more where a long role
+                // wraps) and how many are left empty before the next entry (none; one before the years).
                 const step = 18.73;
-                const steps = m.tops.slice(1).map((t, i) => (t - m.tops[i]) / step);
-                check('3. the left column: "type", "role" and "for" in Bold, everything else Light, all of it and the description in the text colour, nothing slanted; lines 18.73px apart, the years one empty line under them',
-                    m.labels === 'type 700, role 700, for 700' && m.heavy === 0 && m.colours === m.ink && m.slanted === 0 && steps.length === 3 && near(steps[0], 1, 0.01) && near(steps[1], 1, 0.01) && near(steps[2], 2, 0.01),
-                    `labels ${m.labels}; ${m.heavy} lines not Light; colours ${m.colours} (text ${m.ink}); ${m.slanted} slanted; line steps ${steps.map(n => n.toFixed(3)).join(', ')}`);
+                const takes = m.lines.map(l => l.height / step);
+                const gaps = m.lines.slice(1).map((l, i) => (l.top - m.lines[i].top - m.lines[i].height) / step);
+                check('3. the left column: "type:", "role:" and "for:" in Bold, colon and all, everything else Light, all of it and the description in the text colour, nothing slanted; lines 18.73px apart (an entry that wraps takes whole lines), the years one empty line under the rest',
+                    m.labels === 'type: 700, role: 700, for: 700' && m.heavy === 0 && m.colours === m.ink && m.slanted === 0
+                    && takes.length === 4 && takes.every(n => n > 0.99 && near(n, Math.round(n), 0.01)) && near(gaps[0], 0, 0.01) && near(gaps[1], 0, 0.01) && near(gaps[2], 1, 0.01),
+                    `labels ${m.labels}; ${m.heavy} lines not Light; colours ${m.colours} (text ${m.ink}); ${m.slanted} slanted; entries of ${takes.map(n => n.toFixed(3)).join(', ')} lines, ${gaps.map(n => n.toFixed(3)).join(', ')} empty between them`);
                 check('3. the project\'s title is in the page header only: the information has no heading and no title row', m.titles === 0 && await page.evaluate(() => document.querySelectorAll('h1').length) === 1, `${m.titles} in the information`);
                 const placed = (a, side) => {
                     const off = [];
@@ -746,8 +757,8 @@ try {
                 await page.click('#project-info .neighbours .prev');
                 await page.waitForURL(`**/projects/${slug}/`).catch(() => {});
                 const home = new URL(page.url()).pathname;
-                check('3. the "next" arrow takes keyboard focus with the chevrons\' outline, Enter opens the next project in the Index\'s order, and that page\'s "previous" arrow leads back',
-                    focus.on && focus.outline === 'solid 2px rgb(153, 86, 122) -6px' && went === `/projects/${listed[at + 1]}/` && backTo === `/projects/${slug}/` && home === `/projects/${slug}/`,
+                check('3. the "next" arrow takes keyboard focus inside the window with the chevrons\' outline, Enter opens the next project in the Index\'s order, and that page\'s "previous" arrow leads back',
+                    focus.on && focus.shown && focus.outline === 'solid 2px rgb(153, 86, 122) -6px' && went === `/projects/${listed[at + 1]}/` && backTo === `/projects/${slug}/` && home === `/projects/${slug}/`,
                     `${JSON.stringify(focus)}; opened ${went}; its previous arrow ${backTo}; then ${home}`);
 
                 // Narrower: two columns from 760px, one below, and never a horizontal scroll.
@@ -777,6 +788,78 @@ try {
                     JSON.stringify({ facts: n.facts.left, about: [n.about.left, n.about.right], gap: n.about.top - n.facts.bottom, prev: [n.prev.left, n.prev.top - n.about.bottom], next: [n.next.right, n.next.top - n.about.bottom] }));
                 await page.setViewportSize({ width: 1366, height: 710 });
             }
+
+            // A page opened at #project-info (a link from elsewhere, an address): the browser sets off
+            // for the information before the sets are defined, the page then gets shorter, and the page's
+            // script lands it again. On the project with the most to read, whose information is taller
+            // than the window: a scroll that only stopped at the end of the page would leave its first
+            // lines under the header.
+            if (longest) {
+                const landed = [];
+                for (const height of [710, 650]) {
+                    await page.setViewportSize({ width: 1366, height });
+                    await page.goto('about:blank');
+                    await page.goto(`${base}/projects/${longest.data.slug}/#project-info`);
+                    await slidesReady(page);
+                    await rest(page);
+                    const at = await lie(page);
+                    landed.push({ height, off: infoOff(at), over: Math.round(at.info.height - (at.vh - restAt(at))) });
+                }
+                check(`3. a project page opened at #project-info comes to rest as after the title link, the information's top at 72px and the description's first line at 74px (1366 × 710 and 1366 × 650; ${longest.data.slug}, its information ${landed.map(l => `${Math.max(0, l.over)}px`).join(' and ')} taller than the window allows)`,
+                    landed.every(l => l.off === ''), landed.filter(l => l.off).map(l => `at 1366 × ${l.height}: ${l.off}`).join('; '));
+            }
+
+            // A project with no photos: the information is all there is under the header. It lies where
+            // it rests after the photos, and the page is no taller for it than the window: nothing to
+            // scroll. (If every project has photos, one of them with its sets taken out of the page.)
+            {
+                const bare = published.find(p => !photos(p).length && (factsOf(p).length || p.content.trim()));
+                const stand = bare ?? longest;
+                if (stand) {
+                    const wrong = [];
+                    for (const [width, height] of [[1366, 710], [390, 844]]) {
+                        await page.setViewportSize({ width, height });
+                        await page.goto('about:blank');
+                        await page.goto(`${base}/projects/${stand.data.slug}/`);
+                        if (!bare) {
+                            await slidesReady(page);
+                            await page.evaluate(() => { for (const el of document.querySelectorAll('project-slides')) el.remove(); scrollTo({ top: 0, behavior: 'instant' }); });
+                        }
+                        await page.mouse.move(width / 2, 400);
+                        await rest(page);
+                        const at = await lie(page);
+                        const tall = at.max + at.vh;
+                        const end = at.y + at.info.bottom;
+                        if (at.y !== 0) wrong.push(`${width} × ${height}: the page comes to rest ${at.y}px down`);
+                        if (Math.abs(tall - Math.max(at.vh, end)) > 1) wrong.push(`${width} × ${height}: the page is ${tall}px tall, the window ${at.vh}px, and the information ends at ${end}`);
+                        if (width >= 760 ? infoOff(at) : Math.abs(at.info.top - at.head.bottom) > 0.5) wrong.push(`${width} × ${height}: ${width >= 760 ? infoOff(at) : `the information's top at ${at.info.top}, the header to ${at.head.bottom}`}`);
+                        // In one column it is as tall as its text and no taller: under a header of two lines a
+                        // screen's worth of minimum height would be more than the window has left.
+                        const least = await page.evaluate(() => getComputedStyle(document.querySelector('#project-info')).minHeight);
+                        if (width < 760 && least !== '0px') wrong.push(`${width} × ${height}: the information is at least ${least} tall, whatever its text`);
+                    }
+                    check(`3. a project with no photos does not scroll for its information: at 1366 × 710 it lies at rest, its top at 72px, in a page no taller than the window or than its text; at 390 × 844 it follows the header, as tall as its text and no taller, and the page ends with it (${bare ? bare.data.slug : `${stand.data.slug}, its sets taken out`})`, wrong.length === 0, wrong.join('; '));
+                }
+            }
+
+            // Where a title wraps (the longest one, at 320px) the header is a line taller. The information
+            // still rests clear of the header's ground colour, which ends 8px above its lower edge.
+            {
+                const wordy = published.filter(p => photos(p).length && factsOf(p).length).sort((a, b) => text(b.data.title).length - text(a.data.title).length)[0];
+                if (wordy) {
+                    await page.setViewportSize({ width: 320, height: 568 });
+                    await page.goto('about:blank');
+                    await page.goto(`${base}/projects/${wordy.data.slug}/`);
+                    await slidesReady(page);
+                    await page.click('.project-head h1 a');
+                    await rest(page);
+                    const at = await lie(page);
+                    const first = await page.evaluate(() => document.querySelector('#project-info .facts p').getBoundingClientRect().top);
+                    check(`3. at 320px the title link leaves the information's first line clear of the header, also where the title takes two lines (${wordy.data.slug}: the header is ${at.head.bottom}px tall, its ground colour ends at ${at.head.bottom - 8}px, the first line starts at ${first}px)`,
+                        infoOff(at) === '' && first >= at.head.bottom - 8, infoOff(at));
+                }
+            }
+            await page.setViewportSize({ width: 1366, height: 710 });
         }
 
         // 6. the Index's proportions at the design's width

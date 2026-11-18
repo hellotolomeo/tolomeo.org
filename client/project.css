@@ -124,6 +124,21 @@ html {
 }
 
 @media (max-width: 759.98px) {
+  .project-info {
+    min-height: calc(100vh - 88px);
+    scroll-margin-top: 9px;
+  }
+
+  @supports (height: 100svh) {
+    .project-info {
+      min-height: calc(100svh - 88px);
+    }
+  }
+
+  .project > .project-info:first-child {
+    min-height: 0;
+  }
+
   .project-info .about {
     max-width: 433px;
   }
@@ -148,6 +163,10 @@ html {
     align-content: start;
     align-items: baseline;
     padding: 2px 0 96px;
+  }
+
+  .project > .project-info:first-child {
+    margin-top: -7px;
   }
 
   .project-info .facts {

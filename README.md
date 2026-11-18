@@ -33,7 +33,8 @@ npm run verify
 ```
 After a build: Playwright checks for the acceptance points (HTML before JavaScript, tag filtering,
 project URLs and their photo sets (one slideshow each, the header that stays, the snapping), the
-project information (two columns at the design's measures, the arrows to the neighbouring projects),
+project information (two columns at the design's measures, where it comes to rest, the arrows to the
+neighbouring projects),
 390px width, the CMS fields, the Index's proportions at 1366px and its one-column layout below 720px, zero
 DOM mutations on first render, no console errors).
 Needs Chromium for Playwright (`npx playwright install chromium`, or set `CHROMIUM_PATH`).

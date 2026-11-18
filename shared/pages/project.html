@@ -30,13 +30,13 @@
 {% if project.tags | length or project.role or project.client or project.years %}
 <div class="facts">
 {% if project.tags | length %}
-<p><span class="label">type</span>: {{ project.tags | join(', ') }}</p>
+<p><span class="label">type:</span> {{ project.tags | join(', ') }}</p>
 {% endif %}
 {% if project.role %}
-<p><span class="label">role</span>: {{ project.role }}</p>
+<p><span class="label">role:</span> {{ project.role }}</p>
 {% endif %}
 {% if project.client %}
-<p><span class="label">for</span>: {{ project.client }}</p>
+<p><span class="label">for:</span> {{ project.client }}</p>
 {% endif %}
 {% if project.years %}
 <p class="years">{{ project.years }}</p>
