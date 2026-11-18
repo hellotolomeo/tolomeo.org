@@ -307,9 +307,10 @@ try {
         const cleared = await page.evaluate(() => ({ url: location.search, rows: document.querySelectorAll('project-index .row').length }));
         check('2. removing the last active tag restores everything', cleared.url === '' && cleared.rows === published.length, JSON.stringify(cleared));
         // Turning off a tag with the keyboard while its row is about to drop out: no error,
-        // and focus stays in the list.
+        // and focus stays in the list. The filter in the address is applied by the script, so wait for
+        // it (a fixed pause was too short on a busy machine, and the check was then silently left out).
         await page.goto(`${base}/?filter=${both}`);
-        await page.waitForTimeout(100);
+        await page.waitForFunction(() => document.querySelector('project-index .tag.on') !== null, null, { timeout: 10000 }).catch(() => {});
         const lone = await page.evaluate((t) => {
             const btn = [...document.querySelectorAll(`project-index .tag.on[data-tag="${CSS.escape(t)}"]`)]
                 .find(b => b.closest('.row').querySelectorAll('.tag.on').length === 1);
@@ -322,6 +323,8 @@ try {
             await page.waitForTimeout(100);
             const focus = await page.evaluate(() => document.activeElement?.closest('project-index .index') !== null);
             check('2. removing a focused row keeps keyboard focus in the list (errors are checked below)', focus);
+        } else {
+            check(`2. removing a focused row: ok (no row has "${tagA}" as its only active tag; the check was skipped)`, true);
         }
         await page.goto(`${base}/?filter=${both}`);
         await page.waitForTimeout(100);
@@ -813,6 +816,21 @@ try {
             await page.waitForTimeout(50);
             const again = await page.evaluate(() => ({ url: location.search, cells: document.querySelectorAll('project-index .cell').length, rows: document.querySelectorAll('project-index .row').length }));
             check('7. at 390px clicking the tag again brings every thumbnail and row back', again.url === '' && again.cells === published.length && again.rows === published.length, JSON.stringify(again));
+
+            // Below 720px the grid is above the list, so a filter turned off puts thousands of pixels back above
+            // the tag that was tapped: the page follows, and the tag is still where the finger is.
+            const stay = await page.evaluate((t) => {
+                const tag = [...document.querySelectorAll('project-index .tag')].find(x => x.dataset.tag === t);
+                tag.scrollIntoView({ block: 'center', behavior: 'instant' });
+                const start = tag.getBoundingClientRect().top;
+                tag.click();
+                const on = tag.getBoundingClientRect().top;
+                tag.click();
+                const off = tag.getBoundingClientRect().top;
+                return { start: Math.round(start), on: Math.round(on), off: Math.round(off), window: innerHeight, page: document.documentElement.scrollHeight, filter: location.search };
+            }, tagA);
+            check('7. at 390px a tag tapped on and then off again is still where it was tapped, not a grid\'s height away',
+                stay.filter === '' && stay.on >= 0 && stay.on < stay.window && stay.off >= 0 && stay.off < stay.window && (Math.abs(stay.off - stay.on) <= 1 || Math.abs(stay.off - stay.start) <= 1), JSON.stringify(stay));
         }
 
         // 4. 390px

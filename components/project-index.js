@@ -54,9 +54,13 @@ class ProjectIndex extends BaseComponent {
         if (tag) {
             const t = tag.dataset.tag;
             const { filter } = this.state;
+            const top = tag.getBoundingClientRect().top;
             this.go(filter.includes(t) ? filter.filter(x => x !== t) : [...filter, t], 'push');
             // The row holding the button can stop matching; keep keyboard focus in the list.
             if (!tag.isConnected) (this.querySelector('.tag.on') ?? this.querySelector('.row .title'))?.focus();
+            // Below 720px the page itself scrolls and the grid above the list grows or shrinks with the
+            // filter (by thousands of pixels when a filter is turned off): keep the tag where it was tapped.
+            else if (matchMedia('(max-width: 719.98px)').matches) window.scrollBy({ top: tag.getBoundingClientRect().top - top, behavior: 'instant' });
             return;
         }
         // Leaving for a project page: remember the filter, so its "Back" link can bring it back.
