@@ -64,7 +64,7 @@ export function loadContent({ root, images, config, log = () => {} }) {
         },
         info: { title: str(info.data.title) || 'Info', body: markdown(info.content) },
         projects,
-        // What the index component needs, and nothing more: it rides on the page as JSON.
+        // What the index component needs, and nothing more (but see lean()): it rides on the page as JSON.
         indexProjects: projects.map(lean),
         tags,
         coversCss: coversCss(projects, config),
@@ -133,14 +133,19 @@ function normalize({ data, content }, file, warn) {
 
 // Top-level projects by `order`; each followed directly by its children, by `order`.
 // A child whose parent is missing or unpublished stands on its own, with a warning.
-function order(published, warn) {
+// (Exported for scripts/verify.js, which checks the cases below.)
+export function order(published, warn) {
     const bySlug = new Map(published.map(p => [p.slug, p]));
     const byOrder = (a, b) => a.order - b.order || a.title.localeCompare(b.title);
     const children = new Map();
     const top = [];
     // Only one level of nesting: a child's parent must itself be top-level. A grandchild,
     // a project that is its own parent and every member of a cycle stand on their own.
-    const topLevel = (q) => !q.parent || !bySlug.has(q.parent) || q.parent === q.slug;
+    // Decided from the parents as typed: the loop below clears the parent of a project it lists
+    // on its own, and read from there the second of two projects that name each other found the
+    // first one top-level and became its sub-project.
+    const typed = new Map(published.map(p => [p.slug, p.parent]));
+    const topLevel = (q) => !typed.get(q.slug) || !bySlug.has(typed.get(q.slug)) || typed.get(q.slug) === q.slug;
     for (const p of published) {
         const parent = p.parent ? bySlug.get(p.parent) : null;
         if (parent && parent !== p && topLevel(parent)) {
@@ -198,12 +203,16 @@ function shape(p, { images, warn }) {
     };
 }
 
-// The fields the index component reads; the cover at grid sizes.
+// The fields the index component reads; the cover at grid sizes. `years` is the one it does not
+// read: the template printed it in the date cell until 20 Nov 2026 and prints `listYears` since.
+// It stays in the data for the browser that still has that template in its cache when the new
+// page arrives: without it every row of that visitor's list lost its date until the cache expired.
 function lean(p) {
     const c = p.cover;
     return {
         slug: p.slug,
         title: p.title,
+        years: p.years,
         listYears: p.listYears,
         tags: p.tags,
         child: p.child,

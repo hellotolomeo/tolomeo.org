@@ -192,6 +192,14 @@ project-index .track {
   project-index .row {
     padding-left: 16px;
   }
+
+  project-index .child .what {
+    padding-left: 1.39em;
+  }
+
+  project-index .child .title {
+    margin-left: 0;
+  }
 }
 
 @media (min-width: 720px) {

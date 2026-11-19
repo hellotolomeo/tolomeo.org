@@ -56,8 +56,10 @@
  *      picture and 32px before the next one, in the main projects' list titles' type
  *      (Bold, under a sub-project's thumbnail too); in the list the dates Light, the
  *      titles Bold and a sub-project's Light; the same projects in the grid and the
- *      list when a tag is clicked; the list without columns, a row's types
- *      following its title and wrapping. From 720px up the titles are not
+ *      list when a tag is clicked; the list without columns (at 320px as well), a
+ *      row's types following its title and wrapping, on a line of their own 15px in
+ *      from where the title starts (a sub-project's, five spaces in, included). From
+ *      720px up the titles are not
  *      displayed and the cells keep their fixed proportion.
  *   + the type: 13px on a 16px line, Light, on every route (captions 11px / 13.2px);
  *   + no picture's box has a border, every one has the shadow and its picture is stretched
@@ -76,7 +78,7 @@ import nunjucks from 'nunjucks';
 import sharp from 'sharp';
 import { chromium } from 'playwright';
 import { markdown, markdownText } from '../server/markdown.js';
-import { coversCss, shortYears } from '../server/content.js';
+import { coversCss, order, shortYears } from '../server/content.js';
 import { createEnvironment } from '../server/zeldman/zeldman.js';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -212,6 +214,42 @@ const [tagA, tagB] = [...counts].sort((a, b) => b[1] - a[1]).map(([t]) => t);
     check(`1. in the Index's HTML the rows of the sub-projects, and no others, are marked as such, and no row prints a bullet: every title is the first thing in its column (${subs.size} sub-projects)`,
         JSON.stringify(marked) === JSON.stringify([...subs].sort()) && Boolean(list) && !/class="bullet"|•|&bull;|&#8226;|&#x2022;/i.test(list) && titled === published.length,
         `marked: ${marked.join(', ') || 'none'}; wanted: ${[...subs].sort().join(', ') || 'none'}; ${titled} of ${published.length} titles first in their column; a bullet: ${/class="bullet"|•|&bull;|&#8226;|&#x2022;/i.test(list)}`);
+    // The row data that rides on the page: `listYears` is what the row prints, and `years` is still
+    // there, the project's date as its own page prints it. Nothing in today's template reads `years`;
+    // the template from before 20 Nov 2026 printed it, and a browser that still has that one in its
+    // cache when the new page arrives printed an empty date in every row without it.
+    const unescaped = (t) => t.replace(/&(amp|lt|gt|quot|#(\d+));/g, (_, e, n) => (n ? String.fromCodePoint(Number(n)) : { amp: '&', lt: '<', gt: '>', quot: '"' }[e]));
+    let rowData = [];
+    try { rowData = JSON.parse(unescaped(home.match(/<project-index projects="([^"]*)"/)?.[1] ?? '[]')); } catch { rowData = []; }
+    const bare = published.map((p) => {
+        const d = rowData.find(r => r.slug === p.data.slug);
+        return d && d.listYears === listDate(p) && d.years === shortYears(text(p.data.years)) ? '' : `${p.data.slug}: ${JSON.stringify({ years: d?.years, listYears: d?.listYears })}`;
+    }).filter(Boolean);
+    check(`1. the row data on the home page has, for every project, the date its row prints (listYears; none for a sub-project) and still its years, which a template cached from before 20 Nov 2026 prints (${rowData.length} rows)`,
+        rowData.length === published.length && bare.length === 0, bare.slice(0, 5).join('; '));
+}
+
+// Which projects are sub-projects (order() in server/content.js, on made-up projects): one level of
+// nesting, decided from the parents as typed, whatever the order of the files. A project whose
+// parent is missing, itself, or a sub-project is a main project; so is every one of two or three
+// that name each other in a ring, and a project whose parent is one of those. (Until 20 Nov 2026
+// the second of two that named each other became the first one's sub-project.)
+{
+    const listed = (...items) => order(items.map(([slug, parent], i) => ({ slug, title: slug, order: i + 1, parent: parent ?? null })), () => {})
+        .map(p => (p.parent ? `${p.parent}/${p.slug}` : p.slug)).join(' ');
+    const cases = [
+        ['a main project and its sub-project', listed(['a'], ['b', 'a'], ['c']), 'a a/b c'],
+        ['a sub-project that comes before its main project', listed(['b', 'a'], ['a'], ['c']), 'a a/b c'],
+        ['a parent that does not exist', listed(['a', 'z'], ['b', 'a']), 'a a/b'],
+        ['a project that is its own parent', listed(['a', 'a'], ['b', 'a']), 'a a/b'],
+        ['a sub-project of a sub-project', listed(['a'], ['b', 'a'], ['c', 'b']), 'a a/b c'],
+        ['two that name each other', listed(['a', 'b'], ['b', 'a']), 'a b'],
+        ['two that name each other, the other way round', listed(['b', 'a'], ['a', 'b']), 'b a'],
+        ['three in a ring', listed(['a', 'b'], ['b', 'c'], ['c', 'a']), 'a b c'],
+        ['a project under one of two that name each other', listed(['a', 'b'], ['b', 'a'], ['c', 'a']), 'a b c'],
+    ];
+    const off = cases.filter(([, got, want]) => got !== want).map(([name, got, want]) => `${name}: "${got}", wanted "${want}"`);
+    check(`1. a sub-project is a project whose parent is a published main project, and nothing else: a missing parent, a project that is its own, a sub-project's sub-project and projects that name each other in a ring all stand on their own (${cases.length} cases)`, off.length === 0, off.join('; '));
 }
 
 // The list's date column is as wide as the widest date a row prints: client/covers.css carries every
@@ -2228,13 +2266,18 @@ try {
             // Below 720px the list is as it was before it had columns: a row's title and types are one flow
             // that wraps, the types 15px after the title (or 15px in on a line of their own); the two
             // columns make no box, so nothing is cut or faded, and nothing moves when a row is pointed at.
-            for (const [width, height] of [[390, 844], [719, 900]]) {
+            // A sub-project's row (20 Nov 2026) is the same flow five word spaces further in: its types on
+            // a line of their own start 15px in from where its title starts, like a main project's (not 15px
+            // in from the column's start, 3px left of the title above them), and a second line of a title
+            // starts under its first. 320px is here because that is where most types have a line of their own.
+            for (const [width, height] of [[320, 568], [390, 844], [719, 900]]) {
                 await open(width, height);
                 const flow = () => page.evaluate(() => {
                     const px = (v) => parseFloat(v) || 0;
                     return [...document.querySelectorAll('project-index .row')].map((r) => {
-                        const what = r.querySelector('.what').getBoundingClientRect();
-                        const last = [...r.querySelector('.title').getClientRects()].at(-1);
+                        const titleLines = [...r.querySelector('.title').getClientRects()];
+                        const first = titleLines[0];
+                        const last = titleLines.at(-1);
                         const tags = r.querySelector('.tags');
                         const tb = tags?.getBoundingClientRect();
                         const ts = tags ? getComputedStyle(tags) : null;
@@ -2247,15 +2290,19 @@ try {
                             height: r.getBoundingClientRect().height,
                             boxes: [...r.querySelectorAll('.clip')].filter(c => getComputedStyle(c).display !== 'contents').length,
                             lines: [...r.querySelectorAll('.line')].map(l => { const s = getComputedStyle(l); return `${s.display} ${s.translate} ${px(s.paddingRight)}`; }).join(', '),
-                            gap: tags ? tb.left + lean - (beside ? last.right : what.left) : 15,
+                            gap: tags ? tb.left + lean - (beside ? last.right : first.left) : 15,
                             beside,
+                            own: Boolean(tags) && !beside,
+                            ragged: Math.max(...titleLines.map(l => Math.abs(l.left - first.left))),
                             tags: tags ? [tb.left, tb.top, tb.width, tb.height].join(' ') : '',
                         };
                     });
                 });
                 const rows = await flow();
-                const boxed = rows.filter(r => r.boxes > 0 || !/^inline none 0(, inline-block none 0)?$/.test(r.lines) || Math.abs(r.gap - 15) > 0.5);
+                const boxed = rows.filter(r => r.boxes > 0 || !/^inline none 0(, inline-block none 0)?$/.test(r.lines) || Math.abs(r.gap - 15) > 0.5 || r.ragged > 0.05);
                 const wrapped = rows.filter(r => r.height > 26.5).length;
+                const alone = rows.filter(r => r.own);
+                const aloneKids = alone.filter(r => subs.has(r.slug)).length;
                 const pointed = rows.find(r => r.tags) ?? rows[0];
                 await page.evaluate((slug) => document.querySelector(`#row-${slug}`).scrollIntoView({ block: 'center', behavior: 'instant' }), pointed.slug);
                 const before = (await flow()).find(r => r.slug === pointed.slug);
@@ -2264,9 +2311,9 @@ try {
                 await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
                 const during = (await flow()).find(r => r.slug === pointed.slug);
                 await away();
-                check(`7. at ${width}×${height} the list has no columns: a row's types follow its title in the same flow, 15px after it, wrapping as they need (${wrapped} of ${rows.length} rows take more than one line); nothing is cut, and nothing moves when a row is pointed at`,
+                check(`7. at ${width}×${height} the list has no columns: a row's types follow its title in the same flow, 15px after it, or on a line of their own 15px in from where the title starts (${alone.length} rows, ${aloneKids} of them sub-projects', whose title starts five spaces in), and every line of a title starts under its first; all wrap as they need (${wrapped} of ${rows.length} rows take more than one line); nothing is cut, and nothing moves when a row is pointed at`,
                     rows.length === published.length && boxed.length === 0 && during.on && during.tags === before.tags,
-                    `${boxed.slice(0, 3).map(r => `${r.slug}: ${r.boxes} boxes, ${r.lines}, gap ${r.gap}`).join('; ')} pointed: ${before.tags} → ${during.tags}`);
+                    `${boxed.slice(0, 3).map(r => `${r.slug}: ${r.boxes} boxes, ${r.lines}, gap ${r.gap.toFixed(2)}${r.own ? ' on a line of their own' : ''}, title lines ${r.ragged.toFixed(2)}px apart`).join('; ')} pointed: ${before.tags} → ${during.tags}`);
             }
         }
 
