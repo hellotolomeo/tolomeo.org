@@ -151,13 +151,17 @@ const firstSet = (p) => setsOf(p)[0] ?? [];
 // A front-matter value as text, and as a list of texts (the CMS drops what is empty; a role may be one line or several).
 const text = (v) => (v === null || v === undefined ? '' : v instanceof Date ? v.toISOString().slice(0, 10) : String(v)).trim();
 const texts = (v) => (Array.isArray(v) ? v : v === null || v === undefined || v === '' ? [] : [v]).map(text).filter(Boolean);
+// Text as a browser prints it: white space (two spaces typed for one, a tab, a line break) is one space.
+// The same white space as the build's when it writes the dates into --dates; a no-break space is not part of it.
+const spaced = (t) => String(t).replace(/[\t\n\f\r ]+/g, ' ').trim();
 // The lines of a project's information beside its description, as the page prints them: type, role, for, then the years; an empty one is left out.
+// White space is one space, as textOf reads it from the page (a date typed with two spaces is still one line of the same words).
 const factsOf = (p) => [
     texts(p.data.tags).length ? `type: ${texts(p.data.tags).join(', ')}` : '',
     texts(p.data.role).length ? `role: ${texts(p.data.role).join(', ')}` : '',
     text(p.data.client) ? `for: ${text(p.data.client)}` : '',
     shortYears(text(p.data.years)),
-].filter(Boolean);
+].filter(Boolean).map(line => line.replace(/\s+/g, ' '));
 // The information section of a project page's HTML, the lines of its left column, and one of its two arrows.
 const sectionOf = (body) => body.match(/<section class="project-info"[\s\S]*?<\/section>/)?.[0] ?? '';
 const linesOf = (section) => [...(section.match(/<div class="facts">[\s\S]*?<\/div>/)?.[0] ?? '').matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map(m => textOf(m[1]).trim());
@@ -212,7 +216,7 @@ const madeUpCss = coversCss(madeUp, { TAG_COLOR: '#000' });
     const built = datesRule(readFileSync(join(dist, 'client/covers.css'), 'utf8'));
     const home = readFileSync(join(dist, 'index.html'), 'utf8');
     const unescape = (t) => t.replace(/&(amp|lt|gt|quot|#39);/g, (_, e) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" }[e]));
-    const printed = [...new Set([...home.matchAll(/<span class="years">([^<]*)<\/span>/g)].map(m => unescape(m[1]).replace(/\s+/g, ' ').trim()).filter(Boolean))];
+    const printed = [...new Set([...home.matchAll(/<span class="years">([^<]*)<\/span>/g)].map(m => spaced(unescape(m[1]))).filter(Boolean))];
     const lines = built.length === 1 ? cssText(built[0].slice('project-index{--dates:'.length, -1)).split('\n') : [];
     check(`6. client/covers.css carries every date the list prints, each once, a date to a line (${printed.length} dates)`, built.length === 1 && safe.test(built[0]) && JSON.stringify(lines) === JSON.stringify(printed), `${built[0]} against ${JSON.stringify(printed)}`);
 }
@@ -1398,7 +1402,9 @@ try {
             // The rows whose title's column is not `column` px after the date, or whose date is not at the row's inset.
             const strays = (m, column) => m.rows.filter(r => Math.abs(r.title - r.date - column) > 0.5 || Math.abs(r.date - (m.left + inset(m))) > 0.5);
             const say = (rows) => rows.slice(0, 3).map(r => `${r.slug}: date at ${r.date}, title ${(r.title - r.date).toFixed(2)}px after it`).join('; ');
-            const printedDates = Object.fromEntries(published.map(p => [p.data.slug, shortYears(text(p.data.years))]));
+            // Every project's date as the list prints it: short, and white space one space (a date typed with two
+            // spaces between its years prints with one, and --dates carries it with one).
+            const printedDates = Object.fromEntries(published.map(p => [p.data.slug, spaced(shortYears(text(p.data.years)))]));
             // The made-up rule of the escaping check again, now read by the browser: put in the page in place
             // of the built one, the unseen text of a date cell is the made-up dates as they were given, and
             // the rule written after it still holds (the string ended where it should).
@@ -1436,14 +1442,13 @@ try {
                 check(`6. at ${width}px the text that sizes the date column is every date the list prints (${want.length}), a date to a line, and takes no height: a date cell is one line tall, its date level with its title, and neither the list nor the page scrolls over more than its rows`,
                     JSON.stringify(lines) === JSON.stringify(want) && high.length === 0 && Math.abs(overflow) <= 1 && m.sideways <= 0,
                     `${JSON.stringify(lines)}; ${high.slice(0, 3).map(r => `${r.slug}: ${r.unseen}, ${r.boxLines} lines, the date ${r.level}px under its title's line, row ${r.height}px`).join('; ')}; ${overflow}px more to scroll over, ${m.sideways}px sideways`);
-                const inDom = m.rows.filter(r => r.nodes !== printedDates[r.slug] || r.read !== printedDates[r.slug]);
+                const inDom = m.rows.filter(r => spaced(r.nodes) !== printedDates[r.slug] || spaced(r.read) !== printedDates[r.slug]);
                 const { nodes } = await ax.send('Accessibility.getFullAXTree');
-                const one = (t) => t.replace(/\s+/g, ' ').trim();
-                const said = nodes.filter(n => !n.ignored && n.role?.value === 'StaticText').map(n => one(String(n.name?.value ?? '')));
+                const said = nodes.filter(n => !n.ignored && n.role?.value === 'StaticText').map(n => spaced(n.name?.value ?? ''));
                 const count = (list, d) => list.filter(t => t === d).length;
                 const dates = m.rows.map(r => printedDates[r.slug]).filter(Boolean);
                 const extra = want.filter(d => count(said, d) !== count(dates, d)).map(d => `${d}: ${count(said, d)} times for ${count(dates, d)} rows`);
-                const whole = nodes.filter(n => !n.ignored && want.length > 1 && one(String(n.name?.value ?? '')).includes(one(lines.join(' ')))).length;
+                const whole = nodes.filter(n => !n.ignored && want.length > 1 && spaced(n.name?.value ?? '').includes(spaced(lines.join(' ')))).length;
                 check(`6. at ${width}px that text is not in the DOM (every date cell holds its own date, one text node, and reads as it) and is not read out: the accessibility tree has each date once per row that prints it and the sizing text nowhere`,
                     inDom.length === 0 && said.length > dates.length && extra.length === 0 && whole === 0,
                     `${inDom.slice(0, 3).map(r => `${r.slug}: ${r.nodes} / ${r.read}`).join('; ')} ${extra.slice(0, 4).join('; ')}; the whole text in ${whole} nodes`);
