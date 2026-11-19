@@ -54,7 +54,9 @@
  *      following its title and wrapping. From 720px up the titles are not
  *      displayed and the cells keep their fixed proportion.
  *   + the type: 13px on a 16px line, Light, on every route (captions 11px / 13.2px);
- *   + no picture's box has a border and every one has the shadow, on every route;
+ *   + no picture's box has a border, every one has the shadow and its picture is stretched
+ *     over all of it (object-fit: fill), on every route; a thumbnail's and a photo's `sizes`
+ *     attribute gives the width it is shown at;
  *   + zero mutations on the first render and on a forced el.render();
  *   + zero console errors and page errors on every route, JS on and off.
  * Exits 1 if anything fails.
@@ -91,6 +93,36 @@ const BODY = '13px / 16px / 300';
 // How far the limiting side of a picture may be from its limit: layout works in 64ths of a pixel,
 // and the side that follows from the proportions is rounded once more (0.04px at most, measured).
 const EXACT = 0.1;
+// The width in px that a `sizes` attribute promises the browser in a window of vw × vh: the first entry
+// whose media condition holds (the site writes only max-width / min-width in px), its length worked out
+// (vw, vh, px, calc, min). NaN for anything else, so a check that compares it fails.
+const sizesPx = (sizes, vw, vh) => {
+    const entries = [];
+    for (let i = 0, depth = 0, from = 0; i <= sizes.length; i++) {
+        if (sizes[i] === '(') depth++;
+        else if (sizes[i] === ')') depth--;
+        if (i === sizes.length || (sizes[i] === ',' && depth === 0)) { entries.push(sizes.slice(from, i).trim()); from = i + 1; }
+    }
+    for (const entry of entries) {
+        const m = entry.match(/^\((max|min)-width:\s*([\d.]+)px\)\s+(.+)$/);
+        if (m && !(m[1] === 'max' ? vw <= Number(m[2]) : vw >= Number(m[2]))) continue;
+        const sum = (m ? m[3] : entry).replace(/([\d.]+)vw/g, (_, n) => `(${n} * ${vw / 100})`).replace(/([\d.]+)vh/g, (_, n) => `(${n} * ${vh / 100})`)
+            .replace(/([\d.]+)px/g, '$1').replace(/calc/g, '').replace(/min\(/g, 'Math.min(');
+        if (!sum.trim() || !/^[\d\s.+\-*/(),]*$/.test(sum.replace(/Math\.min/g, ''))) return NaN;
+        try { return Number(new Function(`return ${sum};`)()); } catch { return NaN; }
+    }
+    return NaN;
+};
+// Pictures as { name, width, sizes: [the <img>'s, its <source>'s or null] } in a window of vw × vh: those whose
+// `sizes` does not give the width the picture is shown at, to the pixel (the browser chooses the file by it,
+// before any stylesheet; it lost the border's 12px with the picture, 19 Nov 2026). A picture with one file
+// has no `srcset` and needs no `sizes`.
+const sizesOff = (pictures, vw, vh) => pictures.map(({ name, width, sizes: [img, source] }) => {
+    if (img === null && source === null) return '';
+    if (source !== null && source !== img) return `${name}: <source> says ${source}, <img> ${img}`;
+    const px = sizesPx(img ?? '', vw, vh);
+    return Math.abs(px - width) <= 1 ? '' : `${name}: sizes gives ${Number.isNaN(px) ? 'nothing this check can read' : `${Math.round(px * 100) / 100}px`}, the picture is ${Math.round(width * 100) / 100}px wide (${img})`;
+}).filter(Boolean);
 
 // --- what the site should contain, from content/ directly
 
@@ -193,6 +225,7 @@ const lie = (page) => page.evaluate(() => {
         max: document.documentElement.scrollHeight - innerHeight,
         vw: document.documentElement.clientWidth,
         vh: innerHeight,
+        iw: innerWidth,
         wide: document.documentElement.scrollWidth,
         mouse: matchMedia('(hover: hover) and (pointer: fine)').matches,
         snap: getComputedStyle(document.documentElement).scrollSnapType,
@@ -214,6 +247,8 @@ const lie = (page) => page.evaluate(() => {
                 a: img ? Math.round((img.getAttribute('width') / img.getAttribute('height')) * 10000) / 10000 : null,
                 frame: box(now?.querySelector('.frame')),
                 image: box(img),
+                fit: img ? getComputedStyle(img).objectFit : '',
+                sizes: [img?.getAttribute('sizes') ?? null, now?.querySelector('source')?.getAttribute('sizes') ?? null],
                 border: now ? ['Top', 'Right', 'Bottom', 'Left'].map(k => getComputedStyle(now.querySelector('.frame'))[`border${k}Width`]).join(' ') : '',
                 shadow: now ? getComputedStyle(now.querySelector('.frame')).boxShadow : '',
                 prev: seen(now?.querySelector('.prev')) ? box(now.querySelector('.prev')) : null,
@@ -240,7 +275,8 @@ const infoOff = (at) => {
 // less the 79px header; the photo is the largest that fits the page less, on each side, a 44px
 // chevron target, a 14.25px gap and a 16px edge (below 600px: the chevron targets only), and the
 // set's height less the 63px caption room: its limiting side reaches that limit exactly. It has no
-// border, the picture fills its box, and the shadow lies directly around it. It is centred in the
+// border, the picture fills its box (stretched over it, `object-fit: fill`, so no pixel of the box is left
+// to the ground colour), the shadow lies directly around it, and its `sizes` says that width. It is centred in the
 // page, the caption room under it, a chevron 14.25px from either side (0 below 600px). For a photo
 // of 1.4995 at 1366 × 710 that is 851.7 × 567.98 at 257.14, 79: the outer edge of the 845.72 ×
 // 567.98 frame the slideshow had while photos had a 6px border, and 3px more on either side.
@@ -261,6 +297,8 @@ const offDesign = (set, at) => {
     if (set.border !== '0px 0px 0px 0px') off.push(`a border (${set.border})`);
     if (set.shadow !== SHADOW) off.push(`shadow ${set.shadow}`);
     if (!['left', 'top', 'width', 'height'].every(k => near(set.image[k], set.frame[k]))) off.push(`the picture (${set.image.width}×${set.image.height}) does not fill its box`);
+    if (set.fit !== 'fill') off.push(`the picture is object-fit: ${set.fit}, which can leave a line of the ground between it and its shadow`);
+    off.push(...sizesOff([{ name: 'photo', width: set.frame.width, sizes: set.sizes }], at.iw, at.vh));
     if (!near(set.frame.left, (at.vw - frame.width) / 2)) off.push(`photo left ${set.frame.left}`);
     if (!near(set.frame.top - set.top, (set.height - frame.height - room) / 2)) off.push(`photo ${set.frame.top - set.top} under the set's top`);
     if (set.caption && !near(set.caption.top - set.frame.bottom, 16)) off.push(`caption ${set.caption.top - set.frame.bottom} under the photo, not 16`);
@@ -992,6 +1030,7 @@ try {
                     if (Math.abs(b.width - a.width * 0.91) > exact && Math.abs(b.height - a.width * 0.499733) > exact) wrong.push(`neither side on its limit (${b.width} × ${b.height} in ${a.width * 0.91} × ${a.width * 0.499733})`);
                     if (Math.abs((b.x + b.width / 2) - (a.x + a.width / 2)) >= 0.5 || Math.abs((b.y + b.height / 2) - (a.y + a.height / 2)) >= 0.5) wrong.push('not centred');
                     if (Math.abs(b.width / b.height - img.getAttribute('width') / img.getAttribute('height')) >= 0.01 || Math.abs(im.width - b.width) > 0.5 || Math.abs(im.height - b.height) > 0.5) wrong.push('cropped, or not filling its box');
+                    if (getComputedStyle(img).objectFit !== 'fill') wrong.push(`object-fit: ${getComputedStyle(img).objectFit}`);
                     if (!['Top', 'Right', 'Bottom', 'Left'].every(k => s[`border${k}Width`] === '0px')) wrong.push(`a border (${s.borderTopWidth})`);
                     if (s.boxShadow !== shadow) wrong.push(`shadow ${s.boxShadow}`);
                     return wrong.length ? `${c.dataset.slug}: ${wrong.join(', ')}` : '';
@@ -1004,6 +1043,9 @@ try {
                     columns: Math.abs(box(cells[1]).x - cell.width) < 0.5 && Math.abs(box(cells[2]).y - cell.y - cell.height) < 0.5,
                     count: cells.filter(c => c.querySelector('.box')).length,
                     thumbs,
+                    sized: cells.filter(c => c.querySelector('.box')).map(c => ({ name: c.dataset.slug, width: box(c.querySelector('.box')).width, sizes: [c.querySelector('img').getAttribute('sizes'), c.querySelector('source')?.getAttribute('sizes') ?? null] })),
+                    vw: innerWidth,
+                    vh: innerHeight,
                     scrolls: document.documentElement.scrollHeight <= innerHeight,
                     lines,
                     body: [body.fontSize, body.lineHeight, body.fontWeight].join(' / '),
@@ -1011,7 +1053,11 @@ try {
                 };
             }, { shadow: SHADOW, exact: EXACT });
             check('6. at 1366px a cell is a quarter of the page, two to a row, and every list row is 23px tall', m.quarter && m.ratio && m.row && m.columns, JSON.stringify(m));
-            check(`6. every thumbnail is whole, centred, without a border, with the shadow, and as large as its cell allows: the side that limits it is exactly on its limit (${m.count} thumbnails)`, m.count > 0 && m.thumbs.length === 0, m.thumbs.slice(0, 5).join(' | '));
+            check(`6. every thumbnail is whole, centred, without a border, with the shadow, filling its box edge to edge, and as large as its cell allows: the side that limits it is exactly on its limit (${m.count} thumbnails)`, m.count > 0 && m.thumbs.length === 0, m.thumbs.slice(0, 5).join(' | '));
+            {
+                const off = sizesOff(m.sized, m.vw, m.vh);
+                check(`6. every thumbnail's sizes attribute gives the width it is shown at, to the pixel (${m.sized.length} thumbnails)`, m.sized.length > 0 && off.length === 0, off.slice(0, 3).join(' | '));
+            }
             check('6. the two columns scroll on their own, and nothing draws a line: no element has a border, and only the pictures have a shadow', m.scrolls && m.lines === 0, JSON.stringify({ scrolls: m.scrolls, lines: m.lines }));
             check('6. the type is 13px on a 16px line, Light, in the list\'s rows as on the page', m.body === BODY && m.rows === '13px / 16px', `body ${m.body}; rows ${m.rows}`);
 
@@ -1563,7 +1609,7 @@ try {
                 const box = (el) => el.getBoundingClientRect();
                 const cells = [...document.querySelectorAll('project-index .cell')];
                 const rows = [...document.querySelectorAll('project-index .row')];
-                const bad = { rows: [], titles: [], thumbs: [] };
+                const bad = { rows: [], titles: [], thumbs: [], sized: [] };
                 cells.forEach((c, i) => {
                     const slug = c.dataset.slug;
                     const a = box(c);
@@ -1601,6 +1647,8 @@ try {
                         const wrong = [];
                         if (Math.abs(f.width / f.height - img.getAttribute('width') / img.getAttribute('height')) > 0.01
                             || Math.abs(im.width - f.width) > 0.5 || Math.abs(im.height - f.height) > 0.5) wrong.push('cropped, or not filling its box');
+                        if (getComputedStyle(img).objectFit !== 'fill') wrong.push(`object-fit: ${getComputedStyle(img).objectFit}`);
+                        bad.sized.push({ name: slug, width: f.width, sizes: [img.getAttribute('sizes'), frame.querySelector('source')?.getAttribute('sizes') ?? null] });
                         if (!['Top', 'Right', 'Bottom', 'Left'].every(k => s[`border${k}Width`] === '0px')) wrong.push(`a border (${s.borderTopWidth})`);
                         if (s.boxShadow !== shadow) wrong.push(`shadow ${s.boxShadow}`);
                         if (Math.abs((f.left + f.right) / 2 - page / 2) > 0.5) wrong.push('not centred');
@@ -1618,6 +1666,8 @@ try {
                     list: rows.map(r => r.dataset.slug),
                     under: !last || list.top >= last.bottom - 0.5,
                     scroll: document.documentElement.scrollWidth - page,
+                    vw: innerWidth,
+                    vh: innerHeight,
                     // every row's date and title, and the page's own type
                     type: [...new Set(rows.map(r => [r.querySelector('.years'), r.querySelector('.title')].map(el => `${getComputedStyle(el).fontWeight} ${getComputedStyle(el).fontSize}`).join(' | ')))],
                     body: [getComputedStyle(document.body).fontSize, getComputedStyle(document.body).lineHeight, getComputedStyle(document.body).fontWeight].join(' / '),
@@ -1636,7 +1686,11 @@ try {
                 const at = `at ${width}×${height}`;
                 check(`7. ${at} one cell to a row, each as wide as the page, the list under the grid, no horizontal scroll`, m.rows.length === 0 && m.under && m.scroll <= 0 && JSON.stringify([...m.cells].sort()) === want, `${m.rows.slice(0, 5).join(', ')} under=${m.under} scroll=${m.scroll} cells=${m.cells.length}`);
                 check(`7. ${at} every project's title shows under its thumbnail: 10px under its own picture, 32px before the next`, m.titles.length === 0 && m.cells.length === published.length, m.titles.slice(0, 5).join(' | '));
-                check(`7. ${at} every thumbnail is whole, centred, without a border, with the shadow, and as large as fits: the side that limits it is exactly on its limit`, m.thumbs.length === 0, m.thumbs.slice(0, 5).join(' | '));
+                check(`7. ${at} every thumbnail is whole, centred, without a border, with the shadow, filling its box edge to edge, and as large as fits: the side that limits it is exactly on its limit`, m.thumbs.length === 0, m.thumbs.slice(0, 5).join(' | '));
+                {
+                    const off = sizesOff(m.sized, m.vw, m.vh);
+                    check(`7. ${at} every thumbnail's sizes attribute gives the width it is shown at, to the pixel`, m.sized.length > 0 && off.length === 0, off.slice(0, 3).join(' | '));
+                }
                 check(`7. ${at} the type is 13px on a 16px line, Light; in the list every date is Light (300) and every title Bold (700)`, m.body === BODY && m.type.length === 1 && m.type[0] === '300 13px | 700 13px', `body ${m.body}; rows ${m.type.slice(0, 3).join(' ; ')}`);
             }
 
@@ -1775,6 +1829,7 @@ try {
         const type = [];
         const boxes = [];
         let pictures = 0;
+        let captions = 0;
         for (const path of routes) {
             await page.goto(base + path);
             await page.waitForTimeout(30);
@@ -1785,25 +1840,35 @@ try {
                 const all = [...document.querySelectorAll('picture, project-index .box, project-slides .frame')];
                 return {
                     body: set(document.body),
-                    // Text that is not the body's size: only a photo's caption may be.
+                    // Text that is not the body's size: a photo's caption, and a caption is no other size than its own
+                    // (one that followed the body to 13px / 16px is as wrong as body text that is not).
                     other: [...new Set([...document.querySelectorAll('body *')].filter(el => el.getClientRects().length && [...el.childNodes].some(n => n.nodeType === 3 && n.data.trim()) && !el.closest('.visually-hidden'))
                         .map(el => `${el.matches('.caption, .caption *') ? 'caption' : el.localName} ${getComputedStyle(el).fontSize} / ${getComputedStyle(el).lineHeight}`))]
-                        .filter(t => !/ 13px \/ (16|18\.73)px$/.test(t) && t !== 'caption 11px / 13.2px'),
+                        .filter(t => (t.startsWith('caption ') ? t !== 'caption 11px / 13.2px' : !/ 13px \/ (16|18\.73)px$/.test(t))),
+                    captions: [...document.querySelectorAll('.caption')].filter(el => el.getClientRects().length && el.textContent.trim()).length,
                     count: new Set(all).size,
                     wrong: [...new Set(all)].map((el) => {
                         const s = getComputedStyle(el);
                         const border = ['Top', 'Right', 'Bottom', 'Left'].map(k => s[`border${k}Width`]).join(' ');
-                        return border !== '0px 0px 0px 0px' ? `a border (${border})` : s.boxShadow !== shadow ? `shadow ${s.boxShadow}` : '';
+                        // A box has its picture's proportions, and the picture is stretched over all of it (`fill`): a resized
+                        // file is a fraction of a pixel off those proportions, and `contain` then left a line of the ground
+                        // colour between the picture and its shadow. Only a picture whose size the build could not read
+                        // (no `width`; none today) is `contain` in a 3 : 2 box.
+                        const img = el.querySelector('img');
+                        const fit = img ? getComputedStyle(img).objectFit : '';
+                        return border !== '0px 0px 0px 0px' ? `a border (${border})` : s.boxShadow !== shadow ? `shadow ${s.boxShadow}`
+                            : fit !== (img?.getAttribute('width') ? 'fill' : 'contain') ? `object-fit: ${fit}` : '';
                     }).filter(Boolean),
                 };
             }, SHADOW);
             if (look.body !== BODY || look.other.length) type.push(`${path}: body ${look.body}${look.other.length ? `; ${look.other.slice(0, 3).join(', ')}` : ''}`);
             pictures += look.count;
+            captions += look.captions;
             if (look.wrong.length) boxes.push(`${path}: ${look.wrong.length} of ${look.count}, ${look.wrong[0]}`);
         }
         check('4. no horizontal scroll at 390px on any route', wide.length === 0, wide.join(', '));
-        check('the type on every route is 13px on a 16px line, Light (a project\'s type, role and client on an 18.73px line; a caption 11px / 13.2px)', type.length === 0, type.slice(0, 4).join(' | '));
-        check(`no picture on any route has a border, and every one has the shadow: the ${pictures} thumbnails and project photos`, pictures > 0 && boxes.length === 0, boxes.slice(0, 4).join(' | '));
+        check(`the type on every route is 13px on a 16px line, Light (a project's type, role and client on an 18.73px line); a caption is 11px / 13.2px and nothing else (${captions} captions on screen)`, type.length === 0 && captions > 0, type.slice(0, 4).join(' | ') || (captions ? '' : 'no caption on screen on any route'));
+        check(`no picture on any route has a border, every one has the shadow and is stretched over its whole box (object-fit: fill): the ${pictures} thumbnails and project photos`, pictures > 0 && boxes.length === 0, boxes.slice(0, 4).join(' | '));
 
         // 6. the intro line stays on the grid's side of the page: side by side (from 720px) it wraps before the
         // middle, 16px short of it, and the header keeps its 88px, so the columns under it do not move.
