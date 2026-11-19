@@ -46,7 +46,8 @@ Press **Save** when you're done.
      publishing** (old links would break and the photos would be in the wrong folder).
    - **Order**: where it sits in the list (see below).
    - **Years**: type them in full: `2026`, `2023 - 2026`, `2025, 2026`, `2023 –`. The site prints
-     them short: `’26`, `’23–26`, `’25, 26`, `’23–`.
+     them short: `’26`, `’23–26`, `’25, 26`, `’23–`. In the list on the home page the date column
+     fits the longest date by itself, so the titles always start right after the dates.
    - **Start year / End year**: only used for sorting. Leave End year empty if it's ongoing.
    - **Tags**: the categories people can filter by. Pick from the list. On the project's
      own page they are shown as `type:`.

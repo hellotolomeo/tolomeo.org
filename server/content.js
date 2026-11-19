@@ -281,9 +281,26 @@ function slideSizes(g) {
 // `.frame` on a project page: names from when it had a border) takes its image's own proportions
 // (--a), so no photo is ever cropped and the box, with its shadow, is exactly the picture.
 
-/** client/covers.css: the tag colour, and one rule per grid cell (components/project-index.css). */
+// Text as a CSS string. Letters, digits, spaces and , . - stand as they are; every other character
+// is a hex escape with the space that ends it (\22 for a double quote, \5c for a backslash, \a for
+// a line break, \2019 for the apostrophe), so nothing typed in the CMS can end the string or the
+// rule, and the file is plain ASCII whatever charset it is served with.
+const cssString = (text) => `"${[...text].map(ch => (/[A-Za-z0-9 ,.-]/.test(ch) ? ch : `\\${ch.codePointAt(0).toString(16)} `)).join('')}"`;
+
+// Every distinct date the Index list prints (`years` as shaped: short), in list order, one to a
+// line. White space is one space, as the browser prints it in the row: a line break typed inside
+// a date must not make two short lines of it here.
+const dateLines = (projects) => [...new Set(projects.map(p => String(p.years ?? '').replace(/[\t\n\f\r ]+/g, ' ').trim()).filter(Boolean))].join('\n');
+
+/**
+ * client/covers.css, the home page's generated rules (components/project-index.css): the tag
+ * colour; --dates, the text that makes the list's date column as wide as its widest date (every
+ * row prints it, unseen, in its date cell); and one rule per grid cell.
+ */
 export function coversCss(projects, config) {
     const rules = [`:root{--tag:${config.TAG_COLOR}}`];
+    const dates = dateLines(projects);
+    if (dates) rules.push(`project-index{--dates:${cssString(dates)}}`);
     for (const p of projects) {
         const a = aspect(p.cover);
         if (a) rules.push(`project-index #cell-${p.slug}{--a:${a}}`);

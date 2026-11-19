@@ -34,7 +34,10 @@
  *      the shadow, and as large as fits (the limiting side reaches its limit).
  *      The list at 720, 800, 1024, 1366 and 1920px: every row one line and 23px
  *      tall, whatever the width; the date, the title and the type each in a column
- *      where the design puts it, the dates Light and the titles Bold; text that
+ *      of its own, the date's as wide as the widest date printed plus 32.2px (at
+ *      390px as well), by a text the build writes into client/covers.css and every
+ *      row prints unseen: the same with a filter on, wider for a longer date, never
+ *      more than 40% of the list; the dates Light and the titles Bold; text that
  *      fits its column is not faded and does
  *      not move; text that does not is cut with a fade, and while its row or its
  *      thumbnail is pointed at it slides left at 100px a second until its end is
@@ -70,7 +73,7 @@ import nunjucks from 'nunjucks';
 import sharp from 'sharp';
 import { chromium } from 'playwright';
 import { markdown, markdownText } from '../server/markdown.js';
-import { shortYears } from '../server/content.js';
+import { coversCss, shortYears } from '../server/content.js';
 import { createEnvironment } from '../server/zeldman/zeldman.js';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -180,6 +183,38 @@ const [tagA, tagB] = [...counts].sort((a, b) => b[1] - a[1]).map(([t]) => t);
         if (row !== want || page !== want || /\d{4}/.test(row ?? '')) wrong.push(`${p.data.slug}: the list has "${row}", its page "${page}", wanted "${want}"`);
     }
     check(`1. every project's date is printed short, in the Index list and on its own page alike (${published.length} projects)`, wrong.length === 0, wrong.slice(0, 5).join('; '));
+}
+
+// The list's date column is as wide as its widest date: client/covers.css carries every distinct date
+// as printed, a date to a line, in one CSS string (--dates on project-index), and every row prints it,
+// unseen, in its date cell. The dates are text typed in the CMS: in the string, letters, digits,
+// spaces and , . - stand as they are and everything else is a hex escape, so no date can end the
+// string or the rule. A CSS string as written, back to its text (the escapes a browser writes too):
+const cssText = (string) => string.slice(1, -1).replace(/\\(?:([0-9a-fA-F]{1,6})[ \t\n]?|([^]))/g, (_, hex, ch) => (hex ? String.fromCodePoint(parseInt(hex, 16)) : ch));
+const datesRule = (css) => css.split('\n').filter(line => line.startsWith('project-index{--dates:'));
+// Made-up projects: a date with a double quote, a backslash and a line break in it; the same date
+// with a space where the line break was (one line for the two: a line break prints as a space);
+// one that would end a rule, a declaration or a style element; none; and an ordinary one.
+const madeUp = [
+    { slug: 'a', years: '’19 "x" \\ y\nz' }, { slug: 'b', years: '’19 "x" \\ y z' }, { slug: 'c', years: '}</style>;{' }, { slug: 'd', years: '' }, { slug: 'e', years: '’26' },
+];
+const madeUpDates = ['’19 "x" \\ y z', '}</style>;{', '’26'];
+const madeUpCss = coversCss(madeUp, { TAG_COLOR: '#000' });
+{
+    const rules = datesRule(madeUpCss);
+    const safe = /^project-index\{--dates:"(?:[A-Za-z0-9 ,.-]|\\[0-9a-f]{1,6} )*"\}$/;
+    const back = rules.length === 1 ? cssText(rules[0].slice('project-index{--dates:'.length, -1)).split('\n') : [];
+    check('6. the generated rule for the date column escapes what a date may hold: a double quote, a backslash and a line break (which prints as a space) leave one rule on one line, with nothing between its quotes but letters, digits, spaces, , . - and hex escapes, and it reads back as the dates',
+        madeUpCss.trimEnd().split('\n').length === 2 && rules.length === 1 && safe.test(rules[0]) && JSON.stringify(back) === JSON.stringify(madeUpDates), `${JSON.stringify(madeUpCss)} reads back as ${JSON.stringify(back)}`);
+    const none = datesRule(coversCss([{ slug: 'a', years: '' }], { TAG_COLOR: '#000' }));
+    check('6. with no date at all the build writes no rule for the date column', none.length === 0, none.join(' '));
+    // The built file: every date the list prints, once, in the list's order.
+    const built = datesRule(readFileSync(join(dist, 'client/covers.css'), 'utf8'));
+    const home = readFileSync(join(dist, 'index.html'), 'utf8');
+    const unescape = (t) => t.replace(/&(amp|lt|gt|quot|#39);/g, (_, e) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" }[e]));
+    const printed = [...new Set([...home.matchAll(/<span class="years">([^<]*)<\/span>/g)].map(m => unescape(m[1]).replace(/\s+/g, ' ').trim()).filter(Boolean))];
+    const lines = built.length === 1 ? cssText(built[0].slice('project-index{--dates:'.length, -1)).split('\n') : [];
+    check(`6. client/covers.css carries every date the list prints, each once, a date to a line (${printed.length} dates)`, built.length === 1 && safe.test(built[0]) && JSON.stringify(lines) === JSON.stringify(printed), `${built[0]} against ${JSON.stringify(printed)}`);
 }
 
 // --- a static server for dist/, like GitHub Pages
@@ -1093,8 +1128,9 @@ try {
             }
 
             // The list from 720px up: three rigid columns, every row one line. CLAUDE.md, "Index": the date starts
-            // 1.676% of the page (at least 12px) from the list's edge, in a column 8.192% of the page (at least
-            // 104px) wide; what is left before the 16px right padding is the title's column and the type's,
+            // 1.676% of the page (at least 12px) from the list's edge, in a column as wide as the widest date
+            // printed plus 32.2px (5px of air and the 27.2px the hover chevron takes), never more than 40% of
+            // the list; what is left before the 16px right padding is the title's column and the type's,
             // 11 : 10, 15px apart. A column cuts its text and fades it out over its last 1em (13px); text that
             // ends before the fade is left alone, text that reaches it slides left at 100px a second while its
             // row is pointed at, until its end is clear of the fade, and goes back in 0.2s. The dates are
@@ -1124,6 +1160,8 @@ try {
                         const years = r.querySelector('.years').getBoundingClientRect();
                         const what = r.querySelector('.what');
                         const before = getComputedStyle(what, '::before');
+                        const dateText = document.createRange();
+                        dateText.selectNodeContents(r.querySelector('.years'));
                         return {
                             slug: r.dataset.slug,
                             top: b.top,
@@ -1132,6 +1170,7 @@ try {
                             on: r.classList.contains('on'),
                             date: years.left,
                             type: [r.querySelector('.years'), r.querySelector('.title')].map(el => `${getComputedStyle(el).fontWeight} ${getComputedStyle(el).fontSize} ${getComputedStyle(el).color}`).join(' | '),
+                            dateWidth: dateText.getBoundingClientRect().width,
                             dateLines: years.height / px(getComputedStyle(r).lineHeight),
                             // The chevron's box: from the title column's left edge, and its middle from the row's.
                             chevron: before.content === 'none' ? null : {
@@ -1306,29 +1345,197 @@ try {
                     m.rows.length === published.length && m.rows.at(-1).bottom <= masked.info.height && ink > 0 && differ === 0, `${differ} pixels differ in ${[...where].slice(0, 5).join(', ')}; ${ink} inked pixels on the columns' first 3px`);
             }
 
-            // A date too long for its column (the CMS takes any text there) is cut at the column's edge: it
-            // is not printed over the title, and it moves nothing. The first row is given one, through the
-            // component's own state, at a width where the date column is its narrowest (104px).
+            // The date column, at every width, the phone's one column included: as wide as the widest date
+            // the list prints plus 32.2px (5px of air, then the 27.2px the hover chevron takes), the same in
+            // every row. The width comes from a text the build writes (--dates, every date a line) and each
+            // row prints unseen after its own date, so it follows the content with no script and does not
+            // depend on the rows a filter leaves.
+            const dateCells = () => page.evaluate(() => {
+                const px = (v) => parseFloat(v) || 0;
+                const index = document.querySelector('project-index .index').getBoundingClientRect();
+                const scroller = document.querySelector('project-index .rows');
+                return {
+                    page: document.documentElement.clientWidth,
+                    left: index.left,
+                    width: index.width,
+                    sizer: getComputedStyle(document.querySelector('project-index .years'), '::after').content,
+                    // What the list scrolls over, against its rows (side by side); the page's end against the list's (below 720px).
+                    scrolls: scroller.scrollHeight - Math.max(scroller.clientHeight, [...scroller.children].reduce((sum, r) => sum + r.getBoundingClientRect().height, 0)),
+                    under: document.documentElement.scrollHeight - (document.querySelector('project-index .index').getBoundingClientRect().bottom + scrollY),
+                    sideways: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+                    rows: [...document.querySelectorAll('project-index .row')].map((r) => {
+                        const years = r.querySelector('.years');
+                        const box = years.getBoundingClientRect();
+                        const text = document.createRange();
+                        text.selectNodeContents(years);
+                        const tb = text.getBoundingClientRect();
+                        const after = getComputedStyle(years, '::after');
+                        const what = r.querySelector('.what');
+                        const before = getComputedStyle(what, '::before');
+                        return {
+                            slug: r.dataset.slug,
+                            height: r.getBoundingClientRect().height,
+                            date: box.left,
+                            boxRight: box.right,
+                            boxLines: box.height / px(getComputedStyle(years).lineHeight),
+                            text: tb.width,
+                            textRight: tb.right,
+                            textLines: new Set([...text.getClientRects()].map(c => Math.round(c.top))).size,
+                            // How far the date's line is under the first line of its title: they are one line.
+                            level: tb.height ? tb.top - r.querySelector('.title').getClientRects()[0].top : 0,
+                            title: what.getBoundingClientRect().left,
+                            chevron: before.content === 'none' ? null : what.getBoundingClientRect().left + px(before.left),
+                            tags: [...r.querySelectorAll('.tag')].map(t => t.dataset.tag),
+                            // The unseen text: generated, so no node; no height; hidden, so not read out.
+                            unseen: `${after.height} ${after.visibility} ${after.whiteSpace}`,
+                            nodes: years.childNodes.length === 0 ? '' : years.childNodes.length === 1 && years.firstChild.nodeType === 3 ? years.textContent : `${years.childNodes.length} nodes`,
+                            read: years.innerText,
+                        };
+                    }),
+                };
+            });
+            const inset = (m) => (m.page >= 720 ? Math.max(m.page * 0.01676, 12) : 16);
+            // The rows whose title's column is not `column` px after the date, or whose date is not at the row's inset.
+            const strays = (m, column) => m.rows.filter(r => Math.abs(r.title - r.date - column) > 0.5 || Math.abs(r.date - (m.left + inset(m))) > 0.5);
+            const say = (rows) => rows.slice(0, 3).map(r => `${r.slug}: date at ${r.date}, title ${(r.title - r.date).toFixed(2)}px after it`).join('; ');
+            const printedDates = Object.fromEntries(published.map(p => [p.data.slug, shortYears(text(p.data.years))]));
+            // The made-up rule of the escaping check again, now read by the browser: put in the page in place
+            // of the built one, the unseen text of a date cell is the made-up dates as they were given, and
+            // the rule written after it still holds (the string ended where it should).
             {
-                await show(1024, 768);
-                const rest = (await list()).rows[0];
-                const clip = { x: Math.ceil(rest.cells[0].left), y: Math.ceil(rest.top), width: 60, height: Math.floor(rest.bottom) - Math.ceil(rest.top) };
-                const strip = async () => sharp(await page.screenshot({ clip })).raw().toBuffer();
-                const before = await strip();
-                const date = await page.evaluate(() => {
-                    const el = document.querySelector('project-index');
-                    el.setState({ projects: el.state.projects.map((p, k) => (k === 0 ? { ...p, years: `${p.years}, and still ongoing today` } : p)) });
-                    const years = document.querySelector('project-index .row .years');
-                    const text = document.createRange();
-                    text.selectNodeContents(years);
-                    return { text: text.getBoundingClientRect().right, box: years.getBoundingClientRect().right, lines: text.getClientRects().length };
-                });
-                const long = (await list()).rows[0];
-                const same = Buffer.compare(before, await strip()) === 0;
-                check('6. at 1024px a date too long for its column is cut at the column\'s edge: one line, nothing of it over the title, nothing moved',
-                    date.text > date.box + 20 && date.lines === 1 && same && Math.abs(long.height - rest.height) < 0.01 && Math.abs(long.cells[0].left - rest.cells[0].left) < 0.01 && Math.abs(long.date - rest.date) < 0.01,
-                    `the date's text ends ${(date.text - date.box).toFixed(1)}px after its column, ${date.lines} line(s); the title's first 60px ${same ? 'are as they were' : 'changed'}`);
+                await show(1366, 710);
+                const style = await page.addStyleTag({ content: `${madeUpCss}project-index{--after:ok}` });
+                const read = await page.evaluate(() => ({
+                    content: getComputedStyle(document.querySelector('project-index .years'), '::after').content,
+                    after: getComputedStyle(document.querySelector('project-index')).getPropertyValue('--after').trim(),
+                }));
+                await style.evaluate(el => el.remove());
+                const lines = cssText(read.content).split('\n');
+                check('6. the browser reads that rule as the dates it was made from (the double quote, the backslash, the line break as a space, the text that would end a rule), and the rule after it still holds',
+                    JSON.stringify(lines) === JSON.stringify(madeUpDates) && read.after === 'ok', `${read.content} reads as ${JSON.stringify(lines)}; the rule after it: ${read.after || 'lost'}`);
             }
+            const ax = await page.context().newCDPSession(page);
+            for (const [width, height] of [[390, 844], [720, 800], [1024, 768], [1366, 710], [1920, 1080]]) {
+                await show(width, height);
+                const m = await dateCells();
+                const widest = Math.max(...m.rows.map(r => r.text));
+                const column = widest + 32.2;
+                const off = strays(m, column);
+                check(`6. at ${width}px every row's date column is the widest date printed (${widest.toFixed(2)}px) plus 32.2px: the date at ${(m.left + inset(m)).toFixed(1)}, the title's column ${column.toFixed(2)}px after it, in all ${m.rows.length} rows`,
+                    m.rows.length === published.length && widest > 0 && off.length === 0, say(off));
+
+                // The text that sizes the column: every date the list prints, each once; it takes no height (a
+                // date cell is one line tall, its date on the first line of its title as ever, and nothing is
+                // added to what the list or the page scrolls over),
+                // it is no node of the page (a date cell holds its own date and nothing else), and it is not
+                // read out: the accessibility tree has each row's date once and the sizing text nowhere.
+                const lines = cssText(m.sizer).split('\n');
+                const want = [...new Set(m.rows.map(r => printedDates[r.slug]).filter(Boolean))];
+                const high = m.rows.filter(r => r.unseen !== '0px hidden pre' || Math.abs(r.boxLines - 1) > 0.01 || Math.abs(r.level) > 1 || (width >= 720 && Math.abs(r.height - 23) > 0.05));
+                const overflow = width >= 720 ? m.scrolls : m.under;
+                check(`6. at ${width}px the text that sizes the date column is every date the list prints (${want.length}), a date to a line, and takes no height: a date cell is one line tall, its date level with its title, and neither the list nor the page scrolls over more than its rows`,
+                    JSON.stringify(lines) === JSON.stringify(want) && high.length === 0 && Math.abs(overflow) <= 1 && m.sideways <= 0,
+                    `${JSON.stringify(lines)}; ${high.slice(0, 3).map(r => `${r.slug}: ${r.unseen}, ${r.boxLines} lines, the date ${r.level}px under its title's line, row ${r.height}px`).join('; ')}; ${overflow}px more to scroll over, ${m.sideways}px sideways`);
+                const inDom = m.rows.filter(r => r.nodes !== printedDates[r.slug] || r.read !== printedDates[r.slug]);
+                const { nodes } = await ax.send('Accessibility.getFullAXTree');
+                const one = (t) => t.replace(/\s+/g, ' ').trim();
+                const said = nodes.filter(n => !n.ignored && n.role?.value === 'StaticText').map(n => one(String(n.name?.value ?? '')));
+                const count = (list, d) => list.filter(t => t === d).length;
+                const dates = m.rows.map(r => printedDates[r.slug]).filter(Boolean);
+                const extra = want.filter(d => count(said, d) !== count(dates, d)).map(d => `${d}: ${count(said, d)} times for ${count(dates, d)} rows`);
+                const whole = nodes.filter(n => !n.ignored && want.length > 1 && one(String(n.name?.value ?? '')).includes(one(lines.join(' ')))).length;
+                check(`6. at ${width}px that text is not in the DOM (every date cell holds its own date, one text node, and reads as it) and is not read out: the accessibility tree has each date once per row that prints it and the sizing text nowhere`,
+                    inDom.length === 0 && said.length > dates.length && extra.length === 0 && whole === 0,
+                    `${inDom.slice(0, 3).map(r => `${r.slug}: ${r.nodes} / ${r.read}`).join('; ')} ${extra.slice(0, 4).join('; ')}; the whole text in ${whole} nodes`);
+
+                // Pointed at, the row with the widest date: its chevron starts 5px after the date's end, 27.2px
+                // (its 14px box, then 13.2px) before the title's column.
+                const longest = m.rows.find(r => r.text === widest);
+                await pointAt(longest.slug);
+                await page.waitForFunction((slug) => getComputedStyle(document.querySelector(`#row-${slug} .what`), '::before').content !== 'none', longest.slug, { timeout: 5000 }).catch(() => {});
+                const pointed = (await dateCells()).rows.find(r => r.slug === longest.slug);
+                check(`6. at ${width}px the chevron of the row with the widest date is 5px clear of that date and 14px before the title's column (${longest.slug})`,
+                    pointed.chevron !== null && Math.abs(pointed.chevron - pointed.textRight - 5) <= 0.5 && Math.abs(pointed.title - pointed.chevron - 27.2) <= 0.01,
+                    `the date ends at ${pointed.textRight}, the chevron's box starts at ${pointed.chevron}, the title's column at ${pointed.title}`);
+                await page.mouse.move(1, 1);
+
+                // A filter that hides every row with the widest date: the rows it leaves keep their columns.
+                const narrow = (t) => m.rows.filter(r => r.tags.includes(t)).every(r => r.text < widest - 1);
+                const hiding = [...counts].sort((a, b) => b[1] - a[1]).map(([t]) => t).find(narrow);
+                if (!hiding) check(`6. at ${width}px: ok (every tag has a row with the widest date; the check of a filter that hides it was skipped)`, true);
+                else {
+                    await page.evaluate((t) => document.querySelector(`project-index .tag[data-tag="${CSS.escape(t)}"]`).click(), hiding);
+                    const applied = await filteredBy(hiding);
+                    const left = await dateCells();
+                    const was = new Map(m.rows.map(r => [r.slug, r]));
+                    const moved = left.rows.filter(r => Math.abs(r.date - was.get(r.slug).date) > 0.01 || Math.abs(r.title - was.get(r.slug).title) > 0.01);
+                    const now = Math.max(...left.rows.map(r => r.text));
+                    check(`6. at ${width}px the columns do not move when a filter hides every row with the widest date (${hiding}: ${left.rows.length} of ${m.rows.length} rows left, their widest date ${now.toFixed(2)}px): the column is still ${column.toFixed(2)}px`,
+                        applied && left.rows.length > 0 && left.rows.length < m.rows.length && now < widest - 1 && moved.length === 0 && strays(left, column).length === 0, `${say(moved)} ${say(strays(left, column))}`);
+                    await show(width, height);
+                }
+
+                // A longer date, as the next build would have it: the first row prints it (through the
+                // component's own state) and --dates carries it (set in the page for the test). Every row's
+                // column is then that date's width plus 32.2px; with both taken back, it is as it was.
+                const withDate = async (date) => {
+                    const style = await page.addStyleTag({ content: `project-index { --dates: "${date}"; }` });
+                    await page.evaluate((date) => {
+                        const el = document.querySelector('project-index');
+                        window.__projects = el.state.projects;
+                        el.setState({ projects: el.state.projects.map((p, k) => (k === 0 ? { ...p, years: date } : p)) });
+                    }, date);
+                    return async () => {
+                        await style.evaluate(el => el.remove());
+                        await page.evaluate(() => document.querySelector('project-index').setState({ projects: window.__projects }));
+                    };
+                };
+                const takeBack = await withDate('2019, 2020, 2021');
+                const longer = await dateCells();
+                const wide = longer.rows[0].text;
+                check(`6. at ${width}px a longer date (${wide.toFixed(2)}px for ${widest.toFixed(2)}px) makes the date column wider in every row: the title's column ${(wide + 32.2).toFixed(2)}px after the date`,
+                    wide > widest + 5 && strays(longer, wide + 32.2).length === 0 && longer.rows[0].textLines === 1 && longer.sideways <= 0, say(strays(longer, wide + 32.2)));
+                await takeBack();
+                const again = await dateCells();
+                check(`6. at ${width}px with that date gone the column is ${column.toFixed(2)}px again`, strays(again, column).length === 0, say(strays(again, column)));
+
+                // A date typed as a whole sentence: the date column stops at 40% of the list in every row. Side by
+                // side the date is cut at its cell's edge (the cell ends where the chevron's 27.2px begin), on
+                // one line, in a row as tall as the others, and nothing of it is printed between its cell and
+                // the title's column (that strip is the ground colour and nothing else); below 720px, where a
+                // row wraps, it wraps inside its cell.
+                const sentence = 'from the spring of 2019 until some day and perhaps still going on today, as far as anyone can tell, or longer';
+                const undo = await withDate(sentence);
+                const most = await dateCells();
+                const first = most.rows[0];
+                const limit = most.width * 0.4;
+                const capped = strays(most, limit);
+                let said2 = '';
+                let held;
+                if (width >= 720) {
+                    await page.evaluate(() => document.querySelector('project-index .row').scrollIntoView({ block: 'center', behavior: 'instant' }));
+                    const r = await page.evaluate(() => { const b = document.querySelector('project-index .row').getBoundingClientRect(); return { top: b.top, bottom: b.bottom }; });
+                    // The strip stops 2px before the title's column: a first letter may begin a pixel before its column.
+                    const clip = { x: Math.ceil(first.boxRight), y: Math.ceil(r.top), width: Math.floor(first.title) - 2 - Math.ceil(first.boxRight), height: Math.floor(r.bottom) - Math.ceil(r.top) };
+                    const ground = (await list()).ground;
+                    // No strip to look at (the column was not stopped, and the title's column is off the page): that is a failure, not a crash.
+                    let ink = 255;
+                    if (clip.width > 0 && clip.height > 0 && clip.x + clip.width <= width) {
+                        const { data, info } = await sharp(await page.screenshot({ clip })).raw().toBuffer({ resolveWithObject: true });
+                        ink = 0;
+                        for (let i = 0; i < info.width * info.height; i++) for (let c = 0; c < 3; c++) ink = Math.max(ink, Math.abs(data[i * info.channels + c] - ground[c]));
+                    }
+                    held = first.text > limit && first.textRight > first.boxRight + 20 && first.textLines === 1 && most.rows.every(row => Math.abs(row.height - 23) < 0.05) && clip.width >= 23 && ink <= 2;
+                    said2 = `the date's text ends ${(first.textRight - first.boxRight).toFixed(1)}px after its cell, ${first.textLines} line(s); the ${clip.width}px before the title's column are at most ${ink} from the ground colour`;
+                } else {
+                    held = first.textLines > 1 && first.textRight <= first.boxRight - 5 + 0.5;
+                    said2 = `the date takes ${first.textLines} lines and ends ${(first.boxRight - 5 - first.textRight).toFixed(1)}px before its cell's 5px of air`;
+                }
+                check(`6. at ${width}px a date as long as a sentence stops the date column at 40% of the list (${limit.toFixed(1)}px) in every row, and is ${width >= 720 ? 'cut at its cell\'s edge, 27.2px before the title\'s column: one line, nothing of it printed after the cell, no row taller' : 'wrapped inside its cell'}`,
+                    capped.length === 0 && Math.abs(first.title - first.boxRight - 27.2) <= 0.5 && held && most.sideways <= 0, `${say(capped)} ${said2}`);
+                await undo();
+            }
+            await ax.detach();
 
             for (const [width, height] of [[720, 800], [800, 600], [1024, 768], [1366, 710], [1920, 1080]]) {
                 await show(width, height);
@@ -1336,7 +1543,9 @@ try {
                 check(`6. zero mutations on first render at ${width}px: /`, first.length === 0, first.slice(0, 5).join('; '));
                 const m = await list();
                 const padding = Math.max(m.page * 0.01676, 12);
-                const dates = Math.max(m.page * 0.08192, 104);
+                // The date column: the widest date printed, 5px of air and the 27.2px the hover chevron takes.
+                const widest = Math.max(...m.rows.map(r => r.dateWidth));
+                const dates = widest + 32.2;
                 const shared = m.width - padding - dates - 16 - 15;
                 const want = { date: m.left + padding, title: m.left + padding + dates, titleWidth: shared * 11 / 21, type: m.left + padding + dates + shared * 11 / 21 + 15, typeWidth: shared * 10 / 21 };
                 const near = (a, b) => Math.abs(a - b) <= 0.5;
@@ -1348,9 +1557,8 @@ try {
 
                 const off = m.rows.filter(r => !near(r.date, want.date) || !near(r.cells[0].left, want.title) || !near(r.cells[0].width, want.titleWidth) || (r.cells[1] && (!near(r.cells[1].left, want.type) || !near(r.cells[1].width, want.typeWidth))));
                 const types = m.rows.filter(r => r.cells[1]).map(r => r.cells[1].left);
-                const share = (want.title - m.left) / m.page * 100;
-                check(`6. at ${width}px the list's three columns are where the design puts them in every row: the date at ${want.date.toFixed(1)}, the title at ${want.title.toFixed(1)} (${share.toFixed(3)}% of the page), ${want.titleWidth.toFixed(1)} wide, the type at ${want.type.toFixed(1)}, ${want.typeWidth.toFixed(1)} wide, lined up`,
-                    off.length === 0 && (types.length === 0 || Math.max(...types) - Math.min(...types) < 0.01) && (m.page * 0.08192 < 104 || near(share, 9.868)),
+                check(`6. at ${width}px the list's three columns are where the design puts them in every row: the date at ${want.date.toFixed(1)}, the title at ${want.title.toFixed(1)} (the widest date, ${widest.toFixed(1)}px, and 32.2px after the date's start), ${want.titleWidth.toFixed(1)} wide, the type at ${want.type.toFixed(1)}, ${want.typeWidth.toFixed(1)} wide, lined up`,
+                    off.length === 0 && (types.length === 0 || Math.max(...types) - Math.min(...types) < 0.01),
                     off.slice(0, 3).map(r => `${r.slug}: date ${r.date}, title ${r.cells[0].left} + ${r.cells[0].width}, type ${r.cells[1]?.left} + ${r.cells[1]?.width}`).join('; '));
 
                 // The dates are Fluxisch Else Light and the titles Bold, at the body's 13px, in the text colour.

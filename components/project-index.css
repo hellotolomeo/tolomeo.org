@@ -61,7 +61,8 @@ project-index .rows {
 
 project-index .row {
   display: grid;
-  grid-template-columns: max(8.192cqw, 104px) minmax(0, 1fr);
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 27.2px;
   align-content: center;
   align-items: baseline;
   min-height: 26px;
@@ -77,6 +78,22 @@ project-index .name {
 project-index .what {
   position: relative;
   min-width: 0;
+}
+
+project-index .years {
+  max-width: calc(40cqw - 32.2px);
+  padding-right: 5px;
+  overflow: hidden;
+  overflow: clip visible;
+}
+
+project-index .years::after {
+  content: var(--dates);
+  display: block;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  white-space: pre;
 }
 
 project-index .clip {
@@ -219,8 +236,7 @@ project-index .track {
   }
 
   project-index .years {
-    overflow: hidden;
-    overflow: clip visible;
+    max-width: calc(20cqw - 32.2px);
   }
 
   project-index .what {
