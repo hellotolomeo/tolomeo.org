@@ -16,6 +16,8 @@
 > 6px paper-coloured border, kept its shadow and grew to where the frame's outer edge was), 13px
 > type (it was 12px, hard to read on a phone), and light dates in the Index (Fluxisch Else Light
 > instead of Bold). See `CLAUDE.md`, "Design".
+> The same day: dates are printed short (`’26`, `’23–26`, `’25, 26`), and the Index list's date
+> column is as wide as its widest date at every width, so the title starts right after the dates.
 
 Portfolio site for Tolomeo, an artist researcher, publisher and educator in the Netherlands.
 Read this file completely before writing code. `CLAUDE.md` holds the standing rules;
