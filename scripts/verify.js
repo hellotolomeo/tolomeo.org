@@ -1625,8 +1625,11 @@ try {
             // bullet (nothing stands before the title in its column, in the HTML or drawn by the stylesheet),
             // an empty date cell, and the title in Fluxisch Else Light, five word spaces of its own type in
             // from the start of the title's column (the stylesheet gives the indent in em; the space is
-            // measured here, in the page, in the title's own type: a probe inside the title, taken out again
-            // at once). A main project's row: its date, and its title Bold on the column's start. Colour and
+            // measured here, in the page, in the title's own face: a probe inside the title, taken out again
+            // at once. The probe is set a hundred times the title's size and its width divided by a hundred:
+            // at the title's own 13px some systems round a glyph's advance to whole pixels, GitHub's runners
+            // among them, where five spaces of 3.6px then measure 20px and not 18.07px, and the check failed
+            // there on a page that was right). A main project's row: its date, and its title Bold on the column's start. Colour and
             // underline are the same for both. Every row is read at rest, with the pointer off the list.
             const rowsAsSet = () => page.evaluate(() => {
                 const px = (v) => parseFloat(v) || 0;
@@ -1636,10 +1639,10 @@ try {
                     const years = r.querySelector('.years');
                     const line = title.parentElement;
                     const probe = document.createElement('span');
-                    probe.style.cssText = 'position: absolute; visibility: hidden; white-space: pre;';
+                    probe.style.cssText = 'position: absolute; visibility: hidden; white-space: pre; font-size: 10000%;';
                     probe.textContent = ' '.repeat(5);
                     title.append(probe);
-                    const five = probe.getBoundingClientRect().width;
+                    const five = probe.getBoundingClientRect().width / 100;
                     probe.remove();
                     const ts = getComputedStyle(title);
                     const first = title.getClientRects()[0];
