@@ -37,8 +37,10 @@
  *      of its own, the date's as wide as the widest date printed plus 32.2px (at
  *      390px as well), by a text the build writes into client/covers.css and every
  *      row prints unseen: the same with a filter on, wider for a longer date, never
- *      more than 40% of the list; the dates Light and the titles Bold; text that
- *      fits its column is not faded and does
+ *      more than 40% of the list; the dates Light and the titles Bold; a sub-project's
+ *      row (at 390px as well) with no bullet, no date, and its title Light, five word
+ *      spaces of its own type in from the title column's start, the indent part of what
+ *      is cut and slides; text that fits its column is not faded and does
  *      not move; text that does not is cut with a fade, and while its row or its
  *      thumbnail is pointed at it slides left at 100px a second until its end is
  *      clear of the fade, moving nothing else, and is back 0.2s after the pointer
@@ -51,8 +53,9 @@
  *      only one whose text is cut.
  *   7. The Index below 720px: one thumbnail to a row, each whole, centred, without
  *      a border, with the shadow, and as large as fits, its title 10px under its
- *      picture and 32px before the next one, in the list titles' type; the dates
- *      Light, the titles Bold; the same projects in the grid and the
+ *      picture and 32px before the next one, in the main projects' list titles' type
+ *      (Bold, under a sub-project's thumbnail too); in the list the dates Light, the
+ *      titles Bold and a sub-project's Light; the same projects in the grid and the
  *      list when a tag is clicked; the list without columns, a row's types
  *      following its title and wrapping. From 720px up the titles are not
  *      displayed and the cells keep their fixed proportion.
@@ -168,6 +171,15 @@ const linesOf = (section) => [...(section.match(/<div class="facts">[\s\S]*?<\/d
 const arrowOf = (section, side) => { const m = section.match(new RegExp(`<a\\s+class="${side}"\\s+href="([^"]*)"\\s+aria-label="([^"]*)"`)); return m ? { href: m[1], name: m[2] } : null; };
 // A photo's file name without its extension: the built file's name starts with it.
 const stem = (im) => decodeURIComponent(String(im.image)).split('/').pop().replace(/\.[^.]+$/, '');
+// The sub-projects, from the content: a project whose parent is another published project that is
+// itself a main project (one level of nesting, as order() in server/content.js sorts the list; a
+// project whose parent is missing, unpublished, itself or a sub-project is a main project). In the
+// Index list a sub-project's row prints no bullet and no date, and its title is Light and indented
+// (20 Nov 2026); its own page prints its years like any other.
+const parentOf = (p) => { const q = published.find(x => x.data.slug === text(p.data.parent)); return q && q !== p ? q : null; };
+const subs = new Set(published.filter(p => parentOf(p) && !parentOf(parentOf(p))).map(p => p.data.slug));
+// What a project's row prints in the list's date cell: its years, short; nothing for a sub-project.
+const listDate = (p) => (subs.has(p.data.slug) ? '' : shortYears(text(p.data.years)));
 // Two tags to filter by, taken from the content: the most used, and the most used of the rest.
 const counts = new Map();
 for (const p of published) for (const t of p.data.tags ?? []) counts.set(t, (counts.get(t) ?? 0) + 1);
@@ -180,18 +192,32 @@ const [tagA, tagB] = [...counts].sort((a, b) => b[1] - a[1]).map(([t]) => t);
     check('1. the short date format: 2026 → ’26, 2023 - 2026 → ’23–26, 2025, 2026 → ’25, 26, 2023 – → ’23–, and one typed short already stays as it is', off.length === 0, off.join('; '));
     const home = readFileSync(join(dist, 'index.html'), 'utf8');
     const wrong = [];
+    const lost = [];
     for (const p of published) {
         const want = shortYears(text(p.data.years));
         const row = home.match(new RegExp(`id="row-${p.data.slug}"[^>]*><span class="years">([^<]*)</span>`))?.[1];
         const page = readFileSync(join(dist, 'projects', p.data.slug, 'index.html'), 'utf8').match(/<p class="years">([^<]*)<\/p>/)?.[1] ?? '';
-        if (row !== want || page !== want || /\d{4}/.test(row ?? '')) wrong.push(`${p.data.slug}: the list has "${row}", its page "${page}", wanted "${want}"`);
+        if (row !== listDate(p) || page !== want || /\d{4}/.test(row ?? '')) wrong.push(`${p.data.slug}: the list has "${row}", wanted "${listDate(p)}"; its page "${page}", wanted "${want}"`);
+        if (subs.has(p.data.slug) && want && page !== want) lost.push(`${p.data.slug}: its page prints "${page}", not "${want}"`);
     }
-    check(`1. every project's date is printed short, in the Index list and on its own page alike (${published.length} projects)`, wrong.length === 0, wrong.slice(0, 5).join('; '));
+    check(`1. every project's date is printed short on its own page, and in the Index list in the row of every main project; a sub-project's row prints none (${published.length} projects, ${subs.size} of them sub-projects)`, wrong.length === 0, wrong.slice(0, 5).join('; '));
+    const dated = published.filter(p => subs.has(p.data.slug) && text(p.data.years)).length;
+    if (!dated) check('1+3. a sub-project\'s own page still prints its years: ok (no sub-project in content has years; the check was skipped)', true);
+    else check(`1+3. a sub-project's own page still prints its years, though its row in the list prints none (${dated} sub-projects with years)`, lost.length === 0, lost.slice(0, 5).join('; '));
+    // The rows of the sub-projects, and no others, are marked `child`; no row prints a bullet, which
+    // the sub-projects' titles had until 20 Nov 2026, and nothing stands between a row's `.line` and its title.
+    const marked = [...home.matchAll(/id="row-([^"]+)"\s+class="row([^"]*)"/g)].filter(m => /(^| )child( |$)/.test(m[2])).map(m => m[1]).sort();
+    const list = home.match(/<section class="index"[\s\S]*?<\/section>/)?.[0] ?? '';
+    const titled = list.match(/<span class="line"><a class="title"/g)?.length ?? 0;
+    check(`1. in the Index's HTML the rows of the sub-projects, and no others, are marked as such, and no row prints a bullet: every title is the first thing in its column (${subs.size} sub-projects)`,
+        JSON.stringify(marked) === JSON.stringify([...subs].sort()) && Boolean(list) && !/class="bullet"|•|&bull;|&#8226;|&#x2022;/i.test(list) && titled === published.length,
+        `marked: ${marked.join(', ') || 'none'}; wanted: ${[...subs].sort().join(', ') || 'none'}; ${titled} of ${published.length} titles first in their column; a bullet: ${/class="bullet"|•|&bull;|&#8226;|&#x2022;/i.test(list)}`);
 }
 
-// The list's date column is as wide as its widest date: client/covers.css carries every distinct date
-// as printed, a date to a line, in one CSS string (--dates on project-index), and every row prints it,
-// unseen, in its date cell. The dates are text typed in the CMS: in the string, letters, digits,
+// The list's date column is as wide as the widest date a row prints: client/covers.css carries every
+// distinct date as printed (`listYears`: none for a sub-project, whose row prints no date), a date
+// to a line, in one CSS string (--dates on project-index), and every row prints it, unseen, in its
+// date cell. The dates are text typed in the CMS: in the string, letters, digits,
 // spaces and , . - stand as they are and everything else is a hex escape, so no date can end the
 // string or the rule. A CSS string as written, back to its text (the escapes a browser writes too):
 const cssText = (string) => string.slice(1, -1).replace(/\\(?:([0-9a-fA-F]{1,6})[ \t\n]?|([^]))/g, (_, hex, ch) => (hex ? String.fromCodePoint(parseInt(hex, 16)) : ch));
@@ -200,7 +226,7 @@ const datesRule = (css) => css.split('\n').filter(line => line.startsWith('proje
 // with a space where the line break was (one line for the two: a line break prints as a space);
 // one that would end a rule, a declaration or a style element; none; and an ordinary one.
 const madeUp = [
-    { slug: 'a', years: '’19 "x" \\ y\nz' }, { slug: 'b', years: '’19 "x" \\ y z' }, { slug: 'c', years: '}</style>;{' }, { slug: 'd', years: '' }, { slug: 'e', years: '’26' },
+    { slug: 'a', listYears: '’19 "x" \\ y\nz' }, { slug: 'b', listYears: '’19 "x" \\ y z' }, { slug: 'c', listYears: '}</style>;{' }, { slug: 'd', listYears: '' }, { slug: 'e', listYears: '’26' },
 ];
 const madeUpDates = ['’19 "x" \\ y z', '}</style>;{', '’26'];
 const madeUpCss = coversCss(madeUp, { TAG_COLOR: '#000' });
@@ -210,15 +236,23 @@ const madeUpCss = coversCss(madeUp, { TAG_COLOR: '#000' });
     const back = rules.length === 1 ? cssText(rules[0].slice('project-index{--dates:'.length, -1)).split('\n') : [];
     check('6. the generated rule for the date column escapes what a date may hold: a double quote, a backslash and a line break (which prints as a space) leave one rule on one line, with nothing between its quotes but letters, digits, spaces, , . - and hex escapes, and it reads back as the dates',
         madeUpCss.trimEnd().split('\n').length === 2 && rules.length === 1 && safe.test(rules[0]) && JSON.stringify(back) === JSON.stringify(madeUpDates), `${JSON.stringify(madeUpCss)} reads back as ${JSON.stringify(back)}`);
-    const none = datesRule(coversCss([{ slug: 'a', years: '' }], { TAG_COLOR: '#000' }));
-    check('6. with no date at all the build writes no rule for the date column', none.length === 0, none.join(' '));
+    const none = datesRule(coversCss([{ slug: 'a', years: '’26', listYears: '' }], { TAG_COLOR: '#000' }));
+    check('6. with no date at all in the list (the only project a sub-project, whose own page has years) the build writes no rule for the date column', none.length === 0, none.join(' '));
+    // A date no row prints is not in the rule: a sub-project's years are on its own page only.
+    const mixed = datesRule(coversCss([{ slug: 'a', years: '’23–26', listYears: '’23–26' }, { slug: 'b', years: '’25, 26', listYears: '' }, { slug: 'c', years: '’24', listYears: '’24' }], { TAG_COLOR: '#000' }));
+    const kept = mixed.length === 1 ? cssText(mixed[0].slice('project-index{--dates:'.length, -1)).split('\n') : [];
+    check('6. the generated rule for the date column holds the dates the rows print and no others: a sub-project\'s years, which only its own page prints, are not in it', JSON.stringify(kept) === JSON.stringify(['’23–26', '’24']), JSON.stringify(kept));
     // The built file: every date the list prints, once, in the list's order.
     const built = datesRule(readFileSync(join(dist, 'client/covers.css'), 'utf8'));
     const home = readFileSync(join(dist, 'index.html'), 'utf8');
     const unescape = (t) => t.replace(/&(amp|lt|gt|quot|#39);/g, (_, e) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" }[e]));
     const printed = [...new Set([...home.matchAll(/<span class="years">([^<]*)<\/span>/g)].map(m => spaced(unescape(m[1]))).filter(Boolean))];
     const lines = built.length === 1 ? cssText(built[0].slice('project-index{--dates:'.length, -1)).split('\n') : [];
-    check(`6. client/covers.css carries every date the list prints, each once, a date to a line (${printed.length} dates)`, built.length === 1 && safe.test(built[0]) && JSON.stringify(lines) === JSON.stringify(printed), `${built[0]} against ${JSON.stringify(printed)}`);
+    // What the rows print, from the content: the main projects' dates in the list's order (the home page's rows give the order).
+    const order = [...home.matchAll(/id="row-([^"]+)"/g)].map(m => m[1]);
+    const wanted = [...new Set(order.map(slug => published.find(p => p.data.slug === slug)).filter(Boolean).map(p => spaced(listDate(p))).filter(Boolean))];
+    check(`6. client/covers.css carries every date the list prints and no other (no sub-project's: its row prints none), each once, a date to a line (${printed.length} dates)`,
+        built.length === 1 && safe.test(built[0]) && JSON.stringify(lines) === JSON.stringify(printed) && JSON.stringify(lines) === JSON.stringify(wanted), `${built[0]} against ${JSON.stringify(printed)} in the page and ${JSON.stringify(wanted)} from the content`);
 }
 
 // --- a static server for dist/, like GitHub Pages
@@ -1174,6 +1208,7 @@ try {
                             on: r.classList.contains('on'),
                             date: years.left,
                             type: [r.querySelector('.years'), r.querySelector('.title')].map(el => `${getComputedStyle(el).fontWeight} ${getComputedStyle(el).fontSize} ${getComputedStyle(el).color}`).join(' | '),
+                            child: r.classList.contains('child'),
                             dateWidth: dateText.getBoundingClientRect().width,
                             dateLines: years.height / px(getComputedStyle(r).lineHeight),
                             // The chevron's box: from the title column's left edge, and its middle from the row's.
@@ -1213,12 +1248,14 @@ try {
                 };
             });
             const row = async (slug) => (await list()).rows.find(r => r.slug === slug);
-            // The pointer on a row (on its date, so on no link and no tag), the row brought into its column's window first.
+            // The pointer on a row (in its date column, so on no link and no tag; a sub-project's date cell is
+            // empty and has no height, so the height is the row's), the row brought into its column's window first.
             const spot = (slug) => page.evaluate((slug) => {
                 const r = document.querySelector(`#row-${slug}`);
                 r.scrollIntoView({ block: 'center', behavior: 'instant' });
                 const b = r.querySelector('.years').getBoundingClientRect();
-                return { x: b.left + 4, y: b.top + b.height / 2 };
+                const whole = r.getBoundingClientRect();
+                return { x: b.left + 4, y: whole.top + whole.height / 2 };
             }, slug);
             const pointAt = async (slug) => {
                 const at = await spot(slug);
@@ -1315,7 +1352,7 @@ try {
 
             // The mask takes nothing off text that is not cut. Its opaque part starts 1px before the column:
             // a column starts on a fraction of a pixel, and a hard stop on that very edge erased the pixels
-            // in which a bullet or a first letter begins (most at 1536px). Every row is in the window; each
+            // in which a first letter begins (J, T, W; a bullet, while sub-projects had one; most at 1536px). Every row is in the window; each
             // column, from its ring room to its end (to where its fade begins when its text is cut), is
             // the same picture with the mask and with a mask that hides nothing put in its place for the
             // test. (Not with no mask at all: on some systems a browser smooths text under a mask in another
@@ -1345,7 +1382,7 @@ try {
                         }
                     }
                 }
-                check(`6. at ${width}px the columns' mask takes nothing off text that is not cut: not a pixel of a bullet or of a first letter on a column's left edge`,
+                check(`6. at ${width}px the columns' mask takes nothing off text that is not cut: not a pixel of a first letter on a column's left edge`,
                     m.rows.length === published.length && m.rows.at(-1).bottom <= masked.info.height && ink > 0 && differ === 0, `${differ} pixels differ in ${[...where].slice(0, 5).join(', ')}; ${ink} inked pixels on the columns' first 3px`);
             }
 
@@ -1403,8 +1440,8 @@ try {
             const strays = (m, column) => m.rows.filter(r => Math.abs(r.title - r.date - column) > 0.5 || Math.abs(r.date - (m.left + inset(m))) > 0.5);
             const say = (rows) => rows.slice(0, 3).map(r => `${r.slug}: date at ${r.date}, title ${(r.title - r.date).toFixed(2)}px after it`).join('; ');
             // Every project's date as the list prints it: short, and white space one space (a date typed with two
-            // spaces between its years prints with one, and --dates carries it with one).
-            const printedDates = Object.fromEntries(published.map(p => [p.data.slug, spaced(shortYears(text(p.data.years)))]));
+            // spaces between its years prints with one, and --dates carries it with one); none for a sub-project.
+            const printedDates = Object.fromEntries(published.map(p => [p.data.slug, spaced(listDate(p))]));
             // The made-up rule of the escaping check again, now read by the browser: put in the page in place
             // of the built one, the unseen text of a date cell is the made-up dates as they were given, and
             // the rule written after it still holds (the string ended where it should).
@@ -1427,8 +1464,11 @@ try {
                 const widest = Math.max(...m.rows.map(r => r.text));
                 const column = widest + 32.2;
                 const off = strays(m, column);
-                check(`6. at ${width}px every row's date column is the widest date printed (${widest.toFixed(2)}px) plus 32.2px: the date at ${(m.left + inset(m)).toFixed(1)}, the title's column ${column.toFixed(2)}px after it, in all ${m.rows.length} rows`,
-                    m.rows.length === published.length && widest > 0 && off.length === 0, say(off));
+                // Printed: a sub-project's row prints no date, so its years (today's longest among them) do not
+                // count; its empty cell has the column's width like every other.
+                const blank = m.rows.filter(r => subs.has(r.slug) && (r.text !== 0 || r.nodes !== ''));
+                check(`6. at ${width}px every row's date column is the widest date printed (${widest.toFixed(2)}px, ${m.rows.find(r => r.text === widest)?.slug}) plus 32.2px: the date at ${(m.left + inset(m)).toFixed(1)}, the title's column ${column.toFixed(2)}px after it, in all ${m.rows.length} rows, the ${subs.size} sub-projects' with their empty date cell among them`,
+                    m.rows.length === published.length && widest > 0 && off.length === 0 && blank.length === 0, `${say(off)} ${blank.slice(0, 3).map(r => `${r.slug}: a date cell with "${r.nodes}"`).join('; ')}`);
 
                 // The text that sizes the column: every date the list prints, each once; it takes no height (a
                 // date cell is one line tall, its date on the first line of its title as ever, and nothing is
@@ -1437,9 +1477,10 @@ try {
                 // read out: the accessibility tree has each row's date once and the sizing text nowhere.
                 const lines = cssText(m.sizer).split('\n');
                 const want = [...new Set(m.rows.map(r => printedDates[r.slug]).filter(Boolean))];
-                const high = m.rows.filter(r => r.unseen !== '0px hidden pre' || Math.abs(r.boxLines - 1) > 0.01 || Math.abs(r.level) > 1 || (width >= 720 && Math.abs(r.height - 23) > 0.05));
+                // (A sub-project's date cell is empty: it has the column's width and no line of its own.)
+                const high = m.rows.filter(r => r.unseen !== '0px hidden pre' || (printedDates[r.slug] ? Math.abs(r.boxLines - 1) > 0.01 : r.boxLines > 1.01) || Math.abs(r.level) > 1 || (width >= 720 && Math.abs(r.height - 23) > 0.05));
                 const overflow = width >= 720 ? m.scrolls : m.under;
-                check(`6. at ${width}px the text that sizes the date column is every date the list prints (${want.length}), a date to a line, and takes no height: a date cell is one line tall, its date level with its title, and neither the list nor the page scrolls over more than its rows`,
+                check(`6. at ${width}px the text that sizes the date column is every date the list prints (${want.length}; no sub-project's), a date to a line, and takes no height: a date cell is one line tall, its date level with its title, and neither the list nor the page scrolls over more than its rows`,
                     JSON.stringify(lines) === JSON.stringify(want) && high.length === 0 && Math.abs(overflow) <= 1 && m.sideways <= 0,
                     `${JSON.stringify(lines)}; ${high.slice(0, 3).map(r => `${r.slug}: ${r.unseen}, ${r.boxLines} lines, the date ${r.level}px under its title's line, row ${r.height}px`).join('; ')}; ${overflow}px more to scroll over, ${m.sideways}px sideways`);
                 const inDom = m.rows.filter(r => spaced(r.nodes) !== printedDates[r.slug] || spaced(r.read) !== printedDates[r.slug]);
@@ -1488,7 +1529,7 @@ try {
                     await page.evaluate((date) => {
                         const el = document.querySelector('project-index');
                         window.__projects = el.state.projects;
-                        el.setState({ projects: el.state.projects.map((p, k) => (k === 0 ? { ...p, years: date } : p)) });
+                        el.setState({ projects: el.state.projects.map((p, k) => (k === 0 ? { ...p, listYears: date } : p)) });
                     }, date);
                     return async () => {
                         await style.evaluate(el => el.remove());
@@ -1542,6 +1583,176 @@ try {
             }
             await ax.detach();
 
+            // The sub-projects' rows (20 Nov 2026), at every width, the phone's one column included: no
+            // bullet (nothing stands before the title in its column, in the HTML or drawn by the stylesheet),
+            // an empty date cell, and the title in Fluxisch Else Light, five word spaces of its own type in
+            // from the start of the title's column (the stylesheet gives the indent in em; the space is
+            // measured here, in the page, in the title's own type: a probe inside the title, taken out again
+            // at once). A main project's row: its date, and its title Bold on the column's start. Colour and
+            // underline are the same for both. Every row is read at rest, with the pointer off the list.
+            const rowsAsSet = () => page.evaluate(() => {
+                const px = (v) => parseFloat(v) || 0;
+                const rows = [...document.querySelectorAll('project-index .row')].map((r) => {
+                    const what = r.querySelector('.what');
+                    const title = r.querySelector('.title');
+                    const years = r.querySelector('.years');
+                    const line = title.parentElement;
+                    const probe = document.createElement('span');
+                    probe.style.cssText = 'position: absolute; visibility: hidden; white-space: pre;';
+                    probe.textContent = ' '.repeat(5);
+                    title.append(probe);
+                    const five = probe.getBoundingClientRect().width;
+                    probe.remove();
+                    const ts = getComputedStyle(title);
+                    const first = title.getClientRects()[0];
+                    const whole = title.getBoundingClientRect();
+                    const before = getComputedStyle(what, '::before');
+                    const column = what.getBoundingClientRect().left;
+                    const b = r.getBoundingClientRect();
+                    return {
+                        slug: r.dataset.slug,
+                        child: r.classList.contains('child'),
+                        on: r.classList.contains('on'),
+                        // Anything that could be a bullet: an element of that name, a node before the title, generated content.
+                        bullets: r.querySelectorAll('.bullet').length + (line.firstChild === title ? 0 : 1)
+                            + [getComputedStyle(line, '::before'), getComputedStyle(title, '::before'), getComputedStyle(r, '::marker')].filter(g => !['none', 'normal', ''].includes(g.content)).length
+                            + (getComputedStyle(r).listStyleType === 'none' ? 0 : 1),
+                        date: years.textContent,
+                        dateNodes: years.childNodes.length,
+                        type: `${ts.fontWeight} ${ts.fontSize}`,
+                        face: ts.fontFamily,
+                        colour: ts.color,
+                        line: ts.textDecorationLine,
+                        five,
+                        indent: first.left - column,
+                        titleLeft: whole.left - column,
+                        titleRight: whole.right - column,
+                        titleWidth: whole.width,
+                        chevron: before.content === 'none' ? null : { left: px(before.left), width: px(before.width), colour: before.backgroundColor },
+                        // A place in the row that is on no link and no tag: its left padding, in its middle.
+                        x: b.left + 4,
+                        y: b.top + b.height / 2,
+                    };
+                });
+                // The probes were mutations of this check's own making.
+                window.__mutations?.();
+                return { rows, faces: [...document.fonts].filter(f => f.status === 'loaded').map(f => `${f.family.replace(/["']/g, '')} ${f.weight}`).sort() };
+            });
+            for (const [width, height] of [[390, 844], [720, 800], [800, 600], [1024, 768], [1366, 710], [1920, 1080]]) {
+                await show(width, height);
+                const as = await rowsAsSet();
+                const kids = as.rows.filter(r => subs.has(r.slug));
+                const mains = as.rows.filter(r => !subs.has(r.slug));
+                const five = kids[0]?.five ?? as.rows[0].five;
+                const ink = mains[0]?.colour ?? as.rows[0].colour;
+                const wrong = [];
+                for (const r of kids) {
+                    const why = [];
+                    if (!r.child) why.push('not marked as a sub-project');
+                    if (r.bullets) why.push('a bullet, or something else before its title');
+                    if (r.date !== '' || r.dateNodes !== 0) why.push(`a date cell with "${r.date}"`);
+                    if (r.type !== '300 13px') why.push(`its title ${r.type}`);
+                    if (!(r.five > 5) || Math.abs(r.indent - r.five) > 0.1) why.push(`its title ${r.indent.toFixed(3)}px in, five spaces of its type are ${r.five.toFixed(3)}px`);
+                    if (r.colour !== ink || r.line !== 'none' || !/Fluxisch Else/.test(r.face)) why.push(`its title ${r.colour}, ${r.line}, ${r.face}`);
+                    if (why.length) wrong.push(`${r.slug}: ${why.join(', ')}`);
+                }
+                for (const r of mains) {
+                    const why = [];
+                    if (r.child) why.push('marked as a sub-project');
+                    if (r.bullets) why.push('a bullet, or something else before its title');
+                    if (spaced(r.date) !== printedDates[r.slug]) why.push(`its date "${r.date}", not "${printedDates[r.slug]}"`);
+                    if (r.type !== '700 13px') why.push(`its title ${r.type}`);
+                    if (Math.abs(r.indent) > 0.05) why.push(`its title ${r.indent.toFixed(3)}px in`);
+                    if (r.colour !== ink || r.line !== 'none' || !/Fluxisch Else/.test(r.face)) why.push(`its title ${r.colour}, ${r.line}, ${r.face}`);
+                    if (why.length) wrong.push(`${r.slug}: ${why.join(', ')}`);
+                }
+                const faces = as.faces.join(', ');
+                if (!kids.length) check(`6. at ${width}px: ok (no sub-project in content; the checks of a sub-project's row were skipped)`, true);
+                check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, an empty date cell and a Light title (300), five word spaces of its own type (${five.toFixed(2)}px, measured in the page) in from the start of the title's column; every main project's row (${mains.length}) has its date and a Bold title (700) on the column's start; both faces of Fluxisch Else are loaded`,
+                    as.rows.length === published.length && wrong.length === 0 && faces === 'Fluxisch Else 300, Fluxisch Else 700', `${wrong.slice(0, 4).join(' | ')}${faces === 'Fluxisch Else 300, Fluxisch Else 700' ? '' : ` faces loaded: ${faces || 'none'}`}`);
+                if (!kids.length) continue;
+
+                // Pointed at, a sub-project's row is highlighted like any other: its title the link colour (the
+                // chevron's), still Light and still indented, the chevron 14px left of the title's column (not
+                // of the indented title), and still no date. Rather one whose title fits its column, so nothing
+                // slides and the title must still be five spaces in; where every sub-project's title is cut,
+                // the first of them, and where its title is then is the next checks' matter.
+                const widths = width >= 720 ? Object.fromEntries((await list()).rows.map(r => [r.slug, r.cells[0]])) : {};
+                const calm = kids.find(r => width < 720 || widths[r.slug].text <= widths[r.slug].width - FADE + 0.01);
+                {
+                    const { slug } = calm ?? kids[0];
+                    await page.evaluate((slug) => document.querySelector(`#row-${slug}`).scrollIntoView({ block: 'center', behavior: 'instant' }), slug);
+                    const at = (await rowsAsSet()).rows.find(r => r.slug === slug);
+                    await page.mouse.move(at.x, at.y);
+                    await page.waitForFunction((slug) => document.querySelector(`#row-${slug}`).classList.contains('on') && getComputedStyle(document.querySelector(`#row-${slug} .what`), '::before').content !== 'none', slug, { timeout: 5000 }).catch(() => {});
+                    const pointed = (await rowsAsSet()).rows.find(r => r.slug === slug);
+                    check(`6. at ${width}px a sub-project's row pointed at is highlighted like any other: its title the link colour, still Light${calm ? ' and five spaces in' : ''}, the chevron 14px left of the title's column, no date (${slug}${calm ? '' : ', whose title is cut and slides, as is every sub-project\'s at this width'})`,
+                        pointed.on && pointed.chevron !== null && Math.abs(pointed.chevron.left + 27.2) <= 0.01 && pointed.chevron.width === 14 && pointed.colour === pointed.chevron.colour && pointed.colour !== at.colour
+                        && pointed.type === '300 13px' && (!calm || Math.abs(pointed.indent - pointed.five) <= 0.1) && pointed.date === '' && pointed.bullets === 0,
+                        JSON.stringify({ on: pointed.on, chevron: pointed.chevron, title: pointed.colour, rest: at.colour, type: pointed.type, indent: pointed.indent, five: pointed.five, date: pointed.date }));
+                    await page.mouse.move(1, 1);
+                    // Home again before anything else is read: the highlight off, and a title that slid back at its start.
+                    await page.waitForFunction((slug) => {
+                        const r = document.querySelector(`#row-${slug}`);
+                        const line = r.querySelector('.line');
+                        return !r.classList.contains('on') && Math.abs(line.getBoundingClientRect().left - r.querySelector('.what').getBoundingClientRect().left) < 0.01;
+                    }, slug, { timeout: 5000 }).catch(() => {});
+                }
+                if (width < 720) continue;
+
+                // A sub-project's title that is too long for its column: the indent is part of the text that is
+                // cut (the line is the indent and the title), it fades before the column's edge like any other,
+                // and pointed at it slides until the END OF THE TITLE is where the fade begins, the indent
+                // gone with it, then is home in 0.2s. The one that is cut the most; a title cut by less than
+                // 2px has too short a way to follow.
+                const m = await list();
+                const worst = m.rows.filter(r => subs.has(r.slug)).map(r => ({ r, slug: r.slug, over: r.cells[0].text - (r.cells[0].width - FADE) })).sort((a, b) => b.over - a.over)[0];
+                if (worst.over < 2) { check(`6. at ${width}px: ok (no sub-project's title is cut by 2px or more; the checks of a cut sub-project title were skipped)`, true); continue; }
+                const { slug } = worst;
+                await page.evaluate((slug) => document.querySelector(`#row-${slug}`).scrollIntoView({ block: 'center', behavior: 'instant' }), slug);
+                const rest = await row(slug);
+                const cell = rest.cells[0];
+                const lies = (await rowsAsSet()).rows.find(r => r.slug === slug);
+                const inked = await inkAt(rest, cell, m.ground);
+                const full = Math.max(...cell.colour.map((v, c) => Math.abs(v - m.ground[c])));
+                check(`6. at ${width}px a sub-project's title too long for its column (by ${worst.over.toFixed(1)}px, the indent counted: the line is the ${lies.five.toFixed(2)}px of five spaces and the title's ${lies.titleWidth.toFixed(1)}px) starts five spaces in, is cut at the column's edge and faded before it (${slug})`,
+                    Math.abs(lies.indent - lies.five) <= 0.1 && Math.abs(cell.text - (lies.five + lies.titleWidth)) <= 0.2 && Math.abs(cell.start) < 0.01 && lies.titleRight > cell.width - FADE
+                    && inked.text > full * 0.6 && inked.after <= 6 && inked.fade <= full * 0.5,
+                    `the line ${cell.text}px for ${(lies.five + lies.titleWidth).toFixed(2)}; the title from ${lies.titleLeft.toFixed(2)} to ${lies.titleRight.toFixed(2)} in a column of ${cell.width.toFixed(2)}; ink ${JSON.stringify(inked)} of ${full}`);
+                const watch = follow(slug, 0, 'stopped');
+                await pointAt(slug);
+                await watch;
+                const slid = await row(slug);
+                const moved = (await rowsAsSet()).rows.find(r => r.slug === slug);
+                check(`6. at ${width}px pointing at its row slides that title left, indent and all, until the end of the title is where the fade begins, and it stays there (${slug})`,
+                    slid.on && Math.abs(slid.cells[0].start + worst.over) <= 1 && Math.abs(moved.titleRight - (cell.width - FADE)) <= 1 && Math.abs(moved.titleLeft - (lies.five - worst.over)) <= 1,
+                    `the line starts ${slid.cells[0].start.toFixed(2)}px left of its column (wanted ${(-worst.over).toFixed(2)}); the title from ${moved.titleLeft.toFixed(2)} to ${moved.titleRight.toFixed(2)}, the fade begins at ${(cell.width - FADE).toFixed(2)}`);
+                const gone = home(slug, 0);
+                await page.mouse.move(1, 1);
+                const took = await gone;
+                const back = await row(slug);
+                const again = (await rowsAsSet()).rows.find(r => r.slug === slug);
+                check(`6. at ${width}px when the pointer leaves, that title is back in 0.2s, five spaces in from its column's start`, Math.abs(took - 0.2) < 0.005 && Math.abs(back.cells[0].start) < 0.01 && !back.on && Math.abs(again.indent - again.five) <= 0.1, `${took}s, the line at ${back.cells[0].start}, the title ${again.indent.toFixed(3)}px in`);
+            }
+
+            // A sub-project's own page is as it was: its years in its information, its title in the header Bold.
+            {
+                const kid = published.filter(p => subs.has(p.data.slug) && text(p.data.years)).sort((a, b) => text(b.data.years).length - text(a.data.years).length)[0];
+                if (!kid) check('3. a sub-project\'s own page: ok (no sub-project in content has years; the check was skipped)', true);
+                else {
+                    await page.setViewportSize({ width: 1366, height: 710 });
+                    await page.goto(`${base}/projects/${kid.data.slug}/`);
+                    await page.evaluate(() => document.fonts.ready.then(() => true));
+                    const own = await page.evaluate(() => {
+                        const years = document.querySelector('#project-info .facts .years');
+                        const title = document.querySelector('.project-head h1');
+                        return { years: years?.textContent ?? null, shown: Boolean(years) && years.getClientRects().length > 0 && getComputedStyle(years).visibility === 'visible', title: getComputedStyle(title).fontWeight };
+                    });
+                    const want = spaced(shortYears(text(kid.data.years)));
+                    check(`3. a sub-project's own page still shows its years in its information (${want}), and its title in the header is Bold (${kid.data.slug})`, spaced(own.years ?? '') === want && own.shown && own.title === '700', JSON.stringify(own));
+                }
+            }
+
             for (const [width, height] of [[720, 800], [800, 600], [1024, 768], [1366, 710], [1920, 1080]]) {
                 await show(width, height);
                 const first = await page.evaluate(() => window.__mutations());
@@ -1556,7 +1767,7 @@ try {
                 const near = (a, b) => Math.abs(a - b) <= 0.5;
                 const fits = (c) => c.text <= c.width - FADE + 0.01;
 
-                const tall = m.rows.filter(r => Math.abs(r.height - m.slot) > 0.05 || Math.abs(r.dateLines - 1) > 0.01 || r.cells.some(c => Math.abs(c.lines - 1) > 0.01 || Math.abs(c.middle) > 0.5));
+                const tall = m.rows.filter(r => Math.abs(r.height - m.slot) > 0.05 || (printedDates[r.slug] ? Math.abs(r.dateLines - 1) > 0.01 : r.dateLines > 1.01) || r.cells.some(c => Math.abs(c.lines - 1) > 0.01 || Math.abs(c.middle) > 0.5));
                 const span = m.rows.at(-1).bottom - m.rows[0].top;
                 check(`6. at ${width}px every row of the list is one line, in the middle of a row ${m.slot}px tall, the same at every width`, m.rows.length === published.length && tall.length === 0 && Math.abs(span - m.rows.length * m.slot) <= 0.02 * m.rows.length + 0.05, `${tall.slice(0, 5).map(r => `${r.slug} ${r.height}px`).join(', ')}; ${m.rows.length} rows in ${span}px`);
 
@@ -1566,10 +1777,12 @@ try {
                     off.length === 0 && (types.length === 0 || Math.max(...types) - Math.min(...types) < 0.01),
                     off.slice(0, 3).map(r => `${r.slug}: date ${r.date}, title ${r.cells[0].left} + ${r.cells[0].width}, type ${r.cells[1]?.left} + ${r.cells[1]?.width}`).join('; '));
 
-                // The dates are Fluxisch Else Light and the titles Bold, at the body's 13px, in the text colour.
+                // The dates are Fluxisch Else Light and the titles Bold, a sub-project's title Light (20 Nov 2026),
+                // all at the body's 13px, in the text colour.
                 const set = `13px rgb(${m.rows[0].cells[0].colour.join(', ')})`;
-                const weights = [...new Set(m.rows.map(r => r.type))];
-                check(`6. at ${width}px every row's date is Light (300) and its title Bold (700), both 13px in the text colour`, weights.length === 1 && weights[0] === `300 ${set} | 700 ${set}`, weights.slice(0, 3).join(' ; '));
+                const weights = m.rows.filter(r => r.type !== `300 ${set} | ${subs.has(r.slug) ? 300 : 700} ${set}` || r.child !== subs.has(r.slug));
+                check(`6. at ${width}px every row's date is Light (300) and its title Bold (700), a sub-project's title Light (300; ${subs.size} of the ${m.rows.length} rows), all 13px in the text colour`,
+                    m.rows.length === published.length && weights.length === 0, weights.slice(0, 3).map(r => `${r.slug}: ${r.type}`).join(' ; '));
 
                 // Every column is a box that cuts (not a scroller: nothing to drag with a mouse), with the fade over its
                 // last 1em (13px), and at rest its text starts at its left edge.
@@ -1898,8 +2111,9 @@ try {
                     scroll: document.documentElement.scrollWidth - page,
                     vw: innerWidth,
                     vh: innerHeight,
-                    // every row's date and title, and the page's own type
-                    type: [...new Set(rows.map(r => [r.querySelector('.years'), r.querySelector('.title')].map(el => `${getComputedStyle(el).fontWeight} ${getComputedStyle(el).fontSize}`).join(' | ')))],
+                    // every row's date and title, the titles under the thumbnails, and the page's own type
+                    type: rows.map(r => ({ slug: r.dataset.slug, set: [r.querySelector('.years'), r.querySelector('.title')].map(el => `${getComputedStyle(el).fontWeight} ${getComputedStyle(el).fontSize}`).join(' | ') })),
+                    names: [...new Set(cells.map(c => `${getComputedStyle(c.querySelector('.name')).fontWeight} ${getComputedStyle(c.querySelector('.name')).fontSize}`))],
                     body: [getComputedStyle(document.body).fontSize, getComputedStyle(document.body).lineHeight, getComputedStyle(document.body).fontWeight].join(' / '),
                 };
             }, { titles, shadow: SHADOW, exact: EXACT });
@@ -1921,10 +2135,14 @@ try {
                     const off = sizesOff(m.sized, m.vw, m.vh);
                     check(`7. ${at} every thumbnail's sizes attribute gives the width it is shown at, to the pixel`, m.sized.length > 0 && off.length === 0, off.slice(0, 3).join(' | '));
                 }
-                check(`7. ${at} the type is 13px on a 16px line, Light; in the list every date is Light (300) and every title Bold (700)`, m.body === BODY && m.type.length === 1 && m.type[0] === '300 13px | 700 13px', `body ${m.body}; rows ${m.type.slice(0, 3).join(' ; ')}`);
+                {
+                    const off = m.type.filter(r => r.set !== `300 13px | ${subs.has(r.slug) ? 300 : 700} 13px`);
+                    check(`7. ${at} the type is 13px on a 16px line, Light; in the list every date is Light (300), every title Bold (700) and a sub-project's title Light (300); under the thumbnails every title is Bold, a sub-project's too`,
+                        m.body === BODY && m.type.length === published.length && off.length === 0 && m.names.length === 1 && m.names[0] === '700 13px', `body ${m.body}; rows ${off.slice(0, 3).map(r => `${r.slug}: ${r.set}`).join(' ; ')}; under the thumbnails ${m.names.join(', ')}`);
+                }
             }
 
-            // The title's type is the list titles'; pointing at the thumbnail or focusing it turns it the link colour.
+            // The title's type is the list titles' (a main project's: the first cell is one); pointing at the thumbnail or focusing it turns it the link colour.
             // The first cell: it is on screen, so neither pointing at it nor focusing it scrolls the page under the pointer.
             await open(390, 844);
             const slug = await page.evaluate(() => document.querySelector('project-index .cell').dataset.slug);

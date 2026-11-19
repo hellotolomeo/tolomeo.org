@@ -100,14 +100,13 @@ project-index .clip {
   display: contents;
 }
 
-project-index .bullet {
-  display: inline-block;
-  width: 15px;
-  font-weight: 700;
-}
-
 project-index .title {
   text-decoration: none;
+}
+
+project-index .child .title {
+  margin-left: 1.39em;
+  font-weight: 300;
 }
 
 project-index .row:is(.on, :hover) .title {

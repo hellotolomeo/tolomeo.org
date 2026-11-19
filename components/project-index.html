@@ -1,6 +1,6 @@
 {#- The home page under its header: the thumbnail grid on the left, the index list on the right, both from `projects`. -#}
 {#- Below 720px the grid is one column over the list, and `.name` (the title under its thumbnail) shows only there. -#}
-{#- A row is date | title | type. From 720px up `.clip` is a column one line tall that cuts its text, and `.line` is the text, which slides while the row is pointed at; below 720px neither makes a box of its own. -#}
+{#- A row is date | title | type. A sub-project's row (`child`) prints no date (`listYears` is empty for it); the stylesheet indents its title and sets it Light. From 720px up `.clip` is a column one line tall that cuts its text, and `.line` is the text, which slides while the row is pointed at; below 720px neither makes a box of its own. -#}
 {#- `shown` and `hover` exist only in the browser; the server renders every project with nothing pointed at. -#}
 {% set shown = shown | default(projects) %}
 {% set hover = hover | default('') %}
@@ -40,7 +40,7 @@
   id="row-{{ p.slug }}"
   class="row{% if p.child %} child{% endif %}{% if hover == p.slug %} on{% endif %}"
   data-slug="{{ p.slug }}"
-><span class="years">{{ p.years }}</span><span class="what"><span class="clip"><span class="line">{% if p.child %}<span class="bullet">•</span>{% endif %}<a class="title" href="{{ p.href }}">{{ p.title }}</a></span></span>{% if p.tags | length %}<span class="clip"><span class="line tags">{% for t in p.tags %}<button
+><span class="years">{{ p.listYears }}</span><span class="what"><span class="clip"><span class="line"><a class="title" href="{{ p.href }}">{{ p.title }}</a></span></span>{% if p.tags | length %}<span class="clip"><span class="line tags">{% for t in p.tags %}<button
   type="button"
   class="tag{% if t in filter %} on{% endif %}"
   data-action="tag"

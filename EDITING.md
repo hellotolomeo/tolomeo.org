@@ -48,6 +48,7 @@ Press **Save** when you're done.
    - **Years**: type them in full: `2026`, `2023 - 2026`, `2025, 2026`, `2023 –`. The site prints
      them short: `’26`, `’23–26`, `’25, 26`, `’23–`. In the list on the home page the date column
      fits the longest date by itself, so the titles always start right after the dates.
+     (A sub-project's years show on its own page only, not in the list.)
    - **Start year / End year**: only used for sorting. Leave End year empty if it's ongoing.
    - **Tags**: the categories people can filter by. Pick from the list. On the project's
      own page they are shown as `type:`.
@@ -84,8 +85,10 @@ then not on the home page and has no page of its own. Turn it on when it's ready
 - To fit a project in between, decimals are fine: `4.5` sits between `4` and `5`.
 
 **Sub-projects.** Set **Part of (parent project)** to the main project, and give it an
-order like `2.1`. It then shows with a `•` under its main project. Leave it empty for a
-main project.
+order like `2.1`. It then shows under its main project in the list on the home page, set
+apart from it: its title a little further in (about five spaces) and in the light font
+instead of the bold one, with no date in front of it. Its years are still shown on its own
+page, so do fill them in. Leave **Part of** empty for a main project.
 
 ## Add photos
 

@@ -180,6 +180,9 @@ function shape(p, { images, warn }) {
         slug: p.slug,
         title: p.title,
         years: shortYears(p.years),
+        // The date its row prints in the Index list: a sub-project's row prints none (20 Nov 2026;
+        // its own page still prints `years`), so this is '' there.
+        listYears: p.parent ? '' : shortYears(p.years),
         tags: p.tags,
         role: p.role.join(', '),
         client: p.client,
@@ -201,7 +204,7 @@ function lean(p) {
     return {
         slug: p.slug,
         title: p.title,
-        years: shortYears(p.years),
+        listYears: p.listYears,
         tags: p.tags,
         child: p.child,
         href: p.href,
@@ -287,15 +290,16 @@ function slideSizes(g) {
 // rule, and the file is plain ASCII whatever charset it is served with.
 const cssString = (text) => `"${[...text].map(ch => (/[A-Za-z0-9 ,.-]/.test(ch) ? ch : `\\${ch.codePointAt(0).toString(16)} `)).join('')}"`;
 
-// Every distinct date the Index list prints (`years` as shaped: short), in list order, one to a
-// line. White space is one space, as the browser prints it in the row: a line break typed inside
-// a date must not make two short lines of it here.
-const dateLines = (projects) => [...new Set(projects.map(p => String(p.years ?? '').replace(/[\t\n\f\r ]+/g, ' ').trim()).filter(Boolean))].join('\n');
+// Every distinct date the Index list prints (`listYears` as shaped: short, and none for a
+// sub-project, whose row prints no date), in list order, one to a line. White space is one space,
+// as the browser prints it in the row: a line break typed inside a date must not make two short
+// lines of it here.
+const dateLines = (projects) => [...new Set(projects.map(p => String(p.listYears ?? '').replace(/[\t\n\f\r ]+/g, ' ').trim()).filter(Boolean))].join('\n');
 
 /**
  * client/covers.css, the home page's generated rules (components/project-index.css): the tag
- * colour; --dates, the text that makes the list's date column as wide as its widest date (every
- * row prints it, unseen, in its date cell); and one rule per grid cell.
+ * colour; --dates, the text that makes the list's date column as wide as the widest date a row
+ * prints (every row prints it, unseen, in its date cell); and one rule per grid cell.
  */
 export function coversCss(projects, config) {
     const rules = [`:root{--tag:${config.TAG_COLOR}}`];

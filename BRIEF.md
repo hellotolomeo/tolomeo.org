@@ -18,6 +18,10 @@
 > instead of Bold). See `CLAUDE.md`, "Design".
 > The same day: dates are printed short (`’26`, `’23–26`, `’25, 26`), and the Index list's date
 > column is as wide as its widest date at every width, so the title starts right after the dates.
+>
+> **20 Nov 2026**, at the owner's request: in the Index list a sub-project (a project with a
+> `parent`) has no `•` and no date; its title is indented by five word spaces and set in Fluxisch
+> Else Light. Its own page is unchanged and still prints its years. See `CLAUDE.md`, "Design".
 
 Portfolio site for Tolomeo, an artist researcher, publisher and educator in the Netherlands.
 Read this file completely before writing code. `CLAUDE.md` holds the standing rules;
