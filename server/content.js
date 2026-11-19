@@ -84,6 +84,23 @@ const num = (v, fallback) => (Number.isFinite(Number(v)) && v !== '' && v !== nu
 // A whole number from 1 (a photo's set), or null for anything else.
 const whole = (v) => (Number.isInteger(num(v, null)) && num(v, null) >= 1 ? num(v, null) : null);
 
+// The dates as the site prints them (the owner's format of 19 Nov 2026): a year loses its century
+// and the first one takes an apostrophe, a range is an en dash with no spaces round it.
+// 2026 → ’26, 2023 - 2026 → ’23–26, 2025, 2026 → ’25, 26, 2023 – → ’23–. The content keeps the
+// years as typed, in full; text without a four-digit year (one typed short already) is printed as it is.
+export function shortYears(value) {
+    const typed = str(value);
+    let first = true;
+    return typed
+        .replace(/(\b(?:19|20)\d\d\b)\s*[-–—]\s*/g, '$1–')
+        .replace(/\s*[-–—]\s*(\b(?:19|20)\d\d\b)/g, '–$1')
+        .replace(/\b(?:19|20)(\d\d)\b/g, (_, yy) => {
+            const out = first ? `’${yy}` : yy;
+            first = false;
+            return out;
+        });
+}
+
 // Front matter with every field present and typed.
 function normalize({ data, content }, file, warn) {
     const slug = str(data.slug) || file.replace(/\.md$/, '');
@@ -162,7 +179,7 @@ function shape(p, { images, warn }) {
     return {
         slug: p.slug,
         title: p.title,
-        years: p.years,
+        years: shortYears(p.years),
         tags: p.tags,
         role: p.role.join(', '),
         client: p.client,
@@ -184,7 +201,7 @@ function lean(p) {
     return {
         slug: p.slug,
         title: p.title,
-        years: p.years,
+        years: shortYears(p.years),
         tags: p.tags,
         child: p.child,
         href: p.href,

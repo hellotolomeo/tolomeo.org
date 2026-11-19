@@ -70,6 +70,7 @@ import nunjucks from 'nunjucks';
 import sharp from 'sharp';
 import { chromium } from 'playwright';
 import { markdown, markdownText } from '../server/markdown.js';
+import { shortYears } from '../server/content.js';
 import { createEnvironment } from '../server/zeldman/zeldman.js';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -152,7 +153,7 @@ const factsOf = (p) => [
     texts(p.data.tags).length ? `type: ${texts(p.data.tags).join(', ')}` : '',
     texts(p.data.role).length ? `role: ${texts(p.data.role).join(', ')}` : '',
     text(p.data.client) ? `for: ${text(p.data.client)}` : '',
-    text(p.data.years),
+    shortYears(text(p.data.years)),
 ].filter(Boolean);
 // The information section of a project page's HTML, the lines of its left column, and one of its two arrows.
 const sectionOf = (body) => body.match(/<section class="project-info"[\s\S]*?<\/section>/)?.[0] ?? '';
@@ -164,6 +165,22 @@ const stem = (im) => decodeURIComponent(String(im.image)).split('/').pop().repla
 const counts = new Map();
 for (const p of published) for (const t of p.data.tags ?? []) counts.set(t, (counts.get(t) ?? 0) + 1);
 const [tagA, tagB] = [...counts].sort((a, b) => b[1] - a[1]).map(([t]) => t);
+
+// The dates: the content keeps them as typed, in full; the site prints them short, everywhere.
+{
+    const table = [['2026', '’26'], ['2023 - 2026', '’23–26'], ['2023–2026', '’23–26'], ['2025, 2026', '’25, 26'], ['2023 –', '’23–'], ['’23–26', '’23–26'], ['', '']];
+    const off = table.filter(([typed, printed]) => shortYears(typed) !== printed).map(([typed]) => `${typed} → ${shortYears(typed)}`);
+    check('1. the short date format: 2026 → ’26, 2023 - 2026 → ’23–26, 2025, 2026 → ’25, 26, 2023 – → ’23–, and one typed short already stays as it is', off.length === 0, off.join('; '));
+    const home = readFileSync(join(dist, 'index.html'), 'utf8');
+    const wrong = [];
+    for (const p of published) {
+        const want = shortYears(text(p.data.years));
+        const row = home.match(new RegExp(`id="row-${p.data.slug}"[^>]*><span class="years">([^<]*)</span>`))?.[1];
+        const page = readFileSync(join(dist, 'projects', p.data.slug, 'index.html'), 'utf8').match(/<p class="years">([^<]*)<\/p>/)?.[1] ?? '';
+        if (row !== want || page !== want || /\d{4}/.test(row ?? '')) wrong.push(`${p.data.slug}: the list has "${row}", its page "${page}", wanted "${want}"`);
+    }
+    check(`1. every project's date is printed short, in the Index list and on its own page alike (${published.length} projects)`, wrong.length === 0, wrong.slice(0, 5).join('; '));
+}
 
 // --- a static server for dist/, like GitHub Pages
 

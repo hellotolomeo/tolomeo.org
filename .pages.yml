@@ -85,7 +85,7 @@ content:
       - name: years
         label: Years
         type: string
-        description: "Shown exactly as typed, e.g. 2023–2026, 2025, 2026 or 2023 –"
+        description: "Type the years in full, e.g. 2026, 2023 - 2026, 2025, 2026 or 2023 –. The site prints them short: ’26, ’23–26, ’25, 26, ’23–"
 
       - name: year_start
         label: Start year
