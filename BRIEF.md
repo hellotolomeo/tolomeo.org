@@ -11,6 +11,11 @@
 > in numbered sets under a header that stays, snapping from set to set, then the project's
 > information in two columns with arrows to the neighbouring projects), and the Index below 720px
 > is one column of thumbnails, each with its title under it. See `CLAUDE.md`, "Design".
+>
+> **19 Nov 2026**, at the owner's request: no frames (every thumbnail and project photo lost its
+> 6px paper-coloured border, kept its shadow and grew to where the frame's outer edge was), 13px
+> type (it was 12px, hard to read on a phone), and light dates in the Index (Fluxisch Else Light
+> instead of Bold). See `CLAUDE.md`, "Design".
 
 Portfolio site for Tolomeo, an artist researcher, publisher and educator in the Netherlands.
 Read this file completely before writing code. `CLAUDE.md` holds the standing rules;

@@ -45,10 +45,8 @@ project-slides .frame {
   grid-column: 2;
   grid-row: 1;
   display: block;
-  box-sizing: content-box;
-  width: min(var(--w) - 12px, (var(--h) - 12px) * var(--a, 1.5));
+  width: min(var(--w), var(--h) * var(--a, 1.5));
   aspect-ratio: var(--a, 1.5);
-  border: 6px solid var(--frame);
   box-shadow: var(--frame-shadow);
 }
 

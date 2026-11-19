@@ -30,10 +30,12 @@
  *   5. CMS: every front-matter key in content/ is a field in .pages.yml, and every
  *      tag in use is in the tags select.
  *   6. The Index's proportions at 1366px: a cell is a quarter of the page, a list
- *      row is 23px tall, thumbnails are whole, centred and framed.
+ *      row is 23px tall, thumbnails are whole, centred, without a border, with
+ *      the shadow, and as large as fits (the limiting side reaches its limit).
  *      The list at 720, 800, 1024, 1366 and 1920px: every row one line and 23px
  *      tall, whatever the width; the date, the title and the type each in a column
- *      where the design puts it; text that fits its column is not faded and does
+ *      where the design puts it, the dates Light and the titles Bold; text that
+ *      fits its column is not faded and does
  *      not move; text that does not is cut with a fade, and while its row or its
  *      thumbnail is pointed at it slides left at 100px a second until its end is
  *      clear of the fade, moving nothing else, and is back 0.2s after the pointer
@@ -44,12 +46,15 @@
  *      takes nothing off text that fits; a date too long for its column is cut,
  *      not printed over the title; on a touch screen a column is dragged, and
  *      only one whose text is cut.
- *   7. The Index below 720px: one thumbnail to a row, each whole, framed, centred
- *      and as large as fits, its title 10px under its frame and 32px before the
- *      next one, in the list titles' type; the same projects in the grid and the
+ *   7. The Index below 720px: one thumbnail to a row, each whole, centred, without
+ *      a border, with the shadow, and as large as fits, its title 10px under its
+ *      picture and 32px before the next one, in the list titles' type; the dates
+ *      Light, the titles Bold; the same projects in the grid and the
  *      list when a tag is clicked; the list without columns, a row's types
  *      following its title and wrapping. From 720px up the titles are not
  *      displayed and the cells keep their fixed proportion.
+ *   + the type: 13px on a 16px line, Light, on every route (captions 11px / 13.2px);
+ *   + no picture's box has a border and every one has the shadow, on every route;
  *   + zero mutations on the first render and on a forced el.render();
  *   + zero console errors and page errors on every route, JS on and off.
  * Exits 1 if anything fails.
@@ -77,6 +82,15 @@ const check = (name, ok, detail = '') => {
     results.push({ name, ok, detail });
     console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${detail ? ` — ${detail}` : ''}`);
 };
+
+// The shadow around every picture, as the browser gives it back (--frame-shadow in client/site.css).
+// It is all that is left of the frame: since 19 Nov 2026 no picture has a border.
+const SHADOW = 'rgba(100, 40, 95, 0.55) 1px 2px 6px 0px';
+// The body type: 13px on a 16px line, Light (font-size / line-height / font-weight).
+const BODY = '13px / 16px / 300';
+// How far the limiting side of a picture may be from its limit: layout works in 64ths of a pixel,
+// and the side that follows from the proportions is rounded once more (0.04px at most, measured).
+const EXACT = 0.1;
 
 // --- what the site should contain, from content/ directly
 
@@ -168,7 +182,7 @@ const rest = async (page) => {
 };
 // Every slideshow of a project page has rendered (a page whose sets all hold one photo loads no script).
 const slidesReady = (page) => page.waitForFunction(() => !document.scripts.length || [...document.querySelectorAll('project-slides')].every(el => el.rendered));
-// A project page as it lies in the window: the header, each set with its current photo's frame, chevrons and caption, the information.
+// A project page as it lies in the window: the header, each set with its current photo's box (`.frame`, a name from when it had a border), chevrons and caption, the information.
 const lie = (page) => page.evaluate(() => {
     const box = (el) => { if (!el) return null; const b = el.getBoundingClientRect(); return { top: b.top, bottom: b.bottom, left: b.left, right: b.right, width: b.width, height: b.height }; };
     const seen = (el) => Boolean(el) && el.getClientRects().length > 0;
@@ -199,6 +213,9 @@ const lie = (page) => page.evaluate(() => {
                 files: slides.map(sl => decodeURIComponent(sl.querySelector('img').getAttribute('src')).split('/').pop()),
                 a: img ? Math.round((img.getAttribute('width') / img.getAttribute('height')) * 10000) / 10000 : null,
                 frame: box(now?.querySelector('.frame')),
+                image: box(img),
+                border: now ? ['Top', 'Right', 'Bottom', 'Left'].map(k => getComputedStyle(now.querySelector('.frame'))[`border${k}Width`]).join(' ') : '',
+                shadow: now ? getComputedStyle(now.querySelector('.frame')).boxShadow : '',
                 prev: seen(now?.querySelector('.prev')) ? box(now.querySelector('.prev')) : null,
                 next: seen(now?.querySelector('.next')) ? box(now.querySelector('.next')) : null,
                 caption: seen(now?.querySelector('.caption')) ? box(now.querySelector('.caption')) : null,
@@ -220,27 +237,38 @@ const infoOff = (at) => {
     return off.join('; ');
 };
 // What the design gives the current photo of a set (CLAUDE.md, "Slideshow"): the set is the window
-// less the 79px header; the frame is the largest that fits the page less, on each side, a 44px
-// chevron target, a 14.25px gap and a 16px edge, and the set's height less the 63px caption room,
-// its 6px border included; it is centred in the page, the caption room under it, a chevron 14.25px
-// from either side. For a photo of 1.4995 at 1366 × 710 that is the 845.72 × 567.98 frame at
-// 260.14, 79 the one slideshow had before there were sets. Returns what is off, or ''.
+// less the 79px header; the photo is the largest that fits the page less, on each side, a 44px
+// chevron target, a 14.25px gap and a 16px edge (below 600px: the chevron targets only), and the
+// set's height less the 63px caption room: its limiting side reaches that limit exactly. It has no
+// border, the picture fills its box, and the shadow lies directly around it. It is centred in the
+// page, the caption room under it, a chevron 14.25px from either side (0 below 600px). For a photo
+// of 1.4995 at 1366 × 710 that is 851.7 × 567.98 at 257.14, 79: the outer edge of the 845.72 ×
+// 567.98 frame the slideshow had while photos had a 6px border, and 3px more on either side.
+// Returns what is off, or ''.
 const offDesign = (set, at) => {
     const near = (a, b) => Math.abs(a - b) <= 0.5;
     const off = [];
     if (!set.frame) return 'no photo shown';
     const room = Math.max(63, set.caption ? set.caption.height + 23.4 : 0);
-    const width = Math.min(at.vw - 2 * (44 + 14.25 + 16) - 12, (Math.max(160, at.vh - 79 - 63) - 12) * set.a);
-    const frame = { width: width + 12, height: width / set.a + 12 };
+    const gap = at.vw <= 600 ? 0 : 14.25;
+    const limit = { width: at.vw - 2 * (44 + gap + (at.vw <= 600 ? 0 : 16)), height: Math.max(160, at.vh - 79 - 63) };
+    const width = Math.min(limit.width, limit.height * set.a);
+    const frame = { width, height: width / set.a };
     if (!near(set.width, at.vw) || !near(set.height, Math.max(at.vh - 79, frame.height + room))) off.push(`set ${set.width}×${set.height}`);
-    if (!near(set.frame.width, frame.width) || !near(set.frame.height, frame.height)) off.push(`frame ${set.frame.width}×${set.frame.height}, not ${frame.width}×${frame.height}`);
-    if (!near(set.frame.left, (at.vw - frame.width) / 2)) off.push(`frame left ${set.frame.left}`);
-    if (!near(set.frame.top - set.top, (set.height - frame.height - room) / 2)) off.push(`frame ${set.frame.top - set.top} under the set's top`);
+    if (!near(set.frame.width, frame.width) || !near(set.frame.height, frame.height)) off.push(`photo ${set.frame.width}×${set.frame.height}, not ${frame.width}×${frame.height}`);
+    if (Math.abs(set.frame.width - limit.width) > EXACT && Math.abs(set.frame.height - limit.height) > EXACT) off.push(`photo ${set.frame.width}×${set.frame.height} reaches neither limit of ${limit.width}×${limit.height}`);
+    if (set.frame.width > limit.width + EXACT || set.frame.height > limit.height + EXACT) off.push(`photo ${set.frame.width}×${set.frame.height} larger than ${limit.width}×${limit.height}`);
+    if (set.border !== '0px 0px 0px 0px') off.push(`a border (${set.border})`);
+    if (set.shadow !== SHADOW) off.push(`shadow ${set.shadow}`);
+    if (!['left', 'top', 'width', 'height'].every(k => near(set.image[k], set.frame[k]))) off.push(`the picture (${set.image.width}×${set.image.height}) does not fill its box`);
+    if (!near(set.frame.left, (at.vw - frame.width) / 2)) off.push(`photo left ${set.frame.left}`);
+    if (!near(set.frame.top - set.top, (set.height - frame.height - room) / 2)) off.push(`photo ${set.frame.top - set.top} under the set's top`);
+    if (set.caption && !near(set.caption.top - set.frame.bottom, 16)) off.push(`caption ${set.caption.top - set.frame.bottom} under the photo, not 16`);
     if (set.count > 1 && !set.prev && !set.next) off.push('no chevron');
     for (const arrow of [set.prev, set.next]) {
         if (!arrow) continue;
-        const gap = arrow === set.prev ? set.frame.left - arrow.right : arrow.left - set.frame.right;
-        if (!near(gap, 14.25) || !near(arrow.width, 44) || !near(arrow.height, 44) || !near(arrow.top + 22, set.frame.top + set.frame.height / 2)) off.push(`chevron ${gap} from the frame`);
+        const space = arrow === set.prev ? set.frame.left - arrow.right : arrow.left - set.frame.right;
+        if (!near(space, gap) || !near(arrow.width, 44) || !near(arrow.height, 44) || !near(arrow.top + 22, set.frame.top + set.frame.height / 2)) off.push(`chevron ${space} from the photo`);
     }
     return off.join('; ');
 };
@@ -557,11 +585,38 @@ try {
                 return lie(page);
             };
 
-            // A one-set project is the design's one slideshow: its frame is where it was before there were sets.
+            // A one-set project is the design's one slideshow: its photo is where the slideshow's was before there were sets.
             if (oneSet) {
                 const at = await open(oneSet);
                 const off = offDesign(at.sets[0], at);
-                check(`3. a one-set project opens as the design's one slideshow: the set fills the window under the header, the frame as large as fits (${oneSet.data.slug})`, at.sets.length === 1 && off === '' && Math.abs(at.sets[0].top - 79) <= 0.5 && at.y === 0, off || `${at.sets.length} set, its top at ${at.sets[0].top}, the page at ${at.y}`);
+                check(`3. a one-set project opens as the design's one slideshow: the set fills the window under the header, the photo as large as fits (its limiting side on the limit), without a border, the shadow around it (${oneSet.data.slug})`, at.sets.length === 1 && off === '' && Math.abs(at.sets[0].top - 79) <= 0.5 && at.y === 0, off || `${at.sets.length} set, its top at ${at.sets[0].top}, the page at ${at.y}`);
+            }
+
+            // The widest photo of any first set (its proportions are in the generated client/slides.css): where
+            // the room is wider than it needs, the height limits it; where it is not, the width does, and
+            // then it is the photo's sides that are on the limit, exactly. On a desk and on a phone.
+            {
+                const widest = [...readFileSync(join(dist, 'client/slides.css'), 'utf8').matchAll(/#slides-(.+)-1 \.slide:nth-child\((\d+)\)\{--a:([\d.]+)\}/g)]
+                    .map(m => ({ slug: m[1], n: Number(m[2]), a: Number(m[3]) })).sort((x, y) => y.a - x.a)[0];
+                const told = [];
+                const wrong = [];
+                for (const [width, height] of [[1366, 710], [390, 844]]) {
+                    if (!widest) break;
+                    await page.setViewportSize({ width, height });
+                    await page.goto(`${base}/projects/${widest.slug}/`);
+                    await slidesReady(page);
+                    for (let i = 1; i < widest.n; i++) await page.keyboard.press('ArrowRight');
+                    const at = await lie(page);
+                    const set = at.sets[0];
+                    const room = { width: width - 2 * (44 + (width <= 600 ? 0 : 30.25)), height: height - 79 - 63 };
+                    const by = Math.abs(set.frame.width - room.width) <= EXACT ? 'width' : Math.abs(set.frame.height - room.height) <= EXACT ? 'height' : 'neither side';
+                    told.push(`${width} × ${height}: ${set.frame.width.toFixed(2)} × ${set.frame.height.toFixed(2)} in ${room.width} × ${room.height}, limited by its ${by}`);
+                    const off = set.current !== widest.n - 1 ? `photo ${set.current + 1} shows, not ${widest.n}` : Math.abs(set.a - widest.a) > 0.0001 ? `a photo of ${set.a}` : offDesign(set, at);
+                    if (off || by !== (widest.a > room.width / room.height ? 'width' : 'height')) wrong.push(`${width} × ${height}: ${off || `limited by its ${by}`}`);
+                }
+                if (!widest) check('3. the widest photo: ok (client/slides.css names no photo; the check was skipped)', true);
+                else check(`3. the widest photo is as large as fits, the side that limits it exactly on the limit, centred, without a border, the shadow around it, the chevrons beside it (${widest.slug}, ${widest.a} : 1; ${told.join('; ')})`, wrong.length === 0, wrong.join('; '));
+                await page.setViewportSize({ width: 1366, height: 710 });
             }
 
             // Set by set, then the information: where the page rests, and what the header does meanwhile.
@@ -589,7 +644,7 @@ try {
                 check(`3. after a turn of the wheel the page rests with the next set directly under the header, and after the last set with the information: its top at 72px, the description's first line at 74px (${walked.data.slug}, ${start.sets.length} set${start.sets.length > 1 ? 's' : ''})`, start.mouse && start.snap.includes('mandatory') && stops.length === 0, start.mouse ? stops.join('; ') : 'this browser has no fine pointer: the page does not snap');
                 check('3. nothing of the information is in the window while a set of photos is at rest', early.length === 0, early.join('; '));
                 check('3. the header stays at the top of the window while the page scrolls, Back and the title on top', header.length === 0 && end.y > 0, header.join('; '));
-                check('3. each set at rest fills the window under the header as the one slideshow does: same frame, same place, chevrons 28px either side', frames.length === 0, frames.join('; '));
+                check('3. each set at rest fills the window under the header as the one slideshow does: the photo as large as fits, in the same place, without a border, the shadow around it, chevrons 28px either side, the caption 16px under it', frames.length === 0, frames.join('; '));
                 // The header's own links are always in the window: reaching them with the keyboard must not move the
                 // page (they lie in the band that html's scroll-padding calls out of view), and the browser's Back
                 // after the title link returns to the set the visitor was on.
@@ -913,40 +968,52 @@ try {
             await page.setViewportSize({ width: 1366, height: 710 });
             await page.goto(`${base}/`);
             await page.waitForFunction(() => document.querySelector('project-index')?.rendered);
-            const m = await page.evaluate(() => {
+            const m = await page.evaluate(({ shadow, exact }) => {
                 const box = (el) => el.getBoundingClientRect();
                 const cells = [...document.querySelectorAll('project-index .cell')];
                 const rows = [...document.querySelectorAll('project-index .row')];
                 const page = document.documentElement.clientWidth;
                 const cell = box(cells[0]);
+                // Nothing has a border, the pictures' boxes included; a shadow is the pictures' alone.
                 const lines = [...document.querySelectorAll('.site-head, .site-head *, project-index, project-index *')].filter((el) => {
                     const s = getComputedStyle(el);
-                    return !el.classList.contains('box') && (parseFloat(s.borderTopWidth) + parseFloat(s.borderRightWidth) + parseFloat(s.borderBottomWidth) + parseFloat(s.borderLeftWidth) > 0 || s.boxShadow !== 'none');
+                    return parseFloat(s.borderTopWidth) + parseFloat(s.borderRightWidth) + parseFloat(s.borderBottomWidth) + parseFloat(s.borderLeftWidth) > 0 || (!el.classList.contains('box') && s.boxShadow !== 'none');
                 }).length;
+                // A thumbnail's box (`.box`, a name from when it had a border) is the picture: as large as fits 91%
+                // of the cell's width and 86.5% of its height (49.9733% of its width), one of the two exactly.
                 const thumbs = cells.filter(c => c.querySelector('.box')).map((c) => {
                     const a = box(c);
                     const b = box(c.querySelector('.box'));
                     const img = c.querySelector('img');
-                    return {
-                        fits: b.width <= a.width * 0.91 + 0.5 && b.height <= a.height * 0.865 + 0.5,
-                        full: b.width >= a.width * 0.91 - 0.5 || b.height >= a.height * 0.865 - 0.5,
-                        centred: Math.abs((b.x + b.width / 2) - (a.x + a.width / 2)) < 0.5 && Math.abs((b.y + b.height / 2) - (a.y + a.height / 2)) < 0.5,
-                        whole: Math.abs((b.width - 12) / (b.height - 12) - img.getAttribute('width') / img.getAttribute('height')) < 0.01,
-                    };
-                });
+                    const im = box(img);
+                    const s = getComputedStyle(c.querySelector('.box'));
+                    const wrong = [];
+                    if (b.width > a.width * 0.91 + exact || b.height > a.width * 0.499733 + exact) wrong.push(`larger than fits (${b.width} × ${b.height})`);
+                    if (Math.abs(b.width - a.width * 0.91) > exact && Math.abs(b.height - a.width * 0.499733) > exact) wrong.push(`neither side on its limit (${b.width} × ${b.height} in ${a.width * 0.91} × ${a.width * 0.499733})`);
+                    if (Math.abs((b.x + b.width / 2) - (a.x + a.width / 2)) >= 0.5 || Math.abs((b.y + b.height / 2) - (a.y + a.height / 2)) >= 0.5) wrong.push('not centred');
+                    if (Math.abs(b.width / b.height - img.getAttribute('width') / img.getAttribute('height')) >= 0.01 || Math.abs(im.width - b.width) > 0.5 || Math.abs(im.height - b.height) > 0.5) wrong.push('cropped, or not filling its box');
+                    if (!['Top', 'Right', 'Bottom', 'Left'].every(k => s[`border${k}Width`] === '0px')) wrong.push(`a border (${s.borderTopWidth})`);
+                    if (s.boxShadow !== shadow) wrong.push(`shadow ${s.boxShadow}`);
+                    return wrong.length ? `${c.dataset.slug}: ${wrong.join(', ')}` : '';
+                }).filter(Boolean);
+                const body = getComputedStyle(document.body);
                 return {
                     quarter: Math.abs(cell.width - page / 4) < 0.5,
                     ratio: Math.abs(cell.width / cell.height - 341.2 / 197.12) < 0.005,
                     row: rows.every(r => Math.abs(box(r).height - 23) < 0.1),
                     columns: Math.abs(box(cells[1]).x - cell.width) < 0.5 && Math.abs(box(cells[2]).y - cell.y - cell.height) < 0.5,
-                    thumbs: thumbs.every(t => t.fits && t.full && t.centred && t.whole),
+                    count: cells.filter(c => c.querySelector('.box')).length,
+                    thumbs,
                     scrolls: document.documentElement.scrollHeight <= innerHeight,
                     lines,
+                    body: [body.fontSize, body.lineHeight, body.fontWeight].join(' / '),
+                    rows: [...new Set(rows.map(r => [getComputedStyle(r).fontSize, getComputedStyle(r).lineHeight].join(' / ')))].join(', '),
                 };
-            });
+            }, { shadow: SHADOW, exact: EXACT });
             check('6. at 1366px a cell is a quarter of the page, two to a row, and every list row is 23px tall', m.quarter && m.ratio && m.row && m.columns, JSON.stringify(m));
-            check('6. every thumbnail is whole, centred, framed and as large as its cell allows', m.thumbs);
-            check('6. the two columns scroll on their own, and nothing draws a line', m.scrolls && m.lines === 0, JSON.stringify(m));
+            check(`6. every thumbnail is whole, centred, without a border, with the shadow, and as large as its cell allows: the side that limits it is exactly on its limit (${m.count} thumbnails)`, m.count > 0 && m.thumbs.length === 0, m.thumbs.slice(0, 5).join(' | '));
+            check('6. the two columns scroll on their own, and nothing draws a line: no element has a border, and only the pictures have a shadow', m.scrolls && m.lines === 0, JSON.stringify({ scrolls: m.scrolls, lines: m.lines }));
+            check('6. the type is 13px on a 16px line, Light, in the list\'s rows as on the page', m.body === BODY && m.rows === '13px / 16px', `body ${m.body}; rows ${m.rows}`);
 
             // A column scrolled to its end, then filtered down to something that no longer scrolls: no thumb left behind.
             await page.setViewportSize({ width: 1366, height: 710 });
@@ -965,10 +1032,11 @@ try {
             // The list from 720px up: three rigid columns, every row one line. CLAUDE.md, "Index": the date starts
             // 1.676% of the page (at least 12px) from the list's edge, in a column 8.192% of the page (at least
             // 104px) wide; what is left before the 16px right padding is the title's column and the type's,
-            // 11 : 10, 15px apart. A column cuts its text and fades it out over its last 1em (12px); text that
+            // 11 : 10, 15px apart. A column cuts its text and fades it out over its last 1em (13px); text that
             // ends before the fade is left alone, text that reaches it slides left at 100px a second while its
-            // row is pointed at, until its end is clear of the fade, and goes back in 0.2s.
-            const FADE = 12;
+            // row is pointed at, until its end is clear of the fade, and goes back in 0.2s. The dates are
+            // Light and the titles Bold, in the text colour both.
+            const FADE = 13;
             const show = async (width, height) => {
                 await page.setViewportSize({ width, height });
                 await page.mouse.move(1, 1);
@@ -1000,6 +1068,7 @@ try {
                             height: b.height,
                             on: r.classList.contains('on'),
                             date: years.left,
+                            type: [r.querySelector('.years'), r.querySelector('.title')].map(el => `${getComputedStyle(el).fontWeight} ${getComputedStyle(el).fontSize} ${getComputedStyle(el).color}`).join(' | '),
                             dateLines: years.height / px(getComputedStyle(r).lineHeight),
                             // The chevron's box: from the title column's left edge, and its middle from the row's.
                             chevron: before.content === 'none' ? null : {
@@ -1125,7 +1194,7 @@ try {
             }), { slug, i });
             // The ink in three strips of a column of a row at rest, each as the furthest any pixel is from the
             // ground colour (0 to 255): the 17px of text before the fade, the last 5px of the fade (at most
-            // 5/12 of the ink left there), and the 7px after the column's edge.
+            // 5/13 of the ink left there), and the 7px after the column's edge.
             const inkAt = async (r, cell, ground) => {
                 const edge = Math.floor(cell.right);
                 const clip = { x: edge - 30, y: Math.ceil(r.top), width: 38, height: Math.floor(r.bottom) - Math.ceil(r.top) };
@@ -1221,13 +1290,18 @@ try {
                     off.length === 0 && (types.length === 0 || Math.max(...types) - Math.min(...types) < 0.01) && (m.page * 0.08192 < 104 || near(share, 9.868)),
                     off.slice(0, 3).map(r => `${r.slug}: date ${r.date}, title ${r.cells[0].left} + ${r.cells[0].width}, type ${r.cells[1]?.left} + ${r.cells[1]?.width}`).join('; '));
 
+                // The dates are Fluxisch Else Light and the titles Bold, at the body's 13px, in the text colour.
+                const set = `13px rgb(${m.rows[0].cells[0].colour.join(', ')})`;
+                const weights = [...new Set(m.rows.map(r => r.type))];
+                check(`6. at ${width}px every row's date is Light (300) and its title Bold (700), both 13px in the text colour`, weights.length === 1 && weights[0] === `300 ${set} | 700 ${set}`, weights.slice(0, 3).join(' ; '));
+
                 // Every column is a box that cuts (not a scroller: nothing to drag with a mouse), with the fade over its
-                // last 12px, and at rest its text starts at its left edge.
-                const fade = /^linear-gradient\(to right, .*rgb\(0, 0, 0\) calc\(100% - 12px\), rgba\(0, 0, 0, 0\)\)$/;
+                // last 1em (13px), and at rest its text starts at its left edge.
+                const fade = new RegExp(`^linear-gradient\\(to right, .*rgb\\(0, 0, 0\\) calc\\(100% - ${FADE}px\\), rgba\\(0, 0, 0, 0\\)\\)$`);
                 const loose = m.rows.flatMap(r => r.cells.filter(c => c.cut !== 'clip' || !fade.test(c.mask) || Math.abs(c.start) > 0.01).map(c => `${r.slug}: ${c.cut}, start ${c.start}, ${c.mask}`));
                 const cells = m.rows.flatMap(r => r.cells.map((c, i) => ({ slug: r.slug, i, over: c.text - (c.width - FADE), r, c })));
                 const long = cells.filter(x => !fits(x.c));
-                check(`6. at ${width}px every column cuts its text at its right edge, fades it out over the last 12px and shows it from its start (${long.length} of ${cells.length} texts reach the fade)`, loose.length === 0, loose.slice(0, 3).join('; '));
+                check(`6. at ${width}px every column cuts its text at its right edge, fades it out over the last ${FADE}px and shows it from its start (${long.length} of ${cells.length} texts reach the fade)`, loose.length === 0, loose.slice(0, 3).join('; '));
 
                 // A row whose texts both fit, the one that ends closest to a fade: nothing of it is under the
                 // fade, and it does not move while it is pointed at for as long as a text takes to travel 60px.
@@ -1484,7 +1558,7 @@ try {
             }
 
             // Below 720px: what is wrong with each cell, by slug.
-            const phone = () => page.evaluate((titles) => {
+            const phone = () => page.evaluate(({ titles, shadow, exact }) => {
                 const page = document.documentElement.clientWidth;
                 const box = (el) => el.getBoundingClientRect();
                 const cells = [...document.querySelectorAll('project-index .cell')];
@@ -1501,7 +1575,7 @@ try {
                     // one cell to a row, as wide as the page
                     if (Math.abs(a.left) > 0.5 || Math.abs(a.width - page) > 0.5 || (i > 0 && a.top < box(cells[i - 1]).bottom - 0.5)) bad.rows.push(slug);
 
-                    // the title: shown, the project's own, under its frame and nearer to it than to the next one
+                    // the title: shown, the project's own, under its picture and nearer to it than to the next one
                     const n = name ? box(name) : null;
                     const first = next ? next.querySelector('.box') ?? next.querySelector('.name') : null;
                     const after = first ? box(first).top - n?.bottom : null;
@@ -1511,25 +1585,27 @@ try {
                     else {
                         if (name.textContent !== titles[slug]) why.push(`reads "${name.textContent}"`);
                         if (n.top < a.top - 0.5 || n.bottom > a.bottom + 0.5) why.push('outside its cell');
-                        if (under !== null && !(under > 0 && Math.abs(under - 10) < 0.5)) why.push(`${under.toFixed(2)}px under its frame, not 10`);
+                        if (under !== null && !(under > 0 && Math.abs(under - 10) < 0.5)) why.push(`${under.toFixed(2)}px under its picture, not 10`);
                         if (after !== null && !(after > 0 && Math.abs(after - 32) < 0.5)) why.push(`${after.toFixed(2)}px before the next, not 32`);
-                        if (under !== null && after !== null && !(under < after)) why.push('nearer to the next frame than to its own');
+                        if (under !== null && after !== null && !(under < after)) why.push('nearer to the next picture than to its own');
                         if (n.width > page * 0.91 + 0.5 || Math.abs((n.left + n.right) / 2 - page / 2) > 0.5) why.push('not centred within 91% of the page');
                     }
                     if (why.length) bad.titles.push(`${slug}: ${why.join(', ')}`);
 
-                    // the thumbnail: whole, framed, centred, as large as fits 91% of the page's width and 49.9733% of it in height
+                    // the thumbnail: whole, centred, without a border, with the shadow, as large as fits 91% of the
+                    // page's width and 49.9733% of it in height: one of the two exactly
                     if (frame) {
                         const s = getComputedStyle(frame);
                         const img = frame.querySelector('img');
                         const im = box(img);
                         const wrong = [];
-                        if (Math.abs((f.width - 12) / (f.height - 12) - img.getAttribute('width') / img.getAttribute('height')) > 0.01
-                            || Math.abs(im.width - (f.width - 12)) > 0.5 || Math.abs(im.height - (f.height - 12)) > 0.5) wrong.push('cropped');
-                        if (!['Top', 'Right', 'Bottom', 'Left'].every(k => s[`border${k}Width`] === '6px') || s.boxShadow === 'none') wrong.push('not framed');
+                        if (Math.abs(f.width / f.height - img.getAttribute('width') / img.getAttribute('height')) > 0.01
+                            || Math.abs(im.width - f.width) > 0.5 || Math.abs(im.height - f.height) > 0.5) wrong.push('cropped, or not filling its box');
+                        if (!['Top', 'Right', 'Bottom', 'Left'].every(k => s[`border${k}Width`] === '0px')) wrong.push(`a border (${s.borderTopWidth})`);
+                        if (s.boxShadow !== shadow) wrong.push(`shadow ${s.boxShadow}`);
                         if (Math.abs((f.left + f.right) / 2 - page / 2) > 0.5) wrong.push('not centred');
-                        if (f.width > page * 0.91 + 0.5 || f.height > page * 0.499733 + 0.5) wrong.push('too large');
-                        if (f.width < page * 0.91 - 0.5 && f.height < page * 0.499733 - 0.5) wrong.push('smaller than fits');
+                        if (f.width > page * 0.91 + exact || f.height > page * 0.499733 + exact) wrong.push('too large');
+                        if (Math.abs(f.width - page * 0.91) > exact && Math.abs(f.height - page * 0.499733) > exact) wrong.push(`neither side on its limit (${f.width} × ${f.height} in ${page * 0.91} × ${page * 0.499733})`);
                         if (f.top < a.top - 0.5 || f.bottom > a.bottom + 0.5) wrong.push('outside its cell');
                         if (wrong.length) bad.thumbs.push(`${slug}: ${wrong.join(', ')}`);
                     }
@@ -1542,8 +1618,11 @@ try {
                     list: rows.map(r => r.dataset.slug),
                     under: !last || list.top >= last.bottom - 0.5,
                     scroll: document.documentElement.scrollWidth - page,
+                    // every row's date and title, and the page's own type
+                    type: [...new Set(rows.map(r => [r.querySelector('.years'), r.querySelector('.title')].map(el => `${getComputedStyle(el).fontWeight} ${getComputedStyle(el).fontSize}`).join(' | ')))],
+                    body: [getComputedStyle(document.body).fontSize, getComputedStyle(document.body).lineHeight, getComputedStyle(document.body).fontWeight].join(' / '),
                 };
-            }, titles);
+            }, { titles, shadow: SHADOW, exact: EXACT });
             const want = JSON.stringify(published.map(p => p.data.slug).sort());
             for (const [width, height] of [[390, 844], [360, 740], [719, 900]]) {
                 await open(width, height);
@@ -1556,8 +1635,9 @@ try {
                 const m = await phone();
                 const at = `at ${width}×${height}`;
                 check(`7. ${at} one cell to a row, each as wide as the page, the list under the grid, no horizontal scroll`, m.rows.length === 0 && m.under && m.scroll <= 0 && JSON.stringify([...m.cells].sort()) === want, `${m.rows.slice(0, 5).join(', ')} under=${m.under} scroll=${m.scroll} cells=${m.cells.length}`);
-                check(`7. ${at} every project's title shows under its thumbnail: 10px under its own frame, 32px before the next`, m.titles.length === 0 && m.cells.length === published.length, m.titles.slice(0, 5).join(' | '));
-                check(`7. ${at} every thumbnail is whole, framed, centred and as large as fits`, m.thumbs.length === 0, m.thumbs.slice(0, 5).join(' | '));
+                check(`7. ${at} every project's title shows under its thumbnail: 10px under its own picture, 32px before the next`, m.titles.length === 0 && m.cells.length === published.length, m.titles.slice(0, 5).join(' | '));
+                check(`7. ${at} every thumbnail is whole, centred, without a border, with the shadow, and as large as fits: the side that limits it is exactly on its limit`, m.thumbs.length === 0, m.thumbs.slice(0, 5).join(' | '));
+                check(`7. ${at} the type is 13px on a 16px line, Light; in the list every date is Light (300) and every title Bold (700)`, m.body === BODY && m.type.length === 1 && m.type[0] === '300 13px | 700 13px', `body ${m.body}; rows ${m.type.slice(0, 3).join(' ; ')}`);
             }
 
             // The title's type is the list titles'; pointing at the thumbnail or focusing it turns it the link colour.
@@ -1688,16 +1768,42 @@ try {
             }
         }
 
-        // 4. 390px
+        // 4. 390px, and on the way through every route: the type, and the pictures' boxes (the grid's `.box`,
+        // a project page's `.frame`; every one in the HTML, shown or not): no border, the shadow.
         await page.setViewportSize({ width: 390, height: 844 });
         const wide = [];
+        const type = [];
+        const boxes = [];
+        let pictures = 0;
         for (const path of routes) {
             await page.goto(base + path);
             await page.waitForTimeout(30);
             const w = await page.evaluate(() => document.documentElement.scrollWidth);
             if (w > 390) wide.push(`${path} (${w}px)`);
+            const look = await page.evaluate((shadow) => {
+                const set = (el) => { const s = getComputedStyle(el); return [s.fontSize, s.lineHeight, s.fontWeight].join(' / '); };
+                const all = [...document.querySelectorAll('picture, project-index .box, project-slides .frame')];
+                return {
+                    body: set(document.body),
+                    // Text that is not the body's size: only a photo's caption may be.
+                    other: [...new Set([...document.querySelectorAll('body *')].filter(el => el.getClientRects().length && [...el.childNodes].some(n => n.nodeType === 3 && n.data.trim()) && !el.closest('.visually-hidden'))
+                        .map(el => `${el.matches('.caption, .caption *') ? 'caption' : el.localName} ${getComputedStyle(el).fontSize} / ${getComputedStyle(el).lineHeight}`))]
+                        .filter(t => !/ 13px \/ (16|18\.73)px$/.test(t) && t !== 'caption 11px / 13.2px'),
+                    count: new Set(all).size,
+                    wrong: [...new Set(all)].map((el) => {
+                        const s = getComputedStyle(el);
+                        const border = ['Top', 'Right', 'Bottom', 'Left'].map(k => s[`border${k}Width`]).join(' ');
+                        return border !== '0px 0px 0px 0px' ? `a border (${border})` : s.boxShadow !== shadow ? `shadow ${s.boxShadow}` : '';
+                    }).filter(Boolean),
+                };
+            }, SHADOW);
+            if (look.body !== BODY || look.other.length) type.push(`${path}: body ${look.body}${look.other.length ? `; ${look.other.slice(0, 3).join(', ')}` : ''}`);
+            pictures += look.count;
+            if (look.wrong.length) boxes.push(`${path}: ${look.wrong.length} of ${look.count}, ${look.wrong[0]}`);
         }
         check('4. no horizontal scroll at 390px on any route', wide.length === 0, wide.join(', '));
+        check('the type on every route is 13px on a 16px line, Light (a project\'s type, role and client on an 18.73px line; a caption 11px / 13.2px)', type.length === 0, type.slice(0, 4).join(' | '));
+        check(`no picture on any route has a border, and every one has the shadow: the ${pictures} thumbnails and project photos`, pictures > 0 && boxes.length === 0, boxes.slice(0, 4).join(' | '));
 
         // 6. the intro line stays on the grid's side of the page: side by side (from 720px) it wraps before the
         // middle, 16px short of it, and the header keeps its 88px, so the columns under it do not move.
@@ -1773,6 +1879,7 @@ try {
     // stops where the fade begins, and shows no scrollbar; a column whose text fits cannot be dragged
     // at all (the slanted types lean 0.84px over their own end, which a scroller counts and rounds up,
     // so their way is up to 2px longer and one that just fits may give 1px); a tap on a tag filters.
+    // The fade is the last 1em of a column, 13px: a list dragged to its end has its last tag clear of it.
     {
         const context = await browser.newContext({ viewport: { width: 820, height: 1180 }, deviceScaleFactor: 1, hasTouch: true });
         const page = await context.newPage();
@@ -1788,11 +1895,11 @@ try {
                 const ls = getComputedStyle(line);
                 c.scrollLeft = 10000;
                 const tag = [...c.querySelectorAll('.tag')].at(-1)?.getBoundingClientRect();
-                const at = { k, slug: c.closest('.row').dataset.slug, over: px(ls.width) - (c.getBoundingClientRect().width - px(cs.paddingLeft) - 12), drag: c.scrollLeft, cut: cs.overflowX, bar: c.offsetHeight - c.clientHeight, moved: ls.translate, tags: Boolean(tag), last: tag ? c.getBoundingClientRect().right - tag.right : 12 };
+                const at = { k, slug: c.closest('.row').dataset.slug, over: px(ls.width) - (c.getBoundingClientRect().width - px(cs.paddingLeft) - 13), drag: c.scrollLeft, cut: cs.overflowX, bar: c.offsetHeight - c.clientHeight, moved: ls.translate, tags: Boolean(tag), last: tag ? c.getBoundingClientRect().right - tag.right : 13 };
                 c.scrollLeft = 0;
                 return at;
             }));
-            const wrong = cells.filter(c => c.cut !== 'auto' || c.bar !== 0 || c.moved !== 'none' || (c.over <= 0.01 ? c.drag > 1 : c.drag < c.over - 1 || c.drag > c.over + 2.5 || c.last < 10.5));
+            const wrong = cells.filter(c => c.cut !== 'auto' || c.bar !== 0 || c.moved !== 'none' || (c.over <= 0.01 ? c.drag > 1 : c.drag < c.over - 1 || c.drag > c.over + 2.5 || c.last < 11.5));
             const most = cells.filter(c => c.over > 0.01 && c.tags).sort((a, b) => b.over - a.over)[0];
             let tapped = 'no type list is cut';
             if (most) {
@@ -1825,7 +1932,7 @@ try {
             await page.waitForFunction(() => { const img = document.querySelector('project-slides .slide.current img'); return img.complete && img.naturalWidth > 0; });
             await page.evaluate(() => document.fonts.ready);
             const start = await lie(page);
-            // The header as it is with nothing under it; its last 8px are left clear for the shadow of a frame at rest under it.
+            // The header as it is with nothing under it; its last 8px are left clear for the shadow of a photo at rest under it.
             const clip = { x: 0, y: 0, width: 390, height: Math.round(start.head.bottom) - 8 };
             const pixels = async () => sharp(await page.screenshot({ clip })).raw().toBuffer();
             const clear = await pixels();

@@ -139,12 +139,12 @@ The thumbnail is the photo in the grid on the home page. On a phone the thumbnai
 under the other, each with the project's title under it.
 
 - **Thumbnail photo (cover)**: press **Select** and pick a photo from the project's folder.
-  Empty = a blank space in the grid (no frame), and on a phone just the project's title; it
-  still opens the project.
+  Empty = a blank space in the grid, and on a phone just the project's title; it still opens
+  the project.
 
 Every thumbnail looks the same: the photo shows whole, in its own proportions (nothing is
-cut off), centred in its box, in a paper-coloured frame. There is nothing else to set. If
-you want a tighter view, crop the photo before uploading it.
+cut off), centred in its box, with a soft shadow around it and no frame. There is nothing
+else to set. If you want a tighter view, crop the photo before uploading it.
 
 ## Replace a photo
 

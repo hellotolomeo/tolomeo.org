@@ -193,11 +193,12 @@ function lean(p) {
 }
 
 // A thumbnail is as large as fits 91% of its cell's width and 49.9733% of that width in height
-// (86.5% of a 341.2 : 197.12 cell), less the 6px frame (components/project-index.css); a cell is a
-// quarter of the page wide, and the whole page below 720px, where the grid is one column.
+// (86.5% of a 341.2 : 197.12 cell): the picture itself, which has had no border since 19 Nov 2026
+// (components/project-index.css); a cell is a quarter of the page wide, and the whole page below
+// 720px, where the grid is one column.
 function coverSizes(c) {
     const a = aspect(c) ?? 1.5;
-    const fit = (cell) => `min(calc(${Math.round(cell * 91) / 100}vw - 12px), calc((${Math.round(cell * 49.9733) / 100}vw - 12px) * ${a}))`;
+    const fit = (cell) => `min(${Math.round(cell * 91) / 100}vw, calc(${Math.round(cell * 49.9733) / 100}vw * ${a}))`;
     return `(max-width: 719px) ${fit(100)}, ${fit(25)}`;
 }
 
@@ -249,17 +250,19 @@ export function relPath(value, slug) {
 
 const aspect = (pic) => (pic?.width && pic?.height ? Math.round((pic.width / pic.height) * 10000) / 10000 : null);
 
-// A slide is as large as fits its frame's room (components/project-slides.css: the width left
-// between the arrows, the height left between the header and the caption), less the 6px frame.
-// Every set has the same room: each is one window tall under the header.
+// A slide is as large as fits its room (components/project-slides.css): the width left between
+// the arrows (the page less 2 × 44px of chevron targets below 600px, and less 2 × 74.25px above,
+// where each side also has a 14.25px gap and a 16px edge) and the height left between the 79px
+// header and the caption's 63px. Every set has the same room: each is one window tall under the header.
 function slideSizes(g) {
     const a = aspect(g) ?? 1.5;
-    const tall = `calc((100vh - 154px) * ${a})`;
-    return `(max-width: 600px) min(calc(100vw - 100px), ${tall}), min(calc(100vw - 161px), ${tall})`;
+    const tall = `calc((100vh - 142px) * ${a})`;
+    return `(max-width: 600px) min(calc(100vw - 88px), ${tall}), min(calc(100vw - 148.5px), ${tall})`;
 }
 
-// --- Generated stylesheets: proportions never go inline. Each framed box takes its image's
-// own proportions (--a), so no photo is ever cropped and the frame fits it exactly.
+// --- Generated stylesheets: proportions never go inline. Each picture's box (`.box` in the grid,
+// `.frame` on a project page: names from when it had a border) takes its image's own proportions
+// (--a), so no photo is ever cropped and the box, with its shadow, is exactly the picture.
 
 /** client/covers.css: the tag colour, and one rule per grid cell (components/project-index.css). */
 export function coversCss(projects, config) {
