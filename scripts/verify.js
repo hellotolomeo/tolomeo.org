@@ -525,8 +525,13 @@ const sheetOff = (m) => {
     const tops = [m.text, d.wide ? null : m.figure, d.wide ? null : m.caption, m.note].filter(Boolean).map(b => b.top);
     if (tops.some((t, i) => i > 0 && t < tops[i - 1])) off.push(`the parts are not one under the other (${tops.join(', ')})`);
     if (d.wide && m.note && m.figure && m.note.left < m.figure.right) off.push('the footnote is under the picture, not under the text');
-    const lowest = Math.max(...[m.figure?.bottom, m.note?.bottom, m.text ? m.text.bottom + (!d.wide && !m.note && !m.figure ? d.apart : 0) : null].filter(v => typeof v === 'number'), h.head);
-    if (!near(m.main.bottom - lowest, d.end, 0.1)) off.push(`the page ends ${m.main.bottom - lowest} under its lowest part, not ${d.end}`);
+    // From 900px a caption does not count for that padding: it stands in the room the picture keeps free under itself (76px of
+    // the window's height), so the page ends 60px under the text and its footnote, or where the caption ends, whichever is
+    // lower. (With the 60px under the caption as well, as the design had it, the Collaborations page scrolled by 23px with
+    // everything on it in the window.) A picture without a caption has the 60px under it, as it always had.
+    const written = Math.max(...[m.note?.bottom, m.text ? m.text.bottom + (!d.wide && !m.note && !m.figure ? d.apart : 0) : null].filter(v => typeof v === 'number'), h.head);
+    const end = d.wide && m.figure && m.caption ? Math.max(m.figure.bottom, written + d.end) : Math.max(written, m.figure?.bottom ?? 0) + d.end;
+    if (!near(m.main.bottom, end, 0.1)) off.push(`the page ends at ${m.main.bottom}, not at ${end}: ${d.end}px under its lowest part${d.wide && m.caption ? ', for which a caption does not count' : ''}`);
     if (Math.abs(m.tall - Math.max(m.vh, m.main.bottom + m.y)) > 1) off.push(`the page is ${m.tall} tall, its content ends at ${m.main.bottom + m.y}`);
     if (m.wide > m.vw) off.push(`the page is ${m.wide}px wide`);
     return off.join('; ');
@@ -2597,6 +2602,8 @@ try {
                 const promised = [];
                 const taken = [];
                 const tally = { pictures: 0, byWidth: 0, byHeight: 0, least: 0, captions: 0, notes: 0, scroll: [] };
+                const idle = [];
+                const fitted = { all: 0, captioned: 0 };
                 for (const s of sheetFronts) {
                     const want = sheetWants(s);
                     for (const [width, height] of sizes) {
@@ -2620,10 +2627,22 @@ try {
                         if (m.caption) tally.captions++;
                         if (m.note) tally.notes++;
                         if (width === 1366) tally.scroll.push(`/${s.name}/ ${m.tall - m.vh}px`);
+                        // From 900px: is everything on the page in the window, the text and its footnote with the page's 60px under them?
+                        // Then there is nothing to scroll to. (Read from the page: the picture's box, the caption's, the text's and the footnote's.)
+                        if (width >= WIDE) {
+                            const text = Math.max(m.text?.bottom ?? 0, m.note?.bottom ?? 0);
+                            if (Math.max(m.picture?.bottom ?? 0, m.caption?.bottom ?? 0, text + sheetOf(width).end) <= m.vh) {
+                                fitted.all++;
+                                if (m.caption) fitted.captioned++;
+                                if (m.tall > m.vh) idle.push(`/${s.name}/ at ${width} × ${height}: the page scrolls by ${m.tall - m.vh}px; its picture ends at ${Math.round(m.picture?.bottom ?? 0)}px, its caption at ${Math.round(m.caption?.bottom ?? 0)}px, its text at ${Math.round(text)}px`);
+                            }
+                        }
                     }
                 }
                 check(`3. the About and Collaborations pages in both layouts (${sizes.map(([w, h]) => `${w} × ${h}`).join(', ')}): the header ${pageOf(390).head}px, ${pageOf(1366).head}px from 900px, its title centred, Bold and not a link; below 900px the text from ${pageOf(390).head + sheetOf(390).first}px, 24px from either edge, paragraphs ${sheetOf(390).apart}px apart, the picture ${sheetOf(390).picture}px under it and the page wide less 24px either side, its caption ${sheetOf(390).under}px under it, the footnote ${sheetOf(390).note}px after that; from 900px the picture directly under the header, right-aligned to the centre less 8.5px, as large as fits its half and the window less the header less ${SHEET_KEEP}px, the text from the centre plus 8.5px and at most ${sheetOf(1366).column}px wide, its first line at ${pageOf(1366).head + sheetOf(1366).first}px, paragraphs ${sheetOf(1366).apart}px apart, the footnote ${sheetOf(1366).note}px under the text in the same column; a caption centred under its picture, at most ${SHEET_CAPTION}px wide; a footnote's first line at the column's edge and the others hung ${sheetOf(390).hang}em (${sheetOf(1366).hang}em from 900px); the picture whole, in its file's proportions, without a border, with the shadow (${tally.pictures} pictures measured: ${tally.byWidth} limited by their width, ${tally.byHeight} by the window's height, ${tally.least} of those in a window so short that the least room of ${SHEET_LEAST}px holds; ${tally.captions} captions, ${tally.notes} footnotes; at 1366 × 710 the pages scroll by ${tally.scroll.join(' and ')})`,
                     wrong.length === 0 && tally.pictures > 0, wrong.slice(0, 4).join(' | '));
+                check(`3. from 900px a caption under the picture does not make a page of text longer than what is on it: it stands in the room the picture keeps free under itself, so a page whose picture, caption, text and footnote are all in the window, the text with its ${sheetOf(1366).end}px under it, has nothing to scroll (${fitted.all} such pages and window sizes above, ${fitted.captioned} of them with a caption)`,
+                    idle.length === 0 && (fitted.captioned > 0 || !sheetFronts.some(f => sheetWants(f).caption)), idle.slice(0, 4).join(' | ') || (fitted.captioned > 0 || !sheetFronts.some(f => sheetWants(f).caption) ? '' : 'no page with a caption fitted its window: the check tried nothing'));
                 check(`3. the picture's sizes attribute on the About and Collaborations pages gives the width it is shown at, to the pixel, in both layouts, the same on its <source> (${tally.pictures} measured)`, promised.length === 0, promised.slice(0, 4).join(' | '));
                 check('3. on the About and Collaborations pages the browser takes the smallest file that is at least as wide as the picture (so it reads their sizes attribute as written), at every window size above', taken.length === 0, taken.slice(0, 4).join(' | '));
 
