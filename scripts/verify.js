@@ -2434,6 +2434,43 @@ try {
                 }
                 check(`a page fetches ahead exactly the font files its text is drawn with, at 390 and 1366px (${[...told].map(([name, files]) => `${name}: ${files}`).join('; ')})`, wrong.length === 0 && told.size === kinds.length, wrong.slice(0, 4).join(' | '));
             }
+            // "back" is a word 28 to 37px wide and 15 to 20px tall: little to aim a finger at. The link answers 12px beyond the
+            // word on either side and over a height of 44px, by an unseen box of its own (`.back a::before` in client/site.css), as
+            // a chevron does below 900px; the word, its place and its focus ring are what they were. Asked of the page, point by
+            // point: which element is there. The link leans (6°), and its box with it: the points are taken with room for that.
+            {
+                const kinds = [[`/projects/${(many ?? published[0]).data.slug}/`, 'a project page'], ...SHEET_PAGES.slice(0, 1).map(sh => [`/${sh.name}/`, sh.title]), ['/404.html', 'the 404 page']];
+                const small = [];
+                let asked = 0;
+                for (const [width, height] of [[390, 844], [1366, 710]]) {
+                    await page.setViewportSize({ width, height });
+                    for (const [path, name] of kinds) {
+                        await page.goto(base + path);
+                        await page.evaluate(() => document.fonts.ready.then(() => true));
+                        const m = await page.evaluate(() => {
+                            const a = document.querySelector('.back a');
+                            const b = a.getBoundingClientRect();
+                            const mine = (x, y) => { const el = document.elementFromPoint(x, y); return Boolean(el) && (el === a || a.contains(el)); };
+                            const [cx, cy] = [b.left + b.width / 2, b.top + b.height / 2];
+                            const area = { left: b.left - 12, right: b.right + 12, top: cy - 22, bottom: cy + 22 };
+                            const others = [...document.querySelectorAll('a, button')].filter(el => el !== a && el.getClientRects().length).map(el => el.getBoundingClientRect());
+                            const head = document.querySelector('.project-head');
+                            return {
+                                word: `${Math.round(b.width * 10) / 10} × ${Math.round(b.height * 10) / 10}`,
+                                // Inside the area on every side, and outside it on every side.
+                                answers: [[b.left - 9, cy], [b.right + 9, cy], [cx, cy - 20], [cx, cy + 20], [cx, cy]].every(([x, y]) => mine(x, y)),
+                                beyond: [[b.left - 16, cy], [b.right + 16, cy], [cx, cy - 25], [cx, cy + 25]].some(([x, y]) => mine(x, y)),
+                                over: others.filter(o => o.left < area.right && area.left < o.right && o.top < area.bottom && area.top < o.bottom).length,
+                                under: head ? area.bottom <= head.getBoundingClientRect().bottom : true,
+                                wide: document.documentElement.scrollWidth,
+                            };
+                        });
+                        asked++;
+                        if (!m.answers || m.beyond || m.over || !m.under || m.wide > width) small.push(`${name} at ${width}px: "back" (${m.word}) ${m.answers ? 'answers' : 'does not answer'} 9px beside the word and 20px above and below its middle${m.beyond ? ', and still does 16px beside it or 25px above or below' : ''}${m.over ? `; its area lies over ${m.over} other link or button` : ''}${m.under ? '' : '; its area reaches below the header'}${m.wide > width ? `; the page is ${m.wide}px wide` : ''}`);
+                    }
+                }
+                check(`"back" can be aimed at: the link answers 12px beyond the word on either side and over 44px of height, on no other link or button and inside the header, on a project page, a page of text and the 404 page at 390 and 1366px (${asked} places)`, small.length === 0 && asked === 2 * kinds.length, small.slice(0, 4).join(' | '));
+            }
             // 3. A project page with one photo snaps without a script, from the first moment (below 900px, with a mouse).
             // Its set must be a block there even before its own stylesheet (components/project-slides.css) has
             // arrived: laid out without it, a custom element is an inline box, which is no place to snap to; the
