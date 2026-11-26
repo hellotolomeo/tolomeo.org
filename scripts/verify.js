@@ -2377,6 +2377,43 @@ try {
                 }
                 check('the 404 page keeps its layout: back 42px down and 16px in (37px from 720px), in the tag colour, Light, leaning backwards, a link to the home page; the page\'s words 55px under it; nothing to scroll', wrong.length === 0, wrong.join('; '));
             }
+            // The font files a page fetches ahead (<link rel="preload"> in shared/pages/base.html) are the ones its text is drawn
+            // with, no more and no fewer: a face nothing on the page uses is 115 kB fetched for nothing (the 404 page, whose
+            // words are all Light since 26 Nov 2026, preloaded Bold), and one that is used and not preloaded comes late. Read in
+            // the page: the files the stylesheet's @font-face rules name (the two faces that take the apostrophe from a system
+            // font name none), and which of those faces the browser has loaded once the page's fonts are ready.
+            {
+                const kinds = [['/', 'the home page'], [`/projects/${(many ?? published[0]).data.slug}/`, 'a project page'], ...(single ? [[`/projects/${single.data.slug}/`, 'a project page with one photo']] : []), ...SHEET_PAGES.map(sh => [`/${sh.name}/`, sh.title]), ['/404.html', 'the 404 page']];
+                const wrong = [];
+                const told = new Map();
+                for (const [width, height] of [[390, 844], [1366, 710]]) {
+                    await page.setViewportSize({ width, height });
+                    for (const [path, name] of kinds) {
+                        await page.goto(base + path);
+                        const f = await page.evaluate(async () => {
+                            await document.fonts.ready;
+                            const file = {};
+                            for (const sheet of document.styleSheets) {
+                                for (const rule of sheet.cssRules) {
+                                    if (!(rule instanceof CSSFontFaceRule)) continue;
+                                    const url = rule.style.getPropertyValue('src').match(/url\(["']?([^"')]+\.woff2)["']?\)/);
+                                    if (url) file[`${rule.style.getPropertyValue('font-family').replace(/["']/g, '')} ${rule.style.getPropertyValue('font-weight')}`] = new URL(url[1], sheet.href).pathname;
+                                }
+                            }
+                            const name = (face) => `${face.family.replace(/["']/g, '')} ${face.weight}`;
+                            return {
+                                ahead: [...document.querySelectorAll('link[rel="preload"][as="font"]')].map(l => new URL(l.href).pathname).sort(),
+                                // A face with a file of its own covers every character; the apostrophe's two cover three.
+                                used: [...new Set([...document.fonts].filter(face => face.status === 'loaded' && face.unicodeRange === 'U+0-10FFFF' && file[name(face)]).map(face => file[name(face)]))].sort(),
+                                files: Object.keys(file).length,
+                            };
+                        });
+                        told.set(name, f.ahead.map(a => a.split('/').pop().replace(/^FluxischElse-|\.woff2$/g, '')).join(' and ') || 'none');
+                        if (f.files < 2 || f.ahead.join() !== f.used.join()) wrong.push(`${path} at ${width}px preloads ${f.ahead.join(', ') || 'nothing'} and draws its text with ${f.used.join(', ') || 'nothing'}`);
+                    }
+                }
+                check(`a page fetches ahead exactly the font files its text is drawn with, at 390 and 1366px (${[...told].map(([name, files]) => `${name}: ${files}`).join('; ')})`, wrong.length === 0 && told.size === kinds.length, wrong.slice(0, 4).join(' | '));
+            }
             // 3. A project page with one photo snaps without a script, from the first moment (below 900px, with a mouse).
             // Its set must be a block there even before its own stylesheet (components/project-slides.css) has
             // arrived: laid out without it, a custom element is an inline box, which is no place to snap to; the

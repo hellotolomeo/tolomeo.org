@@ -1,4 +1,6 @@
 {% extends 'shared/pages/base.html' %}
+{#- Nothing on this page is Bold, so it does not fetch that face ahead: the block that preloads it is left empty. -#}
+{% block bold %}{% endblock %}
 {% block content %}
 <main class="page not-found">
 <p class="back"><a href="/">back</a></p>
