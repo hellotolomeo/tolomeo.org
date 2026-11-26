@@ -2482,6 +2482,7 @@ try {
                 {
                     const changed = [];
                     const opened = [];
+                    const named = [];
                     for (const s of sheetFronts.filter(f => sheetWants(f).image)) {
                         const m = await go(s, 1366, 710);
                         await sheetPage.waitForTimeout(250);
@@ -2504,7 +2505,8 @@ try {
                             const r = big?.getBoundingClientRect();
                             const shown = document.querySelector('main.sheet img');
                             return {
-                                open: document.querySelectorAll('.zoom').length, role: box?.getAttribute('role') ?? '', modal: box?.getAttribute('aria-modal') ?? '', label: box?.getAttribute('aria-label') ?? '', alt: big?.getAttribute('alt'), shown: shown.getAttribute('alt'),
+                                open: document.querySelectorAll('.zoom').length, role: box?.getAttribute('role') ?? '', modal: box?.getAttribute('aria-modal') ?? '', label: box?.getAttribute('aria-label') ?? null, alt: big?.getAttribute('alt'), shown: shown.getAttribute('alt'),
+                                caption: document.querySelector('main.sheet figcaption')?.textContent.replace(/\s+/g, ' ').trim() ?? '',
                                 fills: Boolean(r) && r.left === 0 && r.top === 0 && r.width === innerWidth && r.height === innerHeight, fit: big ? getComputedStyle(big).objectFit : '', loaded: Boolean(big) && big.complete && big.naturalWidth > 0,
                                 same: Boolean(big) && Math.abs(big.naturalWidth / big.naturalHeight - shown.naturalWidth / shown.naturalHeight) < 0.01, onTop: Boolean(box) && document.elementFromPoint(innerWidth / 2, innerHeight / 2)?.closest('.zoom') === box && document.elementFromPoint(20, 20)?.closest('.zoom') === box,
                                 focus: document.activeElement === box, selected: String(getSelection()), parent: box?.parentElement?.localName ?? '',
@@ -2521,11 +2523,14 @@ try {
                             const sent = new DOMParser().parseFromString(await (await fetch(location.pathname)).text(), 'text/html');
                             return { open: document.querySelectorAll('.zoom').length, asSent: sent.body.innerHTML === document.body.innerHTML && sent.head.innerHTML === document.head.innerHTML, y: scrollY };
                         });
-                        // The dialog is named after the picture: its description, or the word of client/zoom.js for a picture that has none.
-                        if (z.open !== 1 || z.role !== 'dialog' || z.modal !== 'true' || z.label !== (z.shown || 'Image') || z.alt !== z.shown || !z.fills || z.fit !== 'contain' || !z.loaded || !z.same || !z.onTop || !z.focus || z.selected !== '' || z.parent !== 'body' || behind.y !== 0 || !behind.focus || after.open !== 0 || !after.asSent || after.y !== 0) opened.push(`/${s.name}/: ${JSON.stringify({ ...z, behind, after })}`);
+                        // The dialog is named in the owner's words: the picture's description, or else the caption under it (as the page
+                        // prints it, which the checks of the page's words hold to the content). A picture with neither has no name:
+                        // client/zoom.js makes none up (until 26 Nov 2026 it said "Image", a word nobody gave).
+                        named.push(z.shown ? 'its description' : z.caption ? 'its caption' : 'nothing');
+                        if (z.open !== 1 || z.role !== 'dialog' || z.modal !== 'true' || z.label !== (z.shown || z.caption || null) || z.alt !== z.shown || !z.fills || z.fit !== 'contain' || !z.loaded || !z.same || !z.onTop || !z.focus || z.selected !== '' || z.parent !== 'body' || behind.y !== 0 || !behind.focus || after.open !== 0 || !after.asSent || after.y !== 0) opened.push(`/${s.name}/: ${JSON.stringify({ ...z, behind, after })}`);
                     }
                     check('3. nothing changes the document of the About or the Collaborations page when it loads (watched from the end of parsing, before its one script, client/zoom.js, runs), and a single click on the picture does nothing: no change, nothing opened, the page where it was; the cursor over the picture says it can be enlarged', changed.length === 0, changed.join(' | '));
-                    check('3. a double click on the picture of the About or the Collaborations page opens it to the full window: whole, over everything, a dialog with keyboard focus named after the picture\'s description (or "Image" where none is written); the keys do not move the page behind it; Escape closes it, and the document is the server\'s HTML again', opened.length === 0 && sheetFronts.some(f => sheetWants(f).image), opened.join(' | ').slice(0, 900));
+                    check(`3. a double click on the picture of the About or the Collaborations page opens it to the full window: whole, over everything, a dialog with keyboard focus, named by the picture\'s description, by its caption where none is written, and not named where there is neither: no word but the owner\'s (today by ${named.join(' and ')}); the keys do not move the page behind it; Escape closes it, and the document is the server\'s HTML again`, opened.length === 0 && sheetFronts.some(f => sheetWants(f).image), opened.join(' | ').slice(0, 900));
                 }
 
                 // The header stays at the top of the window while the page scrolls under it, and what is behind it is

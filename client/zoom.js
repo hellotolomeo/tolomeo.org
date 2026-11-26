@@ -25,7 +25,10 @@ function open(frame) {
     box.tabIndex = -1;
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-modal', 'true');
-    box.setAttribute('aria-label', img.alt || 'Image');
+    // The dialog is named in the owner's words: the picture's description, or else the caption under
+    // it. A picture that has neither is not named; no word is made up for it here.
+    const name = img.alt || frame.closest('figure, .slide')?.querySelector('figcaption, .caption')?.textContent.replace(/\s+/g, ' ').trim();
+    if (name) box.setAttribute('aria-label', name);
     const big = new Image();
     big.alt = img.alt;
     // First the file the page already shows, which is there at once. The one that is sharp at
