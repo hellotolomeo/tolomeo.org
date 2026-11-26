@@ -157,12 +157,22 @@ const reshaped = async (page, a) => {
 const HOME_INDENT = 20;
 const HOME_FADE = 12.5;
 // The home page's text as typed (the front matter of content/site/index.md), and the intro's lines: the
-// lines of the field that are not empty, with the addresses of the links typed in a line. The field is
-// the owner's to edit in the CMS: it may be one line or many, with links or without, or empty, so the
-// checks take from it what the page should hold and never expect today's four lines.
+// lines of the field that print something (an empty line does not, nor does a line of nothing but an
+// image, which the site's Markdown leaves out). The field is the owner's to edit in the CMS: it may be
+// one line or many, with links or without, or empty, so the checks take from it what the page should
+// hold and never expect today's four lines.
 const homeFront = matter(readFileSync(join(root, 'content/site/index.md'), 'utf8'), {}).data;
-const homeIntro = String(homeFront.intro ?? '').split(/\r\n?|\n/).map(l => l.trim()).filter(Boolean);
-const homeLinks = (line) => [...line.matchAll(/\]\(([^)\s]+)\)/g)].map(m => m[1]);
+const homeIntro = String(homeFront.intro ?? '').split(/\r\n?|\n/).map(l => l.trim()).filter(l => l && homeText({ intro: l }).intro.length > 0);
+// The links typed in a line in the form the CMS's help gives, [words](address), by the checks' own
+// reading of the line: their addresses, of those the site prints as links (web, mail, phone, a path
+// on this site). A round bracket inside an address is taken with it; an image, ![words](file), is
+// no link (the site prints its words).
+const homeLinks = (line) => [...line.matchAll(/(!?)\[[^\]]*\]\(((?:[^()\s]|\([^()\s]*\))+)\)/g)].filter(m => !m[1]).map(m => m[2]).filter(a => /^(https?:|mailto:|tel:|\/|#|\.\.?\/)/i.test(a));
+// What the site makes of the field (homeText in server/content.js): the HTML of each part, and the
+// addresses of the links in a part. The site's Markdown also makes a link of an address typed bare
+// (https://…, www.…, a mail address), so a part can hold more links than were typed in brackets.
+const homeParts = homeText(homeFront).intro;
+const homePartLinks = (part) => [...part.matchAll(/<a href="([^"]*)">/g)].map(m => m[1]);
 // What the stylesheet does with an intro is checked on a made-up one as well, set in the page in place
 // of its own, so that every rule is tried whatever the owner's text is. Four lines of a field, read as
 // the site reads the field (homeText), so each is the HTML of one part as the template gets it: the
@@ -532,14 +542,22 @@ try {
             }
             const para = header.match(/<p>([\s\S]*?)<\/p>\s*$/)?.[1] ?? '';
             const parts = /^<span class="l">[\s\S]*<\/span>$/.test(para) ? para.slice('<span class="l">'.length, -'</span>'.length).split('</span> <span class="l">') : [];
-            if (parts.length !== homeIntro.length) { introOff.push(`${path}: ${parts.length} parts for ${homeIntro.length} lines`); continue; }
+            if (parts.length !== homeIntro.length || homeParts.length !== homeIntro.length) { introOff.push(`${path}: ${parts.length} parts on the page, ${homeParts.length} from the data layer, for ${homeIntro.length} lines`); continue; }
             homeIntro.forEach((line, i) => {
-                const hrefs = [...parts[i].matchAll(/<a href="([^"]*)">/g)].map(m => m[1]);
+                // The part is what the site's Markdown makes of the line, to the letter (whatever the line holds:
+                // a bare address is a link too). And by the checks' own reading of the line: it reads as the
+                // line's words, and every link typed as [words](address) is a link to that address, in the
+                // order typed.
+                const hrefs = homePartLinks(parts[i]);
+                const typed = homeLinks(line).map(html);
+                let found = 0;
+                for (const href of hrefs) if (href === typed[found]) found++;
+                if (parts[i] !== homeParts[i]) introOff.push(`${path}: part ${i + 1} is ${parts[i]}, not ${homeParts[i]}`);
                 if (textOf(parts[i]) !== html(words(line))) introOff.push(`${path}: part ${i + 1} reads "${textOf(parts[i])}", not "${html(words(line))}"`);
-                if (JSON.stringify(hrefs) !== JSON.stringify(homeLinks(line).map(html))) introOff.push(`${path}: part ${i + 1} links to ${hrefs.join(', ') || 'nothing'}, not ${homeLinks(line).join(', ') || 'nothing'}`);
+                if (found !== typed.length) introOff.push(`${path}: part ${i + 1} links to ${hrefs.join(', ') || 'nothing'}; typed, in this order: ${typed.join(', ')}`);
             });
         }
-        check(`1. index HTML has the intro: every line of the field a part of its own, in order, with its links (${homeIntro.length} lines, ${homeIntro.flatMap(homeLinks).length} links${homeIntro.length ? '' : ': the field is empty and the header has no paragraph'}; / and /projects/)`,
+        check(`1. index HTML has the intro: every line of the field a part of its own, in order, with its links (${homeIntro.length} lines, ${homeParts.flatMap(homePartLinks).length} links${homeIntro.length ? '' : ': the field is empty and the header has no paragraph'}; / and /projects/)`,
             introOff.length === 0, introOff.slice(0, 4).join('; '));
         // The meta description is the site's own description field, as plain text; the intro's words when that is
         // empty; and with both empty the page has no such tag (shared/pages/base.html prints it only for a text).
@@ -2888,7 +2906,7 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
         // two or three lines.
         const intro = [];
         const introSeen = { lines: new Set(), wide: new Set(), narrow: new Set() };
-        const ownLinks = homeIntro.flatMap(homeLinks).length;
+        const ownLinks = homeParts.flatMap(homePartLinks).length;
         const madeLinks = HOME_MADE_INTRO.join('').split('<a ').length - 1;
         // The made-up text in place of the page's own, its second part made longer a word at a time until the
         // paragraph (from 720px, where the parts run on) or that part (below, where it is a block of its own)
