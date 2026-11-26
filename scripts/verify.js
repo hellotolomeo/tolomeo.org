@@ -1665,7 +1665,7 @@ try {
                         await page.waitForTimeout(ZOOM_WAIT + 250);
                         const left = new URL(page.url()).pathname !== here;
                         const after = left ? null : await state();
-                        const gap = left ? NaN : await page.evaluate(() => (window.__clicks.length === 2 ? window.__clicks[1] - window.__clicks[0] : NaN));
+                        const gap = left ? NaN : await page.evaluate(() => (window.__clicks.length >= 2 ? window.__clicks[1] - window.__clicks[0] : NaN));
                         last = left ? `the page was left for ${new URL(page.url()).pathname}` : `${after.open} open, photo ${after.index + 1} after photo ${was.index + 1}, the clicks ${Math.round(gap)} ms apart`;
                         if (!left && gap < ZOOM_WAIT - 20) return { ok: was.open === 1 && after.open === 0 && after.index === was.index && after.y === was.y, last };
                     }
@@ -1676,10 +1676,16 @@ try {
                 const onPhoto = await twice(`${top} .current .frame`);
                 check('3. a double click on an open photo closes it and does nothing more: the click that follows the closing one lands on the page behind, and moves no photo on and follows no link (tried over the photo, and where the header\'s "back" is behind the open photo)',
                     onPhoto.ok && onLink.ok, `over the photo: ${onPhoto.last}; over "back": ${onLink.last}`);
-                // As the checks after this one expect the page: this project's, its first photo, nothing open.
-                if (new URL(page.url()).pathname !== here) { await page.goto(base + here); await slidesReady(page); }
-                if ((await state()).open) { await page.keyboard.press('Escape'); await page.waitForTimeout(150); }
-                await page.evaluate(() => document.querySelector('project-slides').setState({ index: 0 }));
+                // As the checks after this one expect the page: this project's, its first photo, a photo just closed by a click.
+                // (It is that already unless the check above failed.)
+                if (!onPhoto.ok || !onLink.ok) {
+                    await page.goto(base + here);
+                    await slidesReady(page);
+                    await dbl();
+                    await page.mouse.click(683, 355);
+                    await page.waitForTimeout(ZOOM_WAIT + 150);
+                    await page.evaluate(() => document.querySelector('project-slides').setState({ index: 0 }));
+                }
             }
             await page.keyboard.press('ArrowRight');
             const moved = await state();
@@ -4982,7 +4988,7 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                 await page.touchscreen.tap(box.x, box.y);
                 await page.touchscreen.tap(box.x, box.y);
                 await page.waitForTimeout(ZOOM_WAIT + 250);
-                const after = await page.evaluate(() => ({ open: document.querySelectorAll('.zoom').length, index: document.querySelector('project-slides').state.index, gap: window.__taps.length === 2 ? window.__taps[1] - window.__taps[0] : NaN }));
+                const after = await page.evaluate(() => ({ open: document.querySelectorAll('.zoom').length, index: document.querySelector('project-slides').state.index, gap: window.__taps.length >= 2 ? window.__taps[1] - window.__taps[0] : NaN }));
                 again = { counted: after.gap < ZOOM_WAIT - 20, ok: after.open === 0 && after.index === was.index, last: `${after.open} open, photo ${after.index + 1} after photo ${was.index + 1}, the taps ${Math.round(after.gap)} ms apart` };
             }
             check(`3. on a touch screen a double tap on an open photo closes it and leaves the set on the photo it showed (${many.data.slug})`, again.counted && again.ok, again.last);
