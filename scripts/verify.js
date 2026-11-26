@@ -32,7 +32,11 @@
  *   6. The home page (the redesign of 26 Nov 2026). The intro: every line of the
  *      field a part of its own, in Fluxisch Else Light in the link colour, its links
  *      underlined in the text colour; from 720px one running paragraph across the
- *      page, below that a block to a line, centred. From 720px the page does not
+ *      page, below that a block to a line, centred. What the intro says is the
+ *      owner's: its lines, its links and how many lines it takes at a width are
+ *      read from the field and the page, never expected (an intro of one line,
+ *      one without a link and an empty one all pass), and each rule is tried once
+ *      more on a made-up text set in its place. From 720px the page does not
  *      scroll: under the intro, however many lines it takes, the index fills what
  *      is left of the window, 20px from either edge, its two columns 29px apart,
  *      each under a 29px strip that ends in a thin line and each scrolling on its
@@ -63,7 +67,8 @@
  *      only one whose text is cut.
  *   7. The Index below 720px: one thumbnail to a row, each whole, centred, without
  *      a border, with the shadow, and as large as fits, its title 16px under its
- *      picture and 44px before the next one, Light, in the caption colour; the list
+ *      picture and 44px before the next one, Light, in the caption colour, at most
+ *      88% of the page wide (tried on a made-up title of three lines); the list
  *      under a thin line, 16px from either edge of the page; in the list the dates
  *      Light, the titles Bold and a sub-project's Light; the same projects in the grid
  *      and the list when a tag is clicked; the list without columns (at 320px as well), a
@@ -151,6 +156,20 @@ const reshaped = async (page, a) => {
 // The list: a sub-project's title is 20px in; a column fades over its last 1em, 12.5px.
 const HOME_INDENT = 20;
 const HOME_FADE = 12.5;
+// The home page's text as typed (the front matter of content/site/index.md), and the intro's lines: the
+// lines of the field that are not empty, with the addresses of the links typed in a line. The field is
+// the owner's to edit in the CMS: it may be one line or many, with links or without, or empty, so the
+// checks take from it what the page should hold and never expect today's four lines.
+const homeFront = matter(readFileSync(join(root, 'content/site/index.md'), 'utf8'), {}).data;
+const homeIntro = String(homeFront.intro ?? '').split(/\r\n?|\n/).map(l => l.trim()).filter(Boolean);
+const homeLinks = (line) => [...line.matchAll(/\]\(([^)\s]+)\)/g)].map(m => m[1]);
+// What the stylesheet does with an intro is checked on a made-up one as well, set in the page in place
+// of its own, so that every rule is tried whatever the owner's text is. Four lines of a field, read as
+// the site reads the field (homeText), so each is the HTML of one part as the template gets it: the
+// first begins with a slanted word and has a link with the full stop that follows it, the third a
+// link of two words. Its second part is made longer in the page, a word at a time, until the text
+// takes the lines a case asks for. It is never printed on the site.
+const HOME_MADE_INTRO = homeText({ intro: '*one* [two](/info/).\nthree four five\nsix [seven eight](/info/), nine.\nten:' }).intro;
 // The width in px that a `sizes` attribute promises the browser in a window of vw × vh: the first entry
 // whose media condition holds (the site writes only max-width / min-width in px), its length worked out
 // (vw, vh, px, calc, min). NaN for anything else, so a check that compares it fails.
@@ -495,33 +514,38 @@ try {
         const index = await (await fetch(`${base}/`)).text();
         const missingRows = published.filter(p => !index.includes(`id="row-${p.data.slug}"`) || !index.includes(`id="cell-${p.data.slug}"`));
         check('1. index HTML has every published project as a row and a cell', missingRows.length === 0, missingRows.map(p => p.data.slug).join(', '));
-        const site = matter(readFileSync(join(root, 'content/site/index.md'), 'utf8'), {}).data;
         // The intro is one field of several lines. Every line that is not empty is a line of Markdown and
         // one <span class="l"> of the header's one paragraph, in the field's order, a space between two
         // of them; a link typed in a line is a link in its span, to the address typed. At both addresses
-        // of the home page.
-        const introLines = String(site.intro ?? '').split(/\r\n?|\n/).map(l => l.trim()).filter(Boolean);
-        const linksOf = (line) => [...line.matchAll(/\]\(([^)\s]+)\)/g)].map(m => m[1]);
+        // of the home page. The lines are the field's own, however many: one is one part, and with the
+        // field left empty the header has no paragraph at all (the template leaves it out).
         const introOff = [];
         const homeBodies = {};
         for (const path of HOME_ROUTES) homeBodies[path] = path === '/' ? index : await (await fetch(base + path)).text();
         for (const path of HOME_ROUTES) {
             const body = homeBodies[path];
-            const para = body.match(/<header class="site-head">[\s\S]*?<p>([\s\S]*?)<\/p>\s*<\/header>/)?.[1] ?? '';
+            const header = body.match(/<header class="site-head">([\s\S]*?)<\/header>/)?.[1];
+            if (header === undefined) { introOff.push(`${path}: no header`); continue; }
+            if (!homeIntro.length) {
+                if (/<p[\s>]/.test(header)) introOff.push(`${path}: the header has a paragraph though the intro is empty`);
+                continue;
+            }
+            const para = header.match(/<p>([\s\S]*?)<\/p>\s*$/)?.[1] ?? '';
             const parts = /^<span class="l">[\s\S]*<\/span>$/.test(para) ? para.slice('<span class="l">'.length, -'</span>'.length).split('</span> <span class="l">') : [];
-            if (parts.length !== introLines.length) { introOff.push(`${path}: ${parts.length} parts for ${introLines.length} lines`); continue; }
-            introLines.forEach((line, i) => {
+            if (parts.length !== homeIntro.length) { introOff.push(`${path}: ${parts.length} parts for ${homeIntro.length} lines`); continue; }
+            homeIntro.forEach((line, i) => {
                 const hrefs = [...parts[i].matchAll(/<a href="([^"]*)">/g)].map(m => m[1]);
                 if (textOf(parts[i]) !== html(words(line))) introOff.push(`${path}: part ${i + 1} reads "${textOf(parts[i])}", not "${html(words(line))}"`);
-                if (JSON.stringify(hrefs) !== JSON.stringify(linksOf(line).map(html))) introOff.push(`${path}: part ${i + 1} links to ${hrefs.join(', ') || 'nothing'}, not ${linksOf(line).join(', ') || 'nothing'}`);
+                if (JSON.stringify(hrefs) !== JSON.stringify(homeLinks(line).map(html))) introOff.push(`${path}: part ${i + 1} links to ${hrefs.join(', ') || 'nothing'}, not ${homeLinks(line).join(', ') || 'nothing'}`);
             });
         }
-        check(`1. index HTML has the intro: every line of the field a part of its own, in order, with its links (${introLines.length} lines, ${introLines.flatMap(linksOf).length} links; / and /projects/)`,
-            introLines.length > 0 && introOff.length === 0, introOff.slice(0, 4).join('; '));
-        // The meta description is the site's own description field, as plain text; the intro's words when that is empty.
-        const described = text(site.description).replace(/\s+/g, ' ') || words(introLines.join(' '));
-        const metaOff = HOME_ROUTES.filter(path => !homeBodies[path].includes(`<meta name="description" content="${html(described)}">`));
-        check('1. the home page\'s meta description is the description field of content/site/index.md (/ and /projects/)', Boolean(described) && metaOff.length === 0, `${described}${metaOff.length ? `; not at ${metaOff.join(', ')}` : ''}`);
+        check(`1. index HTML has the intro: every line of the field a part of its own, in order, with its links (${homeIntro.length} lines, ${homeIntro.flatMap(homeLinks).length} links${homeIntro.length ? '' : ': the field is empty and the header has no paragraph'}; / and /projects/)`,
+            introOff.length === 0, introOff.slice(0, 4).join('; '));
+        // The meta description is the site's own description field, as plain text; the intro's words when that is
+        // empty; and with both empty the page has no such tag (shared/pages/base.html prints it only for a text).
+        const described = text(homeFront.description).replace(/\s+/g, ' ') || words(homeIntro.join(' '));
+        const metaOff = HOME_ROUTES.filter(path => (described ? !homeBodies[path].includes(`<meta name="description" content="${html(described)}">`) : /<meta\s+name="description"/.test(homeBodies[path])));
+        check(`1. the home page's meta description is the description field of content/site/index.md${described ? '' : ', and there is no such tag, the field and the intro being empty'} (/ and /projects/)`, metaOff.length === 0, `${described}${metaOff.length ? `; not so at ${metaOff.join(', ')}` : ''}`);
         // How the field is read (homeText in server/content.js), on made-up text: Windows line ends, lines
         // that are empty or blank, white space round a line; a description of its own, and none.
         {
@@ -1336,105 +1360,129 @@ try {
             // thumb starts under the strip, at the column's right edge. The grid's first cell is 12px under
             // its strip, the list's first row 9px, and 24px follow the last row. Also in a window only
             // 400px tall. The line count is read in the page, not expected: where a line breaks is the
-            // font's matter (and the system's, at these sizes).
+            // font's matter (and the system's, at these sizes), and how many lines there are is the owner's:
+            // the intro is theirs to edit, it may be one short line at every width, or none. So the page is
+            // measured with the intro as it is, whatever it takes, and then, at three of the windows, with a
+            // made-up one of exactly one, two, three and five lines set in its place (the header is the
+            // server's HTML, outside the component: nothing renders it again).
             {
                 const fills = [];
                 const counted = new Set();
-                for (const [width, height] of [[720, 500], [800, 600], [1024, 768], [1366, 710], [1920, 1080], [720, 400]]) {
+                const MADE = [1, 2, 3, 5];
+                // The page as it lies, with the intro as it is (`made` 0) or with a made-up one of `made` lines: one
+                // part of one word, to which words are added until the paragraph takes that many lines.
+                const filled = (made) => page.evaluate(async (made) => {
+                    const box = (el) => { const b = el.getBoundingClientRect(); return { left: b.left, right: b.right, top: b.top, bottom: b.bottom, width: b.width, height: b.height }; };
+                    const q = (sel) => document.querySelector(sel);
+                    let p = q('.site-head p');
+                    const count = () => {
+                        if (!p) return 0;
+                        const range = document.createRange();
+                        range.selectNodeContents(p);
+                        return new Set([...range.getClientRects()].filter(r => r.width > 0).map(r => Math.round((r.top + r.bottom) / 2 / 21))).size;
+                    };
+                    const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+                    if (made) {
+                        if (!p) { p = document.createElement('p'); q('.site-head').append(p); }
+                        const part = document.createElement('span');
+                        part.className = 'l';
+                        part.textContent = 'word';
+                        p.replaceChildren(part);
+                        for (let n = 0; n < 3000 && count() < made; n++) part.textContent += ' word';
+                        await frame();
+                    }
+                    const lines = count();
+                    const grid = q('project-index .scroll');
+                    const list = q('project-index .rows');
+                    const thumbs = () => [...document.querySelectorAll('project-index .thumb')].map(box);
+                    const rest = thumbs();
+                    // Each column to its end by itself: the other one and the page stay where they are.
+                    grid.scrollTop = grid.scrollHeight;
+                    await frame();
+                    const afterGrid = { grid: grid.scrollTop, list: list.scrollTop, page: scrollY, thumbs: thumbs() };
+                    list.scrollTop = list.scrollHeight;
+                    await frame();
+                    const afterList = { grid: grid.scrollTop, list: list.scrollTop, page: scrollY, thumbs: thumbs() };
+                    grid.scrollTop = 0;
+                    list.scrollTop = 0;
+                    await frame();
+                    const rows = [...document.querySelectorAll('project-index .row')];
+                    return {
+                        page: document.documentElement.clientWidth,
+                        window: [innerWidth, innerHeight],
+                        doc: [document.documentElement.scrollWidth, document.documentElement.scrollHeight],
+                        lines,
+                        head: box(q('.site-head')),
+                        text: p ? box(p) : null,
+                        index: box(q('project-index')),
+                        images: box(q('project-index .images')),
+                        section: box(q('project-index .index')),
+                        strips: [parseFloat(getComputedStyle(q('project-index .images'), '::before').height), box(q('project-index .head')).height],
+                        stripTop: box(q('project-index .head')).top,
+                        // The two words in the list's strip: each set like the column it names (a main project's title at
+                        // rest, a row's types), in a 24px line at the top of the strip.
+                        words: (() => {
+                            const head = q('project-index .head');
+                            const set = (el) => { const s = getComputedStyle(el); return [s.fontWeight, s.fontSize, s.color, s.transform].join(' '); };
+                            const middle = (el) => { const r = document.createRange(); r.selectNodeContents(el); const b = r.getBoundingClientRect(); return (b.top + b.bottom) / 2 - head.getBoundingClientRect().top; };
+                            const [projects, tags] = [head.querySelector('.title'), head.querySelector('.tags')];
+                            return {
+                                text: [projects.textContent, tags.textContent].join(' | '),
+                                projects: set(projects),
+                                titles: set(q('project-index .row:not(.child) .title')),
+                                tags: set(tags),
+                                types: set(q('project-index .row .tags')),
+                                line: getComputedStyle(head).lineHeight,
+                                middles: [middle(projects), middle(tags)],
+                            };
+                        })(),
+                        grid: { ...box(grid), over: getComputedStyle(grid).overflowY, more: grid.scrollHeight - grid.clientHeight },
+                        list: { ...box(list), over: getComputedStyle(list).overflowY, more: list.scrollHeight - list.clientHeight, all: list.scrollHeight },
+                        tracks: [...document.querySelectorAll('project-index .track')].map(box),
+                        rest,
+                        afterGrid,
+                        afterList,
+                        cell: box(q('project-index .cell')),
+                        row: box(rows[0]),
+                        rows: rows.length,
+                    };
+                }, made);
+                for (const [width, height, made] of [[720, 500, []], [800, 600, []], [1024, 768, []], [1366, 710, MADE], [1920, 1080, MADE], [720, 400, MADE]]) {
                     await page.setViewportSize({ width, height });
                     await page.mouse.move(1, 1);
                     await page.goto(`${base}/`);
                     await page.waitForFunction(() => document.querySelector('project-index')?.rendered);
                     await page.evaluate(() => document.fonts.ready.then(() => true));
                     const timeline = await page.evaluate(() => CSS.supports('animation-timeline: scroll()'));
-                    const at = await page.evaluate(async () => {
-                        const box = (el) => { const b = el.getBoundingClientRect(); return { left: b.left, right: b.right, top: b.top, bottom: b.bottom, width: b.width, height: b.height }; };
-                        const q = (sel) => document.querySelector(sel);
-                        const p = q('.site-head p');
-                        const range = document.createRange();
-                        range.selectNodeContents(p);
-                        const lines = new Set([...range.getClientRects()].filter(r => r.width > 0).map(r => Math.round((r.top + r.bottom) / 2 / 21))).size;
-                        const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-                        const grid = q('project-index .scroll');
-                        const list = q('project-index .rows');
-                        const thumbs = () => [...document.querySelectorAll('project-index .thumb')].map(box);
-                        const rest = thumbs();
-                        // Each column to its end by itself: the other one and the page stay where they are.
-                        grid.scrollTop = grid.scrollHeight;
-                        await frame();
-                        const afterGrid = { grid: grid.scrollTop, list: list.scrollTop, page: scrollY, thumbs: thumbs() };
-                        list.scrollTop = list.scrollHeight;
-                        await frame();
-                        const afterList = { grid: grid.scrollTop, list: list.scrollTop, page: scrollY, thumbs: thumbs() };
-                        grid.scrollTop = 0;
-                        list.scrollTop = 0;
-                        await frame();
-                        const rows = [...document.querySelectorAll('project-index .row')];
-                        return {
-                            page: document.documentElement.clientWidth,
-                            window: [innerWidth, innerHeight],
-                            doc: [document.documentElement.scrollWidth, document.documentElement.scrollHeight],
-                            lines,
-                            head: box(q('.site-head')),
-                            text: box(p),
-                            index: box(q('project-index')),
-                            images: box(q('project-index .images')),
-                            section: box(q('project-index .index')),
-                            strips: [parseFloat(getComputedStyle(q('project-index .images'), '::before').height), box(q('project-index .head')).height],
-                            stripTop: box(q('project-index .head')).top,
-                            // The two words in the list's strip: each set like the column it names (a main project's title at
-                            // rest, a row's types), in a 24px line at the top of the strip.
-                            words: (() => {
-                                const head = q('project-index .head');
-                                const set = (el) => { const s = getComputedStyle(el); return [s.fontWeight, s.fontSize, s.color, s.transform].join(' '); };
-                                const middle = (el) => { const r = document.createRange(); r.selectNodeContents(el); const b = r.getBoundingClientRect(); return (b.top + b.bottom) / 2 - head.getBoundingClientRect().top; };
-                                const [projects, tags] = [head.querySelector('.title'), head.querySelector('.tags')];
-                                return {
-                                    text: [projects.textContent, tags.textContent].join(' | '),
-                                    projects: set(projects),
-                                    titles: set(q('project-index .row:not(.child) .title')),
-                                    tags: set(tags),
-                                    types: set(q('project-index .row .tags')),
-                                    line: getComputedStyle(head).lineHeight,
-                                    middles: [middle(projects), middle(tags)],
-                                };
-                            })(),
-                            grid: { ...box(grid), over: getComputedStyle(grid).overflowY, more: grid.scrollHeight - grid.clientHeight },
-                            list: { ...box(list), over: getComputedStyle(list).overflowY, more: list.scrollHeight - list.clientHeight, all: list.scrollHeight },
-                            tracks: [...document.querySelectorAll('project-index .track')].map(box),
-                            rest,
-                            afterGrid,
-                            afterList,
-                            cell: box(q('project-index .cell')),
-                            row: box(rows[0]),
-                            rows: rows.length,
-                        };
-                    });
-                    counted.add(at.lines);
-                    const near = (a, b) => Math.abs(a - b) <= 0.5;
-                    const half = (at.page - 2 * HOME_EDGE - HOME_GAP) / 2;
-                    const under = at.index.top + HOME_STRIP;
-                    const off = [];
-                    if (at.doc[0] > at.window[0] || at.doc[1] > at.window[1]) off.push(`the page is ${at.doc.join(' × ')}`);
-                    if (!near(at.head.height, 34 + at.lines * 21 + 12) || !near(at.text.left, 44) || !near(at.text.right, at.page - 44) || !near(at.text.top, 34)) off.push(`the intro's ${at.lines} line(s) in a header of ${at.head.height}px, the text from ${at.text.left} to ${at.text.right}, ${at.text.top} down`);
-                    if (!near(at.index.top, at.head.bottom) || !near(at.index.bottom, at.window[1])) off.push(`the index from ${at.index.top} to ${at.index.bottom}`);
-                    if (!near(at.images.left, HOME_EDGE) || !near(at.images.width, half) || !near(at.section.left, HOME_EDGE + half + HOME_GAP) || !near(at.section.width, half) || !near(at.section.right, at.page - HOME_EDGE)) off.push(`the columns at ${at.images.left} + ${at.images.width} and ${at.section.left} + ${at.section.width}`);
-                    if (!at.strips.every(h => near(h, HOME_STRIP)) || !near(at.stripTop, at.index.top)) off.push(`strips ${at.strips.join(' and ')}px tall, the list's at ${at.stripTop}`);
-                    if (at.words.text !== 'Projects | tags' || at.words.projects !== at.words.titles || !at.words.projects.startsWith(`700 ${HOME_TYPE.wide} `) || at.words.tags !== at.words.types || !at.words.tags.startsWith(`300 ${HOME_TYPE.wide} `) || at.words.tags.endsWith(' none')
-                        || at.words.line !== '24px' || at.words.middles.some(y => Math.abs(y - 12) > 1)) off.push(`the strip's words: ${JSON.stringify(at.words)}`);
-                    for (const [name, col] of [['grid', at.grid], ['list', at.list]]) if (!near(col.top, under) || !near(col.bottom, at.window[1]) || col.over !== 'auto') off.push(`the ${name} scrolls (${col.over}) from ${col.top} to ${col.bottom}`);
-                    if (!near(at.cell.top, under + 12) || !near(at.row.top, under + 9) || !near(at.list.all, Math.max(at.list.height, 9 + at.rows * 23 + 24))) off.push(`the first cell ${at.cell.top - under}px and the first row ${at.row.top - under}px under the strip; the list is ${at.list.all}px in all, its ${at.rows} rows and the 9px and 24px round them ${9 + at.rows * 23 + 24}px`);
-                    if (!near(at.tracks[0].top, under) || !near(at.tracks[1].top, under) || !near(at.tracks[0].right, at.images.right) || !near(at.tracks[1].right, at.section.right) || !at.tracks.every(t => near(t.width, 8) && near(t.bottom, at.window[1]))) off.push(`the thumbs' tracks at ${at.tracks.map(t => `${t.left}, ${t.top}`).join(' and ')}`);
-                    if (at.grid.more <= 0 || !near(at.afterGrid.grid, at.grid.more) || at.afterGrid.list !== 0 || at.afterGrid.page !== 0 || !near(at.afterList.list, Math.max(0, at.list.more)) || !near(at.afterList.grid, at.grid.more) || at.afterList.page !== 0) off.push(`scrolling one column moved another, or the page: ${JSON.stringify([at.afterGrid.grid, at.afterGrid.list, at.afterGrid.page, at.afterList.grid, at.afterList.list, at.afterList.page])}`);
-                    if (timeline) {
-                        // The thumbs: at the top of their track at rest, at its bottom when the column is at its end.
-                        if (!near(at.rest[0].top, under) || !near(at.afterGrid.thumbs[0].bottom, at.window[1]) || !near(at.rest[0].height, Math.min(123, at.tracks[0].height * 0.4))) off.push(`the grid's thumb from ${at.rest[0].top} (${at.rest[0].height}px) to ${at.afterGrid.thumbs[0].bottom}`);
-                        if (!near(at.rest[1].top, under) || (at.list.more > 0 && !near(at.afterList.thumbs[1].bottom, at.window[1])) || !near(at.rest[1].height, Math.min(299, at.tracks[1].height * 0.5))) off.push(`the list's thumb from ${at.rest[1].top} (${at.rest[1].height}px) to ${at.afterList.thumbs[1].bottom}`);
+                    for (const lines of [0, ...made]) {
+                        const at = await filled(lines);
+                        if (!lines) counted.add(at.lines);
+                        const near = (a, b) => Math.abs(a - b) <= 0.5;
+                        const half = (at.page - 2 * HOME_EDGE - HOME_GAP) / 2;
+                        const under = at.index.top + HOME_STRIP;
+                        const off = [];
+                        if (lines && at.lines !== lines) off.push(`the made-up intro takes ${at.lines} lines`);
+                        if (at.doc[0] > at.window[0] || at.doc[1] > at.window[1]) off.push(`the page is ${at.doc.join(' × ')}`);
+                        if (!near(at.head.height, 34 + at.lines * 21 + 12) || (at.text && (!near(at.text.left, 44) || !near(at.text.right, at.page - 44) || !near(at.text.top, 34)))) off.push(`the intro's ${at.lines} line(s) in a header of ${at.head.height}px${at.text ? `, the text from ${at.text.left} to ${at.text.right}, ${at.text.top} down` : ''}`);
+                        if (!near(at.index.top, at.head.bottom) || !near(at.index.bottom, at.window[1])) off.push(`the index from ${at.index.top} to ${at.index.bottom}`);
+                        if (!near(at.images.left, HOME_EDGE) || !near(at.images.width, half) || !near(at.section.left, HOME_EDGE + half + HOME_GAP) || !near(at.section.width, half) || !near(at.section.right, at.page - HOME_EDGE)) off.push(`the columns at ${at.images.left} + ${at.images.width} and ${at.section.left} + ${at.section.width}`);
+                        if (!at.strips.every(h => near(h, HOME_STRIP)) || !near(at.stripTop, at.index.top)) off.push(`strips ${at.strips.join(' and ')}px tall, the list's at ${at.stripTop}`);
+                        if (at.words.text !== 'Projects | tags' || at.words.projects !== at.words.titles || !at.words.projects.startsWith(`700 ${HOME_TYPE.wide} `) || at.words.tags !== at.words.types || !at.words.tags.startsWith(`300 ${HOME_TYPE.wide} `) || at.words.tags.endsWith(' none')
+                            || at.words.line !== '24px' || at.words.middles.some(y => Math.abs(y - 12) > 1)) off.push(`the strip's words: ${JSON.stringify(at.words)}`);
+                        for (const [name, col] of [['grid', at.grid], ['list', at.list]]) if (!near(col.top, under) || !near(col.bottom, at.window[1]) || col.over !== 'auto') off.push(`the ${name} scrolls (${col.over}) from ${col.top} to ${col.bottom}`);
+                        if (!near(at.cell.top, under + 12) || !near(at.row.top, under + 9) || !near(at.list.all, Math.max(at.list.height, 9 + at.rows * 23 + 24))) off.push(`the first cell ${at.cell.top - under}px and the first row ${at.row.top - under}px under the strip; the list is ${at.list.all}px in all, its ${at.rows} rows and the 9px and 24px round them ${9 + at.rows * 23 + 24}px`);
+                        if (!near(at.tracks[0].top, under) || !near(at.tracks[1].top, under) || !near(at.tracks[0].right, at.images.right) || !near(at.tracks[1].right, at.section.right) || !at.tracks.every(t => near(t.width, 8) && near(t.bottom, at.window[1]))) off.push(`the thumbs' tracks at ${at.tracks.map(t => `${t.left}, ${t.top}`).join(' and ')}`);
+                        if (at.grid.more <= 0 || !near(at.afterGrid.grid, at.grid.more) || at.afterGrid.list !== 0 || at.afterGrid.page !== 0 || !near(at.afterList.list, Math.max(0, at.list.more)) || !near(at.afterList.grid, at.grid.more) || at.afterList.page !== 0) off.push(`scrolling one column moved another, or the page: ${JSON.stringify([at.afterGrid.grid, at.afterGrid.list, at.afterGrid.page, at.afterList.grid, at.afterList.list, at.afterList.page])}`);
+                        if (timeline) {
+                            // The thumbs: at the top of their track at rest, at its bottom when the column is at its end.
+                            if (!near(at.rest[0].top, under) || !near(at.afterGrid.thumbs[0].bottom, at.window[1]) || !near(at.rest[0].height, Math.min(123, at.tracks[0].height * 0.4))) off.push(`the grid's thumb from ${at.rest[0].top} (${at.rest[0].height}px) to ${at.afterGrid.thumbs[0].bottom}`);
+                            if (!near(at.rest[1].top, under) || (at.list.more > 0 && !near(at.afterList.thumbs[1].bottom, at.window[1])) || !near(at.rest[1].height, Math.min(299, at.tracks[1].height * 0.5))) off.push(`the list's thumb from ${at.rest[1].top} (${at.rest[1].height}px) to ${at.afterList.thumbs[1].bottom}`);
+                        }
+                        if (off.length) fills.push(`${width} × ${height}${lines ? `, a made-up intro of ${lines} line(s)` : ''}: ${off.join('; ')}`);
                     }
-                    if (off.length) fills.push(`${width} × ${height}: ${off.join('; ')}`);
                 }
-                check(`6. from 720px the page does not scroll and the index fills what the intro leaves of the window, whether the intro takes ${[...counted].sort().join(', ')} lines: two equal columns 20px from the page's edges and 29px apart, each scrolling on its own under its 29px strip, its thumb under the strip; in the list's strip "Projects" set like the titles (Bold) and "tags" like the types (the tag colour, slanted), in a 24px line at its top (720 × 500, 800 × 600, 1024 × 768, 1366 × 710, 1920 × 1080, 720 × 400)`,
-                    fills.length === 0 && counted.size >= 2, fills.slice(0, 3).join(' | '));
+                check(`6. from 720px the page does not scroll and the index fills what the intro leaves of the window, with the intro as it is (${[...counted].sort().join(', ')} line(s)) and with a made-up one of ${MADE.join(', ')} lines in its place: two equal columns 20px from the page's edges and 29px apart, each scrolling on its own under its 29px strip, its thumb under the strip; in the list's strip "Projects" set like the titles (Bold) and "tags" like the types (the tag colour, slanted), in a 24px line at its top (720 × 500, 800 × 600, 1024 × 768, 1366 × 710, 1920 × 1080, 720 × 400; the made-up intros at the last three)`,
+                    fills.length === 0, fills.slice(0, 3).join(' | '));
             }
 
             // The list from 720px up: three rigid columns, every row one line. The date starts 12px from the
@@ -2526,6 +2574,38 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                 if (!f.words) off.push('the columns\' strips or their words show');
                 return off.join('; ');
             };
+            // The first project with a title made longer, a word at a time, until it takes three lines under its
+            // thumbnail (through the component's own state, as a title typed in the CMS would arrive): the
+            // title's box and its lines; then the state as it was, and whether the cell is as it was.
+            const longName = () => page.evaluate(() => {
+                const el = document.querySelector('project-index');
+                const all = el.state.projects;
+                const name = () => document.querySelector(`#cell-${all[0].slug} .name`);
+                const cell = () => { const b = document.querySelector(`#cell-${all[0].slug}`).getBoundingClientRect(); return [b.width, b.height, name().textContent].join(' / '); };
+                const linesOf = (node) => {
+                    const range = document.createRange();
+                    range.selectNodeContents(node);
+                    const rows = new Map();
+                    for (const r of [...range.getClientRects()].filter(r => r.width > 0)) {
+                        const key = Math.round((r.top + r.bottom) / 2);
+                        const row = [...rows.keys()].find(k => Math.abs(k - key) <= 3) ?? key;
+                        const at = rows.get(row) ?? { left: Infinity, right: -Infinity };
+                        rows.set(row, { left: Math.min(at.left, r.left), right: Math.max(at.right, r.right) });
+                    }
+                    return [...rows].sort((a, b) => a[0] - b[0]).map(([, ends]) => ends);
+                };
+                const before = cell();
+                let { title } = all[0];
+                let added = 0;
+                for (; added < 400 && linesOf(name()).length < 3; added++) {
+                    title += ' and on';
+                    el.setState({ projects: all.map((p, k) => (k === 0 ? { ...p, title } : p)) });
+                }
+                const b = name().getBoundingClientRect();
+                const got = { slug: all[0].slug, added, page: document.documentElement.clientWidth, width: b.width, left: b.left, right: b.right, height: b.height, lines: linesOf(name()) };
+                el.setState({ projects: all });
+                return { ...got, back: cell() === before };
+            });
             const want = JSON.stringify(published.map(p => p.data.slug).sort());
             for (const [width, height] of [[390, 844], [360, 740], [719, 900]]) {
                 await open(width, height);
@@ -2560,6 +2640,19 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                     const off = m.type.filter(r => r.set !== `300 ${HOME_TYPE.narrow} | ${subs.has(r.slug) ? 300 : 700} ${HOME_TYPE.narrow}`);
                     check(`7. ${at} the type is 14.5px on an 18px line, Light; in the list every date is Light (300), every title Bold (700) and a sub-project's title Light (300); under the thumbnails every title is Light`,
                         m.body === HOME_BODY.narrow && m.type.length === published.length && off.length === 0 && m.names.length === 1 && m.names[0] === `300 ${HOME_TYPE.narrow}`, `body ${m.body}; rows ${off.slice(0, 3).map(r => `${r.slug}: ${r.set}`).join(' ; ')}; under the thumbnails ${m.names.join(', ')}`);
+                }
+                {
+                    // The limit of a title under its thumbnail, 88% of the page: at these widths no title of the
+                    // content is that long (the widest is under 300px), so the limit is tried on a made-up one, the
+                    // first project's own with words added until it takes three lines, through the component's
+                    // own state (and the state is put back). Its box is then exactly as wide as it may be, centred,
+                    // its lines inside it, 18px each.
+                    const long = await longName();
+                    const limit = long.page * HOME_PHONE.name;
+                    check(`7. ${at} a title too long for one line under its thumbnail (made up: the first project's with "and on" added ${long.added} times, ${long.lines.length} lines) is as wide as 88% of the page and no wider, centred, its lines inside that and 18px each; with its own title back, the cell is as it was`,
+                        long.lines.length >= 3 && Math.abs(long.width - limit) <= 0.5 && Math.abs((long.left + long.right) / 2 - long.page / 2) <= 0.5 && Math.abs(long.height - long.lines.length * 18) <= 0.5
+                        && long.lines.every(l => l.left >= long.left - 0.5 && l.right <= long.right + 0.5 && Math.abs((l.left + l.right) / 2 - long.page / 2) <= 1) && long.back,
+                        `${long.slug}: ${long.width}px wide in a page of ${long.page}px (88% is ${limit}px), from ${long.left} to ${long.right}, ${long.height}px tall; lines ${long.lines.map(l => `${l.left.toFixed(1)} to ${l.right.toFixed(1)}`).join(', ')}; put back: ${long.back}`);
                 }
             }
 
@@ -2763,11 +2856,12 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
             }, SHADOW);
             if (HOME_ROUTES.includes(path)) {
                 // The home page has its own sizes (the redesign of 26 Nov 2026): every text that shows at 390px is the
-                // body's 14.5px on an 18px line, but the intro, which is 17.5px on a 21px line.
+                // body's 14.5px on an 18px line, but the intro, which is 17.5px on a 21px line (and is there to
+                // be measured unless the field is empty).
                 const sizes = await page.evaluate(() => [...new Set([...document.querySelectorAll('body *')].filter(el => el.getClientRects().length && [...el.childNodes].some(n => n.nodeType === 3 && n.data.trim()) && !el.closest('.visually-hidden'))
                     .map(el => `${el.closest('.site-head') ? 'intro' : el.localName} ${getComputedStyle(el).fontSize} / ${getComputedStyle(el).lineHeight}`))]);
                 const strange = sizes.filter(t => (t.startsWith('intro ') ? t !== `intro ${HOME_INTRO.narrow.split(' / ').slice(0, 2).join(' / ')}` : !t.endsWith(` ${HOME_BODY.narrow.split(' / ').slice(0, 2).join(' / ')}`)));
-                if (look.body !== HOME_BODY.narrow || strange.length || !sizes.some(t => t.startsWith('intro '))) homeType.push(`${path}: body ${look.body}${strange.length ? `; ${strange.slice(0, 3).join(', ')}` : ''}`);
+                if (look.body !== HOME_BODY.narrow || strange.length || (homeIntro.length > 0 && !sizes.some(t => t.startsWith('intro ')))) homeType.push(`${path}: body ${look.body}${strange.length ? `; ${strange.slice(0, 3).join(', ')}` : ''}`);
             } else if (look.body !== BODY || look.other.length) type.push(`${path}: body ${look.body}${look.other.length ? `; ${look.other.slice(0, 3).join(', ')}` : ''}`);
             pictures += look.count;
             captions += look.captions;
@@ -2786,91 +2880,188 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
         // the field a block of its own, 12px apart, its lines centred in the page between 30px margins,
         // 52px under the top and 30px over the grid. The lines are counted in the page: where one breaks is
         // the font's matter. At both addresses of the home page.
+        // What the text is, is the owner's: how many parts it has, how many lines they take at a width and
+        // whether there is a link in it are read from the field and from the page, never expected, and with
+        // the field empty the header is its padding. So that every rule is tried all the same, the page is
+        // then measured again with a made-up text in the intro's place (HOME_MADE_INTRO: four parts, two
+        // links), made as long as each case asks: from 720px in one to four lines, below with a part of
+        // two or three lines.
         const intro = [];
-        const introSeen = { lines: new Set(), parts: 0 };
-        for (const [width, path] of [[320, '/'], [390, '/'], [390, '/projects/'], [719, '/'], [720, '/'], [807, '/'], [1024, '/'], [1366, '/'], [1366, '/projects/'], [1920, '/']]) {
-            await page.setViewportSize({ width, height: 800 });
-            await page.mouse.move(1, 700);
-            await page.goto(base + path);
-            await page.evaluate(() => document.fonts.ready.then(() => true));
-            const read = () => page.evaluate(() => {
-                const box = (el) => { const b = el.getBoundingClientRect(); return { left: b.left, right: b.right, top: b.top, bottom: b.bottom, height: b.height }; };
-                const head = document.querySelector('.site-head');
-                const p = head.querySelector('p');
-                const hs = getComputedStyle(head);
-                // The lines of some text: each as its left and right ends and its middle, top to bottom.
-                const linesOf = (el) => {
-                    const range = document.createRange();
-                    range.selectNodeContents(el);
-                    const rows = new Map();
-                    for (const r of [...range.getClientRects()].filter(r => r.width > 0)) {
-                        const key = Math.round((r.top + r.bottom) / 2);
+        const introSeen = { lines: new Set(), wide: new Set(), narrow: new Set() };
+        const ownLinks = homeIntro.flatMap(homeLinks).length;
+        const madeLinks = HOME_MADE_INTRO.join('').split('<a ').length - 1;
+        // The made-up text in place of the page's own, its second part made longer a word at a time until the
+        // paragraph (from 720px, where the parts run on) or that part (below, where it is a block of its own)
+        // takes `lines` lines; the lines it then takes.
+        const stage = (lines) => page.evaluate(({ parts, lines }) => {
+            const head = document.querySelector('.site-head');
+            let p = head.querySelector('p');
+            if (!p) { p = document.createElement('p'); head.append(p); }
+            p.innerHTML = parts.map(h => `<span class="l">${h}</span>`).join(' ');
+            const grown = p.querySelectorAll('.l')[1];
+            const count = (el) => { const range = document.createRange(); range.selectNodeContents(el); return new Set([...range.getClientRects()].filter(r => r.width > 0).map(r => Math.round((r.top + r.bottom) / 2 / 21))).size; };
+            const taken = () => count(getComputedStyle(grown).display === 'block' ? grown : p);
+            for (let n = 0; n < 3000 && taken() < lines; n++) grown.textContent += ' more';
+            return taken();
+        }, { parts: HOME_MADE_INTRO, lines });
+        const read = () => page.evaluate(() => {
+            const box = (el) => { const b = el.getBoundingClientRect(); return { left: b.left, right: b.right, top: b.top, bottom: b.bottom, height: b.height }; };
+            const head = document.querySelector('.site-head');
+            const p = head.querySelector('p');
+            const hs = getComputedStyle(head);
+            const ps = getComputedStyle(p ?? head);
+            const parts = p ? [...p.querySelectorAll('.l')] : [];
+            // The boxes of a piece of text (a text node, or a part of one), one to a line it is on, as the layout
+            // has them. Slanted text (a *title* typed in the field: an inline-block with a skew, as everywhere on
+            // the site) leans over its own ends by half its height times the skew, and the browser gives its
+            // box with that lean (0.79px either side at 15px); it is taken back here, so that a line which
+            // starts or ends with a slanted word is measured where it stands, to the same half pixel as any other.
+            const boxesOf = (node, from = 0, to = node.data.length) => {
+                let skew = 0;
+                for (let up = node.parentElement; up && up !== head; up = up.parentElement) {
+                    const t = getComputedStyle(up).transform;
+                    if (t && t !== 'none') skew += Math.abs(new DOMMatrixReadOnly(t).c);
+                }
+                const range = document.createRange();
+                range.setStart(node, from);
+                range.setEnd(node, to);
+                return [...range.getClientRects()].filter(r => r.width > 0).map(r => ({ left: r.left + skew * r.height / 2, right: r.right - skew * r.height / 2, middle: (r.top + r.bottom) / 2 }));
+            };
+            // The lines of some text: each as its left and right ends and its middle, top to bottom.
+            const linesOf = (el) => {
+                const rows = new Map();
+                const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+                for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+                    for (const r of boxesOf(node)) {
+                        const key = Math.round(r.middle);
                         const row = [...rows.keys()].find(k => Math.abs(k - key) <= 3) ?? key;
                         const at = rows.get(row) ?? { left: Infinity, right: -Infinity };
                         rows.set(row, { left: Math.min(at.left, r.left), right: Math.max(at.right, r.right) });
                     }
-                    return [...rows].sort((a, b) => a[0] - b[0]).map(([middle, ends]) => ({ middle, ...ends }));
-                };
-                const probe = document.createElement('i');
-                probe.style.cssText = 'position: absolute; color: var(--link);';
-                document.body.append(probe);
-                const link = getComputedStyle(probe).color;
-                probe.remove();
-                const a = head.querySelector('a');
-                const as = a ? getComputedStyle(a) : null;
-                return {
-                    page: document.documentElement.clientWidth,
-                    head: box(head),
-                    main: document.querySelector('main').getBoundingClientRect().top,
-                    type: [hs.fontSize, hs.lineHeight, hs.fontWeight].join(' / '),
-                    face: hs.fontFamily,
-                    colour: hs.color,
-                    link,
-                    ink: getComputedStyle(document.body).color,
-                    align: hs.textAlign,
-                    padding: [hs.paddingTop, hs.paddingRight, hs.paddingBottom, hs.paddingLeft].join(' '),
-                    text: box(p),
-                    lines: linesOf(p),
-                    parts: [...p.querySelectorAll('.l')].map(l => ({ display: getComputedStyle(l).display, wrap: getComputedStyle(l).textWrapStyle ?? getComputedStyle(l).textWrap, ...box(l), lines: linesOf(l) })),
-                    links: [...head.querySelectorAll('a')].map((el) => { const s = getComputedStyle(el); return [s.color, s.fontWeight, s.textDecorationLine, s.textDecorationThickness, s.textUnderlineOffset].join(' '); }),
-                    hover: as ? as.color : '',
-                    loaded: [...new Set([...document.fonts].filter(f => f.status === 'loaded').map(f => f.family.replace(/["']/g, '')))].sort().join(', '),
-                };
-            });
+                }
+                return [...rows].sort((a, b) => a[0] - b[0]).map(([middle, ends]) => ({ middle, ...ends }));
+            };
+            const lines = p ? linesOf(p) : [];
+            // The words of the paragraph in reading order: a word is what stands between two white spaces,
+            // whatever elements it runs through (a link and the full stop after it are one word), since a line
+            // can only end at a space. Each with its part, the line it starts on and the one it ends on (a
+            // word the browser broke in itself, at a hyphen, is on two), its ends on the first of them and
+            // its right end on the last.
+            const words = [];
+            if (p) {
+                const lineAt = (middle) => lines.findIndex(l => Math.abs(l.middle - middle) <= 3);
+                const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+                let open = null;
+                for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+                    for (const m of node.data.matchAll(/[^ \t\n\r\f]+|[ \t\n\r\f]+/g)) {
+                        if (/^[ \t\n\r\f]/.test(m[0])) { open = null; continue; }
+                        const rects = boxesOf(node, m.index, m.index + m[0].length).map(r => ({ left: r.left, right: r.right, line: lineAt(r.middle) }));
+                        if (!rects.length) continue;
+                        if (!open) { open = { text: '', part: parts.indexOf(node.parentElement.closest('.l')), rects: [] }; words.push(open); }
+                        open.text += m[0];
+                        open.rects.push(...rects);
+                    }
+                }
+            }
+            // The link colour as the browser gives it back, and a space of the intro's type.
+            const probe = document.createElement('i');
+            probe.style.cssText = 'position: absolute; visibility: hidden; white-space: pre; color: var(--link);';
+            probe.textContent = ' ';
+            head.append(probe);
+            const link = getComputedStyle(probe).color;
+            const space = probe.getBoundingClientRect().width;
+            probe.remove();
+            const a = head.querySelector('a');
+            return {
+                page: document.documentElement.clientWidth,
+                head: box(head),
+                main: document.querySelector('main').getBoundingClientRect().top,
+                type: [hs.fontSize, hs.lineHeight, hs.fontWeight].join(' / '),
+                face: hs.fontFamily,
+                colour: hs.color,
+                link,
+                ink: getComputedStyle(document.body).color,
+                align: hs.textAlign,
+                wrap: ps.textWrapStyle ?? ps.textWrap,
+                padding: [hs.paddingTop, hs.paddingRight, hs.paddingBottom, hs.paddingLeft].join(' '),
+                paragraphs: head.querySelectorAll('p').length,
+                lines,
+                space,
+                words: words.map((w) => {
+                    const [from, to] = [w.rects[0].line, w.rects.at(-1).line];
+                    const on = (line) => w.rects.filter(r => r.line === line);
+                    return { text: w.text, part: w.part, line: from, end: to, left: Math.min(...on(from).map(r => r.left)), right: Math.max(...on(from).map(r => r.right)), endRight: Math.max(...on(to).map(r => r.right)) };
+                }),
+                parts: parts.map(l => ({ display: getComputedStyle(l).display, wrap: getComputedStyle(l).textWrapStyle ?? getComputedStyle(l).textWrap, ...box(l), lines: linesOf(l) })),
+                // A link's own look. Its weight is the text's, Light: the link adds none (until 26 Nov 2026 it made the
+                // name Bold). One typed inside **bold** is Bold by that, which is the owner's doing and not the link's.
+                links: [...head.querySelectorAll('a')].map((el) => { const s = getComputedStyle(el); return [s.color, el.closest('strong, b') ? 'in bold' : s.fontWeight, s.textDecorationLine, s.textDecorationThickness, s.textUnderlineOffset].join(' '); }),
+                hover: a ? getComputedStyle(a).color : '',
+                loaded: [...new Set([...document.fonts].filter(f => f.status === 'loaded').map(f => f.family.replace(/["']/g, '')))].sort().join(', '),
+            };
+        });
+        const INTRO_AT = [[320, '/'], [390, '/'], [390, '/projects/'], [719, '/'], [720, '/'], [807, '/'], [1024, '/'], [1366, '/'], [1366, '/projects/'], [1920, '/']];
+        // [width, lines]: from 720px the lines of the whole made-up paragraph, below the lines of its second part.
+        const INTRO_MADE = [[320, 3], [390, 3], [719, 2], [720, 1], [720, 3], [1024, 2], [1366, 1], [1366, 4], [1920, 2]];
+        for (const [width, path, made] of [...INTRO_AT.map(c => [...c, 0]), ...INTRO_MADE.map(([w, n]) => [w, '/', n])]) {
+            await page.setViewportSize({ width, height: 800 });
+            await page.mouse.move(1, 700);
+            await page.goto(base + path);
+            await page.evaluate(() => document.fonts.ready.then(() => true));
+            const staged = made ? await stage(made) : 0;
             const m = await read();
             const near = (a, b) => Math.abs(a - b) <= 0.5;
             const off = [];
             const wide = width >= 720;
-            introSeen.parts = Math.max(introSeen.parts, m.parts.length);
+            const want = made ? { parts: HOME_MADE_INTRO.length, links: madeLinks } : { parts: homeIntro.length, links: ownLinks };
+            if (made) (wide ? introSeen.wide : introSeen.narrow).add(staged);
+            if (made && staged !== made) off.push(`the made-up text takes ${staged} lines, not ${made}`);
+            if (m.parts.length !== want.parts || m.links.length !== want.links || m.paragraphs !== (want.parts ? 1 : 0)) off.push(`${m.paragraphs} paragraph(s) of ${m.parts.length} parts with ${m.links.length} links, not ${want.parts} parts with ${want.links}`);
             if (m.type !== (wide ? HOME_INTRO.wide : HOME_INTRO.narrow) || !/^"?Fluxisch Else/.test(m.face) || m.loaded !== 'Fluxisch Else') off.push(`set ${m.type} in ${m.face} (loaded: ${m.loaded})`);
             if (m.colour !== m.link || m.colour === m.ink) off.push(`colour ${m.colour}`);
-            if (!m.links.length || m.links.some(l => l !== `${m.ink} 300 underline 1px 3px`)) off.push(`links ${[...new Set(m.links)].join(' | ')}`);
+            if (m.links.some(l => l !== `${m.ink} 300 underline 1px 3px` && l !== `${m.ink} in bold underline 1px 3px`)) off.push(`links ${[...new Set(m.links)].join(' | ')}`);
             if (m.padding !== (wide ? '34px 44px 12px 44px' : '52px 30px 30px 30px')) off.push(`padding ${m.padding}`);
             if (!near(m.head.bottom, m.main) || !near(m.head.top, 0)) off.push(`the header ends at ${m.head.bottom}, the index starts at ${m.main}`);
             if (wide) {
-                introSeen.lines.add(m.lines.length);
-                if (!['left', 'start'].includes(m.align) || m.parts.some(l => l.display !== 'inline')) off.push(`aligned ${m.align}, parts ${m.parts.map(l => l.display).join(' ')}`);
+                if (!made) introSeen.lines.add(m.lines.length);
+                // One running paragraph that wraps as plain text does (`text-wrap: wrap`; the `balance` of the
+                // phone's blocks would leave every line short of the margin).
+                if (!['left', 'start'].includes(m.align) || !/^(auto|wrap)$/.test(m.wrap) || m.parts.some(l => l.display !== 'inline')) off.push(`aligned ${m.align}, text-wrap ${m.wrap}, parts ${m.parts.map(l => l.display).join(' ')}`);
                 if (!near(m.head.height, 34 + m.lines.length * 21 + 12)) off.push(`a header of ${m.head.height}px for ${m.lines.length} line(s)`);
                 if (m.lines.some(l => !near(l.left, 44) || l.right > m.page - 44 + 0.5)) off.push(`lines from ${m.lines.map(l => `${l.left} to ${l.right}`).join(', ')}`);
-                // One running paragraph: there are fewer lines than parts, or every part but the last fills its line.
-                if (m.parts.length > 1 && m.lines.length >= m.parts.length && m.parts.slice(0, -1).some(l => l.lines.length === 1 && l.lines[0].right < m.page - 44 - 200)) off.push('the parts do not run on');
+                // And as it lies: a line ends only where the next word has no room left before the right margin,
+                // whether that word goes on with the same part or begins the next one. So a part starts in the
+                // line the part before it ends in, unless its first word does not fit there. Measured word by
+                // word in the page (a word's width and a space's are the layout's own, whatever the system's
+                // glyph advances); 2px of room are let pass. A word that is itself broken over two lines is
+                // the browser's own break and is not judged.
+                m.words.forEach((b, k) => {
+                    const a = m.words[k - 1];
+                    if (!a || b.line <= a.end || b.line !== b.end) return;
+                    const room = m.page - 44 - a.endRight;
+                    const need = m.space + b.right - b.left;
+                    if (need + 2 <= room) off.push(`${b.part !== a.part ? `part ${b.part + 1} does not go on where part ${a.part + 1} ends: line ${a.end + 1}` : `line ${a.end + 1}`} ends ${room.toFixed(1)}px before the margin, where "${b.text}" (${need.toFixed(1)}px with its space) has room`);
+                });
             } else {
                 if (m.align !== 'center' || m.parts.some(l => l.display !== 'block' || !/balance/.test(l.wrap))) off.push(`aligned ${m.align}, parts ${m.parts.map(l => `${l.display} ${l.wrap}`).join(', ')}`);
-                if (!near(m.parts[0]?.top, 52) || !near(m.head.bottom - m.parts.at(-1)?.bottom, 30)) off.push(`the first part ${m.parts[0]?.top}px down, the last ${m.head.bottom - m.parts.at(-1)?.bottom}px over the header's end`);
+                if (!m.parts.length && !near(m.head.height, 52 + 30)) off.push(`an empty header of ${m.head.height}px`);
+                if (m.parts.length && (!near(m.parts[0].top, 52) || !near(m.head.bottom - m.parts.at(-1).bottom, 30))) off.push(`the first part ${m.parts[0].top}px down, the last ${m.head.bottom - m.parts.at(-1).bottom}px over the header's end`);
                 m.parts.forEach((l, i) => {
                     if (i > 0 && !near(l.top - m.parts[i - 1].bottom, 12)) off.push(`part ${i + 1} is ${l.top - m.parts[i - 1].bottom}px under part ${i}`);
                     if (!near(l.height, l.lines.length * 21)) off.push(`part ${i + 1}: ${l.lines.length} line(s) in ${l.height}px`);
                     if (l.lines.some(r => Math.abs((r.left + r.right) / 2 - m.page / 2) > 1 || r.left < 30 - 0.5 || r.right > m.page - 30 + 0.5)) off.push(`part ${i + 1} is not centred between the 30px margins: ${l.lines.map(r => `${r.left.toFixed(1)} to ${r.right.toFixed(1)}`).join(', ')}`);
                 });
             }
-            // Pointed at, a link is the link colour (and the text round it already is).
-            await page.hover('.site-head a');
-            const pointed = (await read()).hover;
-            if (pointed !== m.link) off.push(`a link pointed at is ${pointed}`);
-            if (off.length) intro.push(`${width}px ${path}: ${off.join('; ')}`);
+            // Pointed at, a link is the link colour (and the text round it already is). An intro without a link has none to point at.
+            if (m.links.length) {
+                await page.hover('.site-head a');
+                const pointed = (await read()).hover;
+                if (pointed !== m.link) off.push(`a link pointed at is ${pointed}`);
+            }
+            if (off.length) intro.push(`${width}px ${path}${made ? `, the made-up text in ${made} lines` : ''}: ${off.join('; ')}`);
         }
-        check(`6. the intro: Fluxisch Else Light in the link colour, its links underlined in the text colour; from 720px one running paragraph of 15px / 21px across the page between 44px margins (${[...introSeen.lines].sort().join(', ')} lines at 720 to 1920px), the header as tall as its lines; below 720px 17.5px / 21px, each of its ${introSeen.parts} parts a block of its own, 12px apart, centred and balanced between 30px margins (/ and /projects/)`,
-            intro.length === 0 && introSeen.lines.size >= 2 && introSeen.parts > 1, intro.slice(0, 3).join(' | '));
+        check(`6. the intro: Fluxisch Else Light in the link colour, its links underlined in the text colour; from 720px one running paragraph of 15px / 21px across the page between 44px margins, wrapped as plain text is: a line full before the next begins, a part going on in the line the one before it ends in (as typed: ${[...introSeen.lines].sort().join(', ')} line(s) at 720 to 1920px), the header as tall as its lines; below 720px 17.5px / 21px, each of its parts (as typed: ${homeIntro.length}, with ${ownLinks} link(s)) a block of its own, 12px apart, centred and balanced between 30px margins (/ and /projects/); and the same of a made-up text of ${HOME_MADE_INTRO.length} parts with ${madeLinks} links set in its place, in ${[...introSeen.wide].sort().join(', ')} lines from 720px and with a part of ${[...introSeen.narrow].sort().join(', ')} lines below`,
+            intro.length === 0, intro.slice(0, 3).join(' | '));
 
         // console errors on every route
         await page.setViewportSize({ width: 1328, height: 900 });
