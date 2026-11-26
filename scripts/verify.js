@@ -2200,20 +2200,35 @@ try {
             // Its set must be a block there even before its own stylesheet (components/project-slides.css) has
             // arrived: laid out without it, a custom element is an inline box, which is no place to snap to; the
             // information is then the only one, and when the stylesheet comes in Chromium scrolls the page to the
-            // information by itself (about one load in fifty did, measured; here the stylesheet is held back for
-            // 300ms and the page is laid out each time another one arrives, and every load did). client/project.css,
-            // which turns snapping on, therefore makes the set a block itself.
+            // information by itself (about one load in fifty did, measured; here the page is laid out each time
+            // another stylesheet arrives and the set's own is held back until that has happened with
+            // client/project.css there, and 300ms more, and every load did). client/project.css, which turns
+            // snapping on, therefore makes the set a block itself.
+            // The stylesheet waits for the page's word, not for a fixed time: held back for 300ms from its request,
+            // as it first was, it came in before client/project.css whenever that one took longer (0 of 10 loads
+            // were then laid out without it, with client/project.css 400ms slow), and the check had tried nothing.
             {
                 const lone = published.filter(p => photos(p).length === 1).slice(0, 3);
                 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
                 const late = await context.newPage();
-                await late.route('**/components/project-slides.css', async (route) => { await new Promise(r => setTimeout(r, 300)); await route.continue(); });
+                let laidOut = false;
+                let wake = () => {};
+                await late.exposeFunction('__laidOutEarly', () => { laidOut = true; wake(); });
+                await late.route('**/components/project-slides.css', async (route) => {
+                    // At most 15s, so that a page that never gets there ends the check instead of hanging it.
+                    if (!laidOut) await new Promise(r => { const t = setTimeout(r, 15000); wake = () => { clearTimeout(t); r(); }; });
+                    await new Promise(r => setTimeout(r, 300));
+                    await route.continue();
+                });
                 await late.addInitScript(() => {
                     window.__early = [];
                     // Reading a box lays the page out with the stylesheets that are there by then.
                     const look = () => {
                         const set = document.querySelector('project-slides');
-                        if (set) window.__early.push({ waiting: [...document.querySelectorAll('link[rel=stylesheet]')].filter(l => !l.sheet).map(l => l.getAttribute('href').split('/').pop()).join(), set: getComputedStyle(set).display, top: set.getBoundingClientRect().top, snap: getComputedStyle(document.documentElement).scrollSnapType });
+                        if (!set) return;
+                        const waiting = [...document.querySelectorAll('link[rel=stylesheet]')].filter(l => !l.sheet).map(l => l.getAttribute('href').split('/').pop());
+                        window.__early.push({ waiting: waiting.join(), set: getComputedStyle(set).display, top: set.getBoundingClientRect().top, snap: getComputedStyle(document.documentElement).scrollSnapType });
+                        if (waiting.includes('project-slides.css') && !waiting.includes('project.css')) window.__laidOutEarly();
                     };
                     document.addEventListener('readystatechange', () => {
                         if (document.readyState !== 'interactive') return;
@@ -2225,6 +2240,7 @@ try {
                 let early = 0;
                 let snaps = true;
                 for (const p of lone) {
+                    laidOut = false;
                     await late.goto(`${base}/projects/${p.data.slug}/`);
                     await late.evaluate(() => document.fonts.ready.then(() => true));
                     const y = await rest(late);
