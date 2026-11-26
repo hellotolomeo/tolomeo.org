@@ -735,8 +735,11 @@ try {
         check('2. active tags are marked', click.active);
         const either = [...new Set([...tagged(tagA), ...tagged(tagB)])].sort();
         const both = `${encodeURIComponent(tagA)},${encodeURIComponent(tagB)}`;
+        // The filter in the address is applied by the script, right after its first render: wait for that
+        // (an active tag shows) and not for a fixed 100ms, which on a busy machine ran out before the
+        // script had started; the check then read all the rows of the server's HTML ("29 vs 10").
         await page.goto(`${base}/?filter=${both}`);
-        await page.waitForTimeout(100);
+        await page.waitForFunction(() => document.querySelector('project-index .tag.on') !== null, null, { timeout: 10000 }).catch(() => {});
         const fromUrl = await page.evaluate(() => [...document.querySelectorAll('project-index .row')].map(r => r.dataset.slug).sort());
         check(`2. ?filter=${tagA},${tagB} shows projects with either tag`, JSON.stringify(fromUrl) === JSON.stringify(either), `${fromUrl.length} vs ${either.length}`);
         await page.evaluate(async (tags) => {
