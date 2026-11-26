@@ -212,8 +212,8 @@ project-index .track {
 @media (min-width: 720px) {
   project-index {
     box-sizing: border-box;
-    height: calc(100vh - 88px);
-    height: calc(100dvh - 88px);
+    height: calc(100vh - 76.4px);
+    height: calc(100dvh - 76.4px);
     flex-wrap: nowrap;
     align-items: stretch;
     column-gap: 29px;

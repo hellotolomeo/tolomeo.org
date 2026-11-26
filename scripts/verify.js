@@ -140,10 +140,13 @@ const BODY = '13px / 16px / 300';
 const EXACT = 0.1;
 // The home page (the redesign of 26 Nov 2026), its own constants. The type: 12.5px on a 15.2px
 // line from 720px, 14.5px on an 18px line below, Light (font-size / line-height / font-weight);
-// the intro 15px and 17.5px, on a 21px line both.
+// the intro is set like the rest of the page (the owner, 26 Nov 2026: "make the intro text on the
+// homepage the same size font as the text on the rest of the page"; the handoff had it at 15px and
+// 17.5px on a 21px line), so its line is the body's as well: HOME_STEP, in px.
 const HOME_BODY = { wide: '12.5px / 15.2px / 300', narrow: '14.5px / 18px / 300' };
 const HOME_TYPE = { wide: '12.5px', narrow: '14.5px' };
-const HOME_INTRO = { wide: '15px / 21px / 300', narrow: '17.5px / 21px / 300' };
+const HOME_INTRO = HOME_BODY;
+const HOME_STEP = { wide: 15.2, narrow: 18 };
 // The two addresses of the home page.
 const HOME_ROUTES = ['/', '/projects/'];
 // From 720px: the index is 20px from either edge of the page and its two columns are 29px apart,
@@ -2702,7 +2705,7 @@ try {
             }
 
             // From 720px the page does not scroll. Under the intro, which takes one, two or three lines
-            // (34px above it, a 21px line each, 12px under it), the index fills exactly what is left of the
+            // (34px above it, a 15.2px line each, 12px under it), the index fills exactly what is left of the
             // window: 20px from either edge of the page, its two columns equal and 29px apart. Each column
             // starts with a 29px strip and scrolls on its own under it, down to the window's lower edge; its
             // thumb starts under the strip, at the column's right edge. The grid's first cell is 12px under
@@ -2727,7 +2730,7 @@ try {
                         if (!p) return 0;
                         const range = document.createRange();
                         range.selectNodeContents(p);
-                        return new Set([...range.getClientRects()].filter(r => r.width > 0).map(r => Math.round((r.top + r.bottom) / 2 / 21))).size;
+                        return new Set([...range.getClientRects()].filter(r => r.width > 0).map(r => Math.round((r.top + r.bottom) / 2 / parseFloat(getComputedStyle(p).lineHeight)))).size;
                     };
                     const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
                     if (made) {
@@ -2811,7 +2814,7 @@ try {
                         const off = [];
                         if (lines && at.lines !== lines) off.push(`the made-up intro takes ${at.lines} lines`);
                         if (at.doc[0] > at.window[0] || at.doc[1] > at.window[1]) off.push(`the page is ${at.doc.join(' × ')}`);
-                        if (!near(at.head.height, 34 + at.lines * 21 + 12) || (at.text && (!near(at.text.left, 44) || !near(at.text.right, at.page - 44) || !near(at.text.top, 34)))) off.push(`the intro's ${at.lines} line(s) in a header of ${at.head.height}px${at.text ? `, the text from ${at.text.left} to ${at.text.right}, ${at.text.top} down` : ''}`);
+                        if (!near(at.head.height, 34 + at.lines * HOME_STEP.wide + 12) || (at.text && (!near(at.text.left, 44) || !near(at.text.right, at.page - 44) || !near(at.text.top, 34)))) off.push(`the intro's ${at.lines} line(s) in a header of ${at.head.height}px${at.text ? `, the text from ${at.text.left} to ${at.text.right}, ${at.text.top} down` : ''}`);
                         if (!near(at.index.top, at.head.bottom) || !near(at.index.bottom, at.window[1])) off.push(`the index from ${at.index.top} to ${at.index.bottom}`);
                         if (!near(at.images.left, HOME_EDGE) || !near(at.images.width, half) || !near(at.section.left, HOME_EDGE + half + HOME_GAP) || !near(at.section.width, half) || !near(at.section.right, at.page - HOME_EDGE)) off.push(`the columns at ${at.images.left} + ${at.images.width} and ${at.section.left} + ${at.section.width}`);
                         if (!at.strips.every(h => near(h, HOME_STRIP)) || !near(at.stripTop, at.index.top)) off.push(`strips ${at.strips.join(' and ')}px tall, the list's at ${at.stripTop}`);
@@ -4204,8 +4207,8 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
             }, SHADOW);
             if (HOME_ROUTES.includes(path)) {
                 // The home page has its own sizes (the redesign of 26 Nov 2026): every text that shows at 390px is the
-                // body's 14.5px on an 18px line, but the intro, which is 17.5px on a 21px line (and is there to
-                // be measured unless the field is empty).
+                // body's 14.5px on an 18px line, the intro too since the owner asked for it at the page's size (it
+                // was 17.5px on a 21px line; it is there to be measured unless the field is empty).
                 const sizes = await page.evaluate(() => [...new Set([...document.querySelectorAll('body *')].filter(el => el.getClientRects().length && [...el.childNodes].some(n => n.nodeType === 3 && n.data.trim()) && !el.closest('.visually-hidden'))
                     .map(el => `${el.closest('.site-head') ? 'intro' : el.localName} ${getComputedStyle(el).fontSize} / ${getComputedStyle(el).lineHeight}`))]);
                 const strange = sizes.filter(t => (t.startsWith('intro ') ? t !== `intro ${HOME_INTRO.narrow.split(' / ').slice(0, 2).join(' / ')}` : !t.endsWith(` ${HOME_BODY.narrow.split(' / ').slice(0, 2).join(' / ')}`)));
@@ -4219,15 +4222,15 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
         // checks of their own for it with the project pages' other checks: they are not judged by the one below.)
         for (let i = type.length - 1; i >= 0; i--) if (/^\/(projects\/[^/]+\/|404\.html|info\/|collaborations\/):/.test(type[i])) type.splice(i, 1);
         check('4. no horizontal scroll at 390px on any route', wide.length === 0, wide.join(', '));
-        check('the type on the home page at 390px is 14.5px on an 18px line, Light; the intro is 17.5px on a 21px line, and nothing is any other size (/ and /projects/)', homeType.length === 0, homeType.join(' | '));
+        check('the type on the home page at 390px is 14.5px on an 18px line, Light, the intro like the rest, and nothing is any other size (/ and /projects/)', homeType.length === 0, homeType.join(' | '));
         check(`the type on every route is 13px on a 16px line, Light (a project's type, role and client on an 18.73px line); a caption is 11px / 13.2px and nothing else (${captions} captions on screen)`, type.length === 0 && captions > 0, type.slice(0, 4).join(' | ') || (captions ? '' : 'no caption on screen on any route'));
         check(`no picture on any route has a border, every one has the shadow and is stretched over its whole box (object-fit: fill): the ${pictures} thumbnails and project photos`, pictures > 0 && boxes.length === 0, boxes.slice(0, 4).join(' | '));
 
         // 6. the intro (the redesign of 26 Nov 2026; Fluxisch Else Light by the owner's word of that day). In
         // the link colour, its links in the text colour, underlined 1px thick 3px under the text, not Bold,
-        // the link colour when pointed at. From 720px: one running paragraph, 15px on a 21px line, set left,
+        // the link colour when pointed at. From 720px: one running paragraph, the body's 12.5px on a 15.2px line, set left,
         // from 44px to at most 44px before the page's right edge, 34px under the top; the header is that, the
-        // paragraph's lines and 12px (88px with two lines). Below 720px: 17.5px on a 21px line, every line of
+        // paragraph's lines and 12px (76.4px with two lines). Below 720px: the body's 14.5px on an 18px line, every line of
         // the field a block of its own, 12px apart, its lines centred in the page between 30px margins,
         // 52px under the top and 30px over the grid. The lines are counted in the page: where one breaks is
         // the font's matter. At both addresses of the home page.
@@ -4250,7 +4253,7 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
             if (!p) { p = document.createElement('p'); head.append(p); }
             p.innerHTML = parts.map(h => `<span class="l">${h}</span>`).join(' ');
             const grown = p.querySelectorAll('.l')[1];
-            const count = (el) => { const range = document.createRange(); range.selectNodeContents(el); return new Set([...range.getClientRects()].filter(r => r.width > 0).map(r => Math.round((r.top + r.bottom) / 2 / 21))).size; };
+            const count = (el) => { const range = document.createRange(); range.selectNodeContents(el); return new Set([...range.getClientRects()].filter(r => r.width > 0).map(r => Math.round((r.top + r.bottom) / 2 / parseFloat(getComputedStyle(el).lineHeight)))).size; };
             const taken = () => count(getComputedStyle(grown).display === 'block' ? grown : p);
             for (let n = 0; n < 3000 && taken() < lines; n++) grown.textContent += ' more';
             return taken();
@@ -4378,7 +4381,7 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                 // One running paragraph that wraps as plain text does (`text-wrap: wrap`; the `balance` of the
                 // phone's blocks would leave every line short of the margin).
                 if (!['left', 'start'].includes(m.align) || !/^(auto|wrap)$/.test(m.wrap) || m.parts.some(l => l.display !== 'inline')) off.push(`aligned ${m.align}, text-wrap ${m.wrap}, parts ${m.parts.map(l => l.display).join(' ')}`);
-                if (!near(m.head.height, 34 + m.lines.length * 21 + 12)) off.push(`a header of ${m.head.height}px for ${m.lines.length} line(s)`);
+                if (!near(m.head.height, 34 + m.lines.length * HOME_STEP.wide + 12)) off.push(`a header of ${m.head.height}px for ${m.lines.length} line(s)`);
                 if (m.lines.some(l => !near(l.left, 44) || l.right > m.page - 44 + 0.5)) off.push(`lines from ${m.lines.map(l => `${l.left} to ${l.right}`).join(', ')}`);
                 // And as it lies: a line ends only where the next word has no room left before the right margin,
                 // whether that word goes on with the same part or begins the next one. So a part starts in the
@@ -4399,7 +4402,7 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                 if (m.parts.length && (!near(m.parts[0].top, 52) || !near(m.head.bottom - m.parts.at(-1).bottom, 30))) off.push(`the first part ${m.parts[0].top}px down, the last ${m.head.bottom - m.parts.at(-1).bottom}px over the header's end`);
                 m.parts.forEach((l, i) => {
                     if (i > 0 && !near(l.top - m.parts[i - 1].bottom, 12)) off.push(`part ${i + 1} is ${l.top - m.parts[i - 1].bottom}px under part ${i}`);
-                    if (!near(l.height, l.lines.length * 21)) off.push(`part ${i + 1}: ${l.lines.length} line(s) in ${l.height}px`);
+                    if (!near(l.height, l.lines.length * HOME_STEP.narrow)) off.push(`part ${i + 1}: ${l.lines.length} line(s) in ${l.height}px`);
                     if (l.lines.some(r => Math.abs((r.left + r.right) / 2 - m.page / 2) > 1 || r.left < 30 - 0.5 || r.right > m.page - 30 + 0.5)) off.push(`part ${i + 1} is not centred between the 30px margins: ${l.lines.map(r => `${r.left.toFixed(1)} to ${r.right.toFixed(1)}`).join(', ')}`);
                 });
             }
@@ -4411,7 +4414,7 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
             }
             if (off.length) intro.push(`${width}px ${path}${made ? `, the made-up text in ${made} lines` : ''}: ${off.join('; ')}`);
         }
-        check(`6. the intro: Fluxisch Else Light in the link colour, its links underlined in the text colour; from 720px one running paragraph of 15px / 21px across the page between 44px margins, wrapped as plain text is: a line full before the next begins, a part going on in the line the one before it ends in (as typed: ${[...introSeen.lines].sort().join(', ')} line(s) at 720 to 1920px), the header as tall as its lines; below 720px 17.5px / 21px, each of its parts (as typed: ${homeIntro.length}, with ${ownLinks} link(s)) a block of its own, 12px apart, centred and balanced between 30px margins (/ and /projects/); and the same of a made-up text of ${HOME_MADE_INTRO.length} parts with ${madeLinks} links set in its place, in ${[...introSeen.wide].sort().join(', ')} lines from 720px and with a part of ${[...introSeen.narrow].sort().join(', ')} lines below`,
+        check(`6. the intro: Fluxisch Else Light in the link colour, its links underlined in the text colour; from 720px one running paragraph in the page's own type (12.5px / 15.2px) across the page between 44px margins, wrapped as plain text is: a line full before the next begins, a part going on in the line the one before it ends in (as typed: ${[...introSeen.lines].sort().join(', ')} line(s) at 720 to 1920px), the header as tall as its lines; below 720px the page's type there (14.5px / 18px), each of its parts (as typed: ${homeIntro.length}, with ${ownLinks} link(s)) a block of its own, 12px apart, centred and balanced between 30px margins (/ and /projects/); and the same of a made-up text of ${HOME_MADE_INTRO.length} parts with ${madeLinks} links set in its place, in ${[...introSeen.wide].sort().join(', ')} lines from 720px and with a part of ${[...introSeen.narrow].sort().join(', ')} lines below`,
             intro.length === 0, intro.slice(0, 3).join(' | '));
 
         // console errors on every route

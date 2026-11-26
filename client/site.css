@@ -216,8 +216,6 @@ project-slides .frame {
   box-sizing: border-box;
   padding: 52px 30px 30px;
   color: var(--link);
-  font-size: 17.5px;
-  line-height: 21px;
   text-align: center;
   text-wrap: balance;
 }
@@ -243,7 +241,6 @@ project-slides .frame {
 @media (min-width: 720px) {
   .site-head {
     padding: 34px 44px 12px;
-    font-size: 15px;
     text-align: left;
     text-wrap: wrap;
   }
