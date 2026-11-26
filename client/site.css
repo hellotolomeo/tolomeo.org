@@ -173,9 +173,12 @@ project-slides .frame {
 
 .site-head {
   box-sizing: border-box;
-  min-height: 88px;
-  padding: 33px 16px 16px;
+  padding: 52px 30px 30px;
   color: var(--link);
+  font-size: 17.5px;
+  line-height: 21px;
+  text-align: center;
+  text-wrap: balance;
 }
 
 .site-head p {
@@ -183,17 +186,37 @@ project-slides .frame {
 }
 
 .site-head a {
-  font-weight: 700;
-  text-decoration: none;
+  text-decoration-thickness: 1px;
+}
+
+@media (max-width: 719.98px) {
+  .site-head .l {
+    display: block;
+  }
+
+  .site-head .l + .l {
+    margin-top: 12px;
+  }
 }
 
 @media (min-width: 720px) {
   .site-head {
-    padding-left: 37px;
+    padding: 34px 44px 12px;
+    font-size: 15px;
+    text-align: left;
+    text-wrap: wrap;
   }
 
-  .site-head p {
-    max-width: calc(50% - 26.5px);
+  body:has(project-index) {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  body:has(project-index) main {
+    flex: 1 1 auto;
+    min-height: 0;
   }
 }
 

@@ -33,7 +33,7 @@ project-index .cell:focus-visible {
 
 project-index .box {
   display: block;
-  width: min(91cqw, 49.9733cqw * var(--a, 1.5));
+  width: min(88cqw, 49.9733cqw * var(--a, 1.5));
   aspect-ratio: var(--a, 1.5);
   box-shadow: var(--frame-shadow);
 }
@@ -59,20 +59,23 @@ project-index .rows {
   padding: 0;
 }
 
-project-index .row {
+project-index .row,
+project-index .head {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
   column-gap: 27.2px;
-  align-content: center;
-  align-items: baseline;
-  min-height: 26px;
-  box-sizing: border-box;
-  padding: 5px 16px 5px max(1.676cqw, 12px);
 }
 
-project-index .title,
-project-index .name {
-  font-weight: 700;
+project-index .row {
+  align-content: center;
+  align-items: baseline;
+  min-height: 28px;
+  box-sizing: border-box;
+  padding: 5px 0;
+}
+
+project-index .head {
+  display: none;
 }
 
 project-index .what {
@@ -81,7 +84,7 @@ project-index .what {
 }
 
 project-index .years {
-  max-width: calc(40cqw - 32.2px);
+  max-width: calc(40cqw - 45px);
   padding-right: 5px;
   overflow: hidden;
   overflow: clip visible;
@@ -101,11 +104,12 @@ project-index .clip {
 }
 
 project-index .title {
+  font-weight: 700;
   text-decoration: none;
 }
 
 project-index .child .title {
-  margin-left: 1.39em;
+  margin-left: 20px;
   font-weight: 300;
 }
 
@@ -117,7 +121,7 @@ project-index .row:is(.on, :hover) .what::before {
   content: "";
   position: absolute;
   left: -27.2px;
-  top: 0;
+  top: calc(50% - 8px);
   width: 14px;
   height: 16px;
   background: var(--link);
@@ -166,19 +170,24 @@ project-index .track {
   project-index .cell {
     grid-template-columns: minmax(0, 1fr);
     aspect-ratio: auto;
-    padding: 16px 0;
+    padding: 22px 0;
     text-decoration: none;
+  }
+
+  project-index .box {
+    width: min(100cqw - 124px, 132cqw * var(--a, 1.5));
   }
 
   project-index .name {
     display: block;
-    max-width: 91cqw;
+    max-width: 88cqw;
+    color: var(--caption);
     text-align: center;
     text-wrap: balance;
   }
 
   project-index .box + .name {
-    margin-top: 10px;
+    margin-top: 16px;
   }
 
   project-index .cell:is(:hover, :focus) .name {
@@ -186,15 +195,13 @@ project-index .track {
   }
 
   project-index .index {
-    padding: 32px 0 48px;
-  }
-
-  project-index .row {
-    padding-left: 16px;
+    margin: 32px 16px 0;
+    padding: 20px 0 48px;
+    border-top: 0.67px solid var(--line);
   }
 
   project-index .child .what {
-    padding-left: 1.39em;
+    padding-left: 20px;
   }
 
   project-index .child .title {
@@ -204,10 +211,19 @@ project-index .track {
 
 @media (min-width: 720px) {
   project-index {
+    box-sizing: border-box;
     height: calc(100vh - 88px);
     height: calc(100dvh - 88px);
     flex-wrap: nowrap;
     align-items: stretch;
+    column-gap: 29px;
+    padding: 0 20px;
+  }
+
+  @supports selector(:has(a)) {
+    project-index {
+      height: 100%;
+    }
   }
 
   project-index section {
@@ -216,6 +232,31 @@ project-index .track {
     flex: 1 1 50%;
     height: 100%;
     timeline-scope: --column;
+  }
+
+  project-index .images::before,
+  project-index .head {
+    flex: none;
+    box-sizing: border-box;
+    height: 29px;
+    border-bottom: 0.67px solid var(--line);
+  }
+
+  project-index .images::before {
+    content: "";
+  }
+
+  project-index .head {
+    display: grid;
+    align-items: start;
+    overflow: hidden;
+    line-height: 24px;
+    white-space: nowrap;
+    scrollbar-width: thin;
+  }
+
+  project-index :is(.head, .rows) {
+    scrollbar-gutter: stable;
   }
 
   project-index :is(.scroll, .rows) {
@@ -228,22 +269,33 @@ project-index .track {
     scrollbar-color: var(--thumb) transparent;
   }
 
+  project-index .scroll {
+    padding-top: 12px;
+  }
+
+  project-index .rows {
+    padding: 9px 0 24px;
+  }
+
   project-index .grid {
-    grid-template-columns: repeat(2, 25cqw);
+    grid-template-columns: repeat(2, calc(25cqw - 7.25px));
     overflow-x: clip;
+  }
+
+  project-index .row,
+  project-index .head {
+    padding: 0 16px 0 12px;
   }
 
   project-index .row {
     align-items: center;
     height: var(--row);
     min-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
     white-space: nowrap;
   }
 
   project-index .years {
-    max-width: calc(20cqw - 32.2px);
+    max-width: calc(20cqw - 38px);
   }
 
   project-index .what {
@@ -316,7 +368,7 @@ project-index .track {
 
   project-index .track {
     position: absolute;
-    top: 0;
+    top: 29px;
     right: 0;
     bottom: 0;
     z-index: 2;
@@ -343,11 +395,11 @@ project-index .track {
   }
 
   @supports (animation-timeline: scroll()) {
-    project-index :is(.scroll, .rows) {
+    project-index :is(.scroll, .rows, .head) {
       scrollbar-width: none;
     }
 
-    project-index :is(.scroll, .rows)::-webkit-scrollbar {
+    project-index :is(.scroll, .rows, .head)::-webkit-scrollbar {
       display: none;
     }
 

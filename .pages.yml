@@ -239,7 +239,11 @@ content:
       - name: intro
         label: Intro
         type: text
-        description: "The line at the top of the home page. Your name is written [Tolomeo](/info/): that makes it bold and a link to the Info page. Keep the [square] and (round) brackets as they are; change the other words freely."
+        description: "The text at the top of the home page. Every line you type here is one part of it: on a phone each line is a block of its own, on a wider screen the lines run on as one paragraph. Press Enter to start a new line; empty lines are ignored. A link is written [the words to click](the address), with no space between ] and (. The address of a page of this site starts with a slash, like /info/ or /collaborations/; the address of another site is written in full, starting with https://. Keep the [square] and (round) brackets as they are; change the other words freely."
+      - name: description
+        label: Description for search engines
+        type: string
+        description: "One or two plain sentences that search engines and link previews show for the home page, About and Collaborations. Plain text, no links. Leave it empty to use the words of the intro."
 
   - name: info
     label: Info page

@@ -29,17 +29,27 @@
  *      page scrolls freely.
  *   5. CMS: every front-matter key in content/ is a field in .pages.yml, and every
  *      tag in use is in the tags select.
- *   6. The Index's proportions at 1366px: a cell is a quarter of the page, a list
- *      row is 23px tall, thumbnails are whole, centred, without a border, with
- *      the shadow, and as large as fits (the limiting side reaches its limit).
+ *   6. The home page (the redesign of 26 Nov 2026). The intro: every line of the
+ *      field a part of its own, in Fluxisch Else Light in the link colour, its links
+ *      underlined in the text colour; from 720px one running paragraph across the
+ *      page, below that a block to a line, centred. From 720px the page does not
+ *      scroll: under the intro, however many lines it takes, the index fills what
+ *      is left of the window, 20px from either edge, its two columns 29px apart,
+ *      each under a 29px strip that ends in a thin line and each scrolling on its
+ *      own, the thumb under the strip; in the list's strip the words "Projects"
+ *      and "tags" start on the left edge of the titles' and the types' column, at
+ *      every width and with a filter on. A cell is a quarter of what the columns
+ *      have, a list row is 23px tall, thumbnails are whole, centred, without a
+ *      border, with the shadow, and as large as fits (the limiting side reaches
+ *      its limit).
  *      The list at 720, 800, 1024, 1366 and 1920px: every row one line and 23px
  *      tall, whatever the width; the date, the title and the type each in a column
  *      of its own, the date's as wide as the widest date printed plus 32.2px (at
  *      390px as well), by a text the build writes into client/covers.css and every
  *      row prints unseen: the same with a filter on, wider for a longer date, never
  *      more than 40% of the list; the dates Light and the titles Bold; a sub-project's
- *      row (at 390px as well) with no bullet, no date, and its title Light, five word
- *      spaces of its own type in from the title column's start, the indent part of what
+ *      row (at 390px as well) with no bullet, no date, and its title Light, 20px in
+ *      from the title column's start, the indent part of what
  *      is cut and slides; text that fits its column is not faded and does
  *      not move; text that does not is cut with a fade, and while its row or its
  *      thumbnail is pointed at it slides left at 100px a second until its end is
@@ -52,13 +62,13 @@
  *      not printed over the title; on a touch screen a column is dragged, and
  *      only one whose text is cut.
  *   7. The Index below 720px: one thumbnail to a row, each whole, centred, without
- *      a border, with the shadow, and as large as fits, its title 10px under its
- *      picture and 32px before the next one, in the main projects' list titles' type
- *      (Bold, under a sub-project's thumbnail too); in the list the dates Light, the
- *      titles Bold and a sub-project's Light; the same projects in the grid and the
- *      list when a tag is clicked; the list without columns (at 320px as well), a
+ *      a border, with the shadow, and as large as fits, its title 16px under its
+ *      picture and 44px before the next one, Light, in the caption colour; the list
+ *      under a thin line, 16px from either edge of the page; in the list the dates
+ *      Light, the titles Bold and a sub-project's Light; the same projects in the grid
+ *      and the list when a tag is clicked; the list without columns (at 320px as well), a
  *      row's types following its title and wrapping, on a line of their own 15px in
- *      from where the title starts (a sub-project's, five spaces in, included). From
+ *      from where the title starts (a sub-project's, 20px in, included). From
  *      720px up the titles are not
  *      displayed and the cells keep their fixed proportion.
  *   + the type: 13px on a 16px line, Light, on every route (captions 11px / 13.2px);
@@ -78,7 +88,7 @@ import nunjucks from 'nunjucks';
 import sharp from 'sharp';
 import { chromium } from 'playwright';
 import { markdown, markdownText } from '../server/markdown.js';
-import { coversCss, order, shortYears } from '../server/content.js';
+import { coversCss, homeText, order, shortYears } from '../server/content.js';
 import { createEnvironment } from '../server/zeldman/zeldman.js';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -102,6 +112,29 @@ const BODY = '13px / 16px / 300';
 // How far the limiting side of a picture may be from its limit: layout works in 64ths of a pixel,
 // and the side that follows from the proportions is rounded once more (0.04px at most, measured).
 const EXACT = 0.1;
+// The home page (the redesign of 26 Nov 2026), its own constants. The type: 12.5px on a 15.2px
+// line from 720px, 14.5px on an 18px line below, Light (font-size / line-height / font-weight);
+// the intro 15px and 17.5px, on a 21px line both.
+const HOME_BODY = { wide: '12.5px / 15.2px / 300', narrow: '14.5px / 18px / 300' };
+const HOME_TYPE = { wide: '12.5px', narrow: '14.5px' };
+const HOME_INTRO = { wide: '15px / 21px / 300', narrow: '17.5px / 21px / 300' };
+// The two addresses of the home page.
+const HOME_ROUTES = ['/', '/projects/'];
+// From 720px: the index is 20px from either edge of the page and its two columns are 29px apart,
+// so the columns have the page less 69px between them and a grid cell is a quarter of that; each
+// column starts with a 29px strip. A thumbnail is as large as fits 88% of its cell's width and
+// 49.9733% of that width in height (86.5% of a 341.2 : 197.12 cell).
+const HOME_EDGE = 20;
+const HOME_GAP = 29;
+const HOME_STRIP = 29;
+const homeCell = (page) => (page - 2 * HOME_EDGE - HOME_GAP) / 4;
+const HOME_THUMB = { width: 0.88, height: 0.499733 };
+// Below 720px: a thumbnail is as large as fits the page less 124px and 132% of the page's width
+// in height; its title is 16px under it and a cell has 22px above and below, so 44px to the next.
+const HOME_PHONE = { side: 124, height: 1.32, under: 16, pad: 22, name: 0.88 };
+// The list: a sub-project's title is 20px in; a column fades over its last 1em, 12.5px.
+const HOME_INDENT = 20;
+const HOME_FADE = 12.5;
 // The width in px that a `sizes` attribute promises the browser in a window of vw × vh: the first entry
 // whose media condition holds (the site writes only max-width / min-width in px), its length worked out
 // (vw, vh, px, calc, min). NaN for anything else, so a check that compares it fails.
@@ -447,7 +480,54 @@ try {
         const missingRows = published.filter(p => !index.includes(`id="row-${p.data.slug}"`) || !index.includes(`id="cell-${p.data.slug}"`));
         check('1. index HTML has every published project as a row and a cell', missingRows.length === 0, missingRows.map(p => p.data.slug).join(', '));
         const site = matter(readFileSync(join(root, 'content/site/index.md'), 'utf8'), {}).data;
-        check('1. index HTML has the intro', textOf(index).includes(html(words(site.intro))), words(site.intro));
+        // The intro is one field of several lines. Every line that is not empty is a line of Markdown and
+        // one <span class="l"> of the header's one paragraph, in the field's order, a space between two
+        // of them; a link typed in a line is a link in its span, to the address typed. At both addresses
+        // of the home page.
+        const introLines = String(site.intro ?? '').split(/\r\n?|\n/).map(l => l.trim()).filter(Boolean);
+        const linksOf = (line) => [...line.matchAll(/\]\(([^)\s]+)\)/g)].map(m => m[1]);
+        const introOff = [];
+        const homeBodies = {};
+        for (const path of HOME_ROUTES) homeBodies[path] = path === '/' ? index : await (await fetch(base + path)).text();
+        for (const path of HOME_ROUTES) {
+            const body = homeBodies[path];
+            const para = body.match(/<header class="site-head">[\s\S]*?<p>([\s\S]*?)<\/p>\s*<\/header>/)?.[1] ?? '';
+            const parts = /^<span class="l">[\s\S]*<\/span>$/.test(para) ? para.slice('<span class="l">'.length, -'</span>'.length).split('</span> <span class="l">') : [];
+            if (parts.length !== introLines.length) { introOff.push(`${path}: ${parts.length} parts for ${introLines.length} lines`); continue; }
+            introLines.forEach((line, i) => {
+                const hrefs = [...parts[i].matchAll(/<a href="([^"]*)">/g)].map(m => m[1]);
+                if (textOf(parts[i]) !== html(words(line))) introOff.push(`${path}: part ${i + 1} reads "${textOf(parts[i])}", not "${html(words(line))}"`);
+                if (JSON.stringify(hrefs) !== JSON.stringify(linksOf(line).map(html))) introOff.push(`${path}: part ${i + 1} links to ${hrefs.join(', ') || 'nothing'}, not ${linksOf(line).join(', ') || 'nothing'}`);
+            });
+        }
+        check(`1. index HTML has the intro: every line of the field a part of its own, in order, with its links (${introLines.length} lines, ${introLines.flatMap(linksOf).length} links; / and /projects/)`,
+            introLines.length > 0 && introOff.length === 0, introOff.slice(0, 4).join('; '));
+        // The meta description is the site's own description field, as plain text; the intro's words when that is empty.
+        const described = text(site.description).replace(/\s+/g, ' ') || words(introLines.join(' '));
+        const metaOff = HOME_ROUTES.filter(path => !homeBodies[path].includes(`<meta name="description" content="${html(described)}">`));
+        check('1. the home page\'s meta description is the description field of content/site/index.md (/ and /projects/)', Boolean(described) && metaOff.length === 0, `${described}${metaOff.length ? `; not at ${metaOff.join(', ')}` : ''}`);
+        // How the field is read (homeText in server/content.js), on made-up text: Windows line ends, lines
+        // that are empty or blank, white space round a line; a description of its own, and none.
+        {
+            const made = homeText({ intro: '  one [two](/three/).  \r\n\r\n   \nfour *five*\n', description: '' });
+            const own = homeText({ intro: 'one\ntwo', description: ' six\n seven ' });
+            const none = homeText({});
+            check('1. the intro field is read a line at a time: empty lines dropped, each line one line of Markdown; the description is its own field, and the intro\'s words when it is empty',
+                JSON.stringify(made.intro) === JSON.stringify(['one <a href="/three/">two</a>.', 'four <em><span>five</span></em>']) && made.description === 'one two. four five'
+                && own.description === 'six seven' && JSON.stringify(own.intro) === JSON.stringify(['one', 'two'])
+                && JSON.stringify(none) === JSON.stringify({ intro: [], description: '' }), JSON.stringify([made, own, none]));
+        }
+        // The owner's answer of 26 Nov 2026: the intro is set in Fluxisch Else until there is a licence for
+        // Schwabacher Grotesk. No stylesheet of the built site names another family for it, and no such font file is built.
+        {
+            const sheets = ['client/site.css', 'components/project-index.css'].map(f => readFileSync(join(dist, f), 'utf8')).join('\n');
+            const families = [...new Set([...sheets.matchAll(/font-family:\s*([^;}]+)/g)].map(m => m[1].trim()))];
+            const fontFiles = readdirSync(join(dist, 'fonts'));
+            const strange = fontFiles.filter(f => !/^FluxischElse-(Light|Bold)\.(woff2|otf)$/.test(f));
+            check('1. the home page\'s stylesheets name no font family but Fluxisch Else (and the system fallbacks), and the built site has no font file but Fluxisch Else Light and Bold',
+                families.length > 0 && families.every(f => /^"Fluxisch Else"(, Helvetica, Arial, sans-serif)?$/.test(f)) && !/schwabacher|katsu/i.test(sheets) && strange.length === 0,
+                `${families.join(' | ')}; fonts: ${fontFiles.join(', ')}`);
+        }
         check('1. the home page\'s tab title is the name alone', index.includes('<title>Tolomeo</title>'));
         const unpublished = fronts.filter(f => f.data.published !== true && index.includes(`id="row-${f.data.slug}"`));
         check('1. unpublished projects are absent', unpublished.length === 0, unpublished.map(f => f.data.slug).join(', '));
@@ -1134,18 +1214,31 @@ try {
             await page.setViewportSize({ width: 1366, height: 710 });
             await page.goto(`${base}/`);
             await page.waitForFunction(() => document.querySelector('project-index')?.rendered);
-            const m = await page.evaluate(({ shadow, exact }) => {
+            const m = await page.evaluate(({ shadow, exact, fit, line }) => {
                 const box = (el) => el.getBoundingClientRect();
                 const cells = [...document.querySelectorAll('project-index .cell')];
                 const rows = [...document.querySelectorAll('project-index .row')];
                 const page = document.documentElement.clientWidth;
                 const cell = box(cells[0]);
-                // Nothing has a border, the pictures' boxes included; a shadow is the pictures' alone.
-                const lines = [...document.querySelectorAll('.site-head, .site-head *, project-index, project-index *')].filter((el) => {
-                    const s = getComputedStyle(el);
-                    return parseFloat(s.borderTopWidth) + parseFloat(s.borderRightWidth) + parseFloat(s.borderBottomWidth) + parseFloat(s.borderLeftWidth) > 0 || (!el.classList.contains('box') && s.boxShadow !== 'none');
-                }).length;
-                // A thumbnail's box (`.box`, a name from when it had a border) is the picture: as large as fits 91%
+                // The only lines on the page are the two strips' lower edges: the strip over the grid (generated,
+                // `.images::before`) and the one over the list (`.head`), each with a bottom border in the line
+                // colour and no other. Nothing else has a border, the pictures' boxes included; a shadow is the
+                // pictures' alone.
+                const sides = (s) => ['Top', 'Right', 'Bottom', 'Left'].map(k => parseFloat(s[`border${k}Width`]));
+                const probe = document.createElement('i');
+                probe.style.cssText = `position: absolute; border-bottom: ${line} solid var(--line);`;
+                document.body.append(probe);
+                const rule = `${getComputedStyle(probe).borderBottomWidth} ${getComputedStyle(probe).borderBottomStyle} ${getComputedStyle(probe).borderBottomColor}`;
+                probe.remove();
+                window.__mutations?.();
+                const strips = [getComputedStyle(document.querySelector('project-index .images'), '::before'), getComputedStyle(document.querySelector('project-index .head'))];
+                const ruled = strips.every((s) => { const [top, right, bottom, left] = sides(s); return top + right + left === 0 && bottom > 0 && `${s.borderBottomWidth} ${s.borderBottomStyle} ${s.borderBottomColor}` === rule; });
+                const all = [...document.querySelectorAll('.site-head, .site-head *, project-index, project-index *')];
+                const bordered = (s) => sides(s).reduce((a, b) => a + b) > 0;
+                const lines = all.filter((el) => { const s = getComputedStyle(el); return (bordered(s) && !el.matches('project-index .head')) || (s.boxShadow !== 'none' && !el.classList.contains('box')); }).length
+                    + all.flatMap(el => ['::before', '::after'].map(pseudo => ({ el, pseudo, s: getComputedStyle(el, pseudo) })))
+                        .filter(({ el, pseudo, s }) => !['none', 'normal'].includes(s.content) && (bordered(s) || s.boxShadow !== 'none') && !(pseudo === '::before' && el.matches('project-index .images'))).length;
+                // A thumbnail's box (`.box`, a name from when it had a border) is the picture: as large as fits 88%
                 // of the cell's width and 86.5% of its height (49.9733% of its width), one of the two exactly.
                 const thumbs = cells.filter(c => c.querySelector('.box')).map((c) => {
                     const a = box(c);
@@ -1154,8 +1247,8 @@ try {
                     const im = box(img);
                     const s = getComputedStyle(c.querySelector('.box'));
                     const wrong = [];
-                    if (b.width > a.width * 0.91 + exact || b.height > a.width * 0.499733 + exact) wrong.push(`larger than fits (${b.width} × ${b.height})`);
-                    if (Math.abs(b.width - a.width * 0.91) > exact && Math.abs(b.height - a.width * 0.499733) > exact) wrong.push(`neither side on its limit (${b.width} × ${b.height} in ${a.width * 0.91} × ${a.width * 0.499733})`);
+                    if (b.width > a.width * fit.width + exact || b.height > a.width * fit.height + exact) wrong.push(`larger than fits (${b.width} × ${b.height})`);
+                    if (Math.abs(b.width - a.width * fit.width) > exact && Math.abs(b.height - a.width * fit.height) > exact) wrong.push(`neither side on its limit (${b.width} × ${b.height} in ${a.width * fit.width} × ${a.width * fit.height})`);
                     if (Math.abs((b.x + b.width / 2) - (a.x + a.width / 2)) >= 0.5 || Math.abs((b.y + b.height / 2) - (a.y + a.height / 2)) >= 0.5) wrong.push('not centred');
                     if (Math.abs(b.width / b.height - img.getAttribute('width') / img.getAttribute('height')) >= 0.01 || Math.abs(im.width - b.width) > 0.5 || Math.abs(im.height - b.height) > 0.5) wrong.push('cropped, or not filling its box');
                     if (getComputedStyle(img).objectFit !== 'fill') wrong.push(`object-fit: ${getComputedStyle(img).objectFit}`);
@@ -1165,10 +1258,12 @@ try {
                 }).filter(Boolean);
                 const body = getComputedStyle(document.body);
                 return {
-                    quarter: Math.abs(cell.width - page / 4) < 0.5,
+                    page,
+                    cell: cell.width,
+                    first: cell.x,
                     ratio: Math.abs(cell.width / cell.height - 341.2 / 197.12) < 0.005,
                     row: rows.every(r => Math.abs(box(r).height - 23) < 0.1),
-                    columns: Math.abs(box(cells[1]).x - cell.width) < 0.5 && Math.abs(box(cells[2]).y - cell.y - cell.height) < 0.5,
+                    columns: Math.abs(box(cells[1]).x - cell.x - cell.width) < 0.5 && Math.abs(box(cells[2]).y - cell.y - cell.height) < 0.5 && Math.abs(box(cells[2]).x - cell.x) < 0.5,
                     count: cells.filter(c => c.querySelector('.box')).length,
                     thumbs,
                     sized: cells.filter(c => c.querySelector('.box')).map(c => ({ name: c.dataset.slug, width: box(c.querySelector('.box')).width, sizes: [c.querySelector('img').getAttribute('sizes'), c.querySelector('source')?.getAttribute('sizes') ?? null] })),
@@ -1176,18 +1271,21 @@ try {
                     vh: innerHeight,
                     scrolls: document.documentElement.scrollHeight <= innerHeight,
                     lines,
+                    ruled,
+                    rule,
                     body: [body.fontSize, body.lineHeight, body.fontWeight].join(' / '),
-                    rows: [...new Set(rows.map(r => [getComputedStyle(r).fontSize, getComputedStyle(r).lineHeight].join(' / ')))].join(', '),
+                    rows: [...new Set(rows.map(r => [getComputedStyle(r).fontSize, getComputedStyle(r).lineHeight, getComputedStyle(r).fontWeight].join(' / ')))].join(', '),
                 };
-            }, { shadow: SHADOW, exact: EXACT });
-            check('6. at 1366px a cell is a quarter of the page, two to a row, and every list row is 23px tall', m.quarter && m.ratio && m.row && m.columns, JSON.stringify(m));
+            }, { shadow: SHADOW, exact: EXACT, fit: HOME_THUMB, line: '0.67px' });
+            check(`6. at 1366px a cell is a quarter of what the two columns have (the page less 20px either side and the 29px between them: ${homeCell(1366)}px), two to a row from 20px, and every list row is 23px tall`,
+                Math.abs(m.cell - homeCell(m.page)) < 0.5 && Math.abs(m.first - HOME_EDGE) < 0.5 && m.ratio && m.row && m.columns, JSON.stringify({ cell: m.cell, first: m.first, ratio: m.ratio, row: m.row, columns: m.columns }));
             check(`6. every thumbnail is whole, centred, without a border, with the shadow, filling its box edge to edge, and as large as its cell allows: the side that limits it is exactly on its limit (${m.count} thumbnails)`, m.count > 0 && m.thumbs.length === 0, m.thumbs.slice(0, 5).join(' | '));
             {
                 const off = sizesOff(m.sized, m.vw, m.vh);
                 check(`6. every thumbnail's sizes attribute gives the width it is shown at, to the pixel (${m.sized.length} thumbnails)`, m.sized.length > 0 && off.length === 0, off.slice(0, 3).join(' | '));
             }
-            check('6. the two columns scroll on their own, and nothing draws a line: no element has a border, and only the pictures have a shadow', m.scrolls && m.lines === 0, JSON.stringify({ scrolls: m.scrolls, lines: m.lines }));
-            check('6. the type is 13px on a 16px line, Light, in the list\'s rows as on the page', m.body === BODY && m.rows === '13px / 16px', `body ${m.body}; rows ${m.rows}`);
+            check('6. the two columns scroll on their own, and the only lines are the two under the columns\' strips (0.67px in the line colour, as the browser draws it): no other element has a border, and only the pictures have a shadow', m.scrolls && m.lines === 0 && m.ruled, JSON.stringify({ scrolls: m.scrolls, lines: m.lines, ruled: m.ruled, rule: m.rule }));
+            check('6. the type is 12.5px on a 15.2px line, Light, in the list\'s rows as on the page', m.body === HOME_BODY.wide && m.rows === HOME_BODY.wide, `body ${m.body}; rows ${m.rows}`);
 
             // A column scrolled to its end, then filtered down to something that no longer scrolls: no thumb left behind.
             await page.setViewportSize({ width: 1366, height: 710 });
@@ -1203,15 +1301,104 @@ try {
                 check('6. the scroll thumbs show while a column scrolls and go when a filter leaves nothing to scroll', atEnd.every(v => v === 'visible') && after.every(v => v === 'hidden'), `${atEnd.join(',')} → ${after.join(',')}`);
             }
 
-            // The list from 720px up: three rigid columns, every row one line. CLAUDE.md, "Index": the date starts
-            // 1.676% of the page (at least 12px) from the list's edge, in a column as wide as the widest date
+            // From 720px the page does not scroll. Under the intro, which takes one, two or three lines
+            // (34px above it, a 21px line each, 12px under it), the index fills exactly what is left of the
+            // window: 20px from either edge of the page, its two columns equal and 29px apart. Each column
+            // starts with a 29px strip and scrolls on its own under it, down to the window's lower edge; its
+            // thumb starts under the strip, at the column's right edge. The grid's first cell is 12px under
+            // its strip, the list's first row 9px, and 24px follow the last row. Also in a window only
+            // 400px tall. The line count is read in the page, not expected: where a line breaks is the
+            // font's matter (and the system's, at these sizes).
+            {
+                const fills = [];
+                const counted = new Set();
+                for (const [width, height] of [[720, 500], [800, 600], [1024, 768], [1366, 710], [1920, 1080], [720, 400]]) {
+                    await page.setViewportSize({ width, height });
+                    await page.mouse.move(1, 1);
+                    await page.goto(`${base}/`);
+                    await page.waitForFunction(() => document.querySelector('project-index')?.rendered);
+                    await page.evaluate(() => document.fonts.ready.then(() => true));
+                    const timeline = await page.evaluate(() => CSS.supports('animation-timeline: scroll()'));
+                    const at = await page.evaluate(async () => {
+                        const box = (el) => { const b = el.getBoundingClientRect(); return { left: b.left, right: b.right, top: b.top, bottom: b.bottom, width: b.width, height: b.height }; };
+                        const q = (sel) => document.querySelector(sel);
+                        const p = q('.site-head p');
+                        const range = document.createRange();
+                        range.selectNodeContents(p);
+                        const lines = new Set([...range.getClientRects()].filter(r => r.width > 0).map(r => Math.round((r.top + r.bottom) / 2 / 21))).size;
+                        const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+                        const grid = q('project-index .scroll');
+                        const list = q('project-index .rows');
+                        const thumbs = () => [...document.querySelectorAll('project-index .thumb')].map(box);
+                        const rest = thumbs();
+                        // Each column to its end by itself: the other one and the page stay where they are.
+                        grid.scrollTop = grid.scrollHeight;
+                        await frame();
+                        const afterGrid = { grid: grid.scrollTop, list: list.scrollTop, page: scrollY, thumbs: thumbs() };
+                        list.scrollTop = list.scrollHeight;
+                        await frame();
+                        const afterList = { grid: grid.scrollTop, list: list.scrollTop, page: scrollY, thumbs: thumbs() };
+                        grid.scrollTop = 0;
+                        list.scrollTop = 0;
+                        await frame();
+                        const rows = [...document.querySelectorAll('project-index .row')];
+                        return {
+                            page: document.documentElement.clientWidth,
+                            window: [innerWidth, innerHeight],
+                            doc: [document.documentElement.scrollWidth, document.documentElement.scrollHeight],
+                            lines,
+                            head: box(q('.site-head')),
+                            text: box(p),
+                            index: box(q('project-index')),
+                            images: box(q('project-index .images')),
+                            section: box(q('project-index .index')),
+                            strips: [parseFloat(getComputedStyle(q('project-index .images'), '::before').height), box(q('project-index .head')).height],
+                            stripTop: box(q('project-index .head')).top,
+                            grid: { ...box(grid), over: getComputedStyle(grid).overflowY, more: grid.scrollHeight - grid.clientHeight },
+                            list: { ...box(list), over: getComputedStyle(list).overflowY, more: list.scrollHeight - list.clientHeight, all: list.scrollHeight },
+                            tracks: [...document.querySelectorAll('project-index .track')].map(box),
+                            rest,
+                            afterGrid,
+                            afterList,
+                            cell: box(q('project-index .cell')),
+                            row: box(rows[0]),
+                            rows: rows.length,
+                        };
+                    });
+                    counted.add(at.lines);
+                    const near = (a, b) => Math.abs(a - b) <= 0.5;
+                    const half = (at.page - 2 * HOME_EDGE - HOME_GAP) / 2;
+                    const under = at.index.top + HOME_STRIP;
+                    const off = [];
+                    if (at.doc[0] > at.window[0] || at.doc[1] > at.window[1]) off.push(`the page is ${at.doc.join(' × ')}`);
+                    if (!near(at.head.height, 34 + at.lines * 21 + 12) || !near(at.text.left, 44) || !near(at.text.right, at.page - 44) || !near(at.text.top, 34)) off.push(`the intro's ${at.lines} line(s) in a header of ${at.head.height}px, the text from ${at.text.left} to ${at.text.right}, ${at.text.top} down`);
+                    if (!near(at.index.top, at.head.bottom) || !near(at.index.bottom, at.window[1])) off.push(`the index from ${at.index.top} to ${at.index.bottom}`);
+                    if (!near(at.images.left, HOME_EDGE) || !near(at.images.width, half) || !near(at.section.left, HOME_EDGE + half + HOME_GAP) || !near(at.section.width, half) || !near(at.section.right, at.page - HOME_EDGE)) off.push(`the columns at ${at.images.left} + ${at.images.width} and ${at.section.left} + ${at.section.width}`);
+                    if (!at.strips.every(h => near(h, HOME_STRIP)) || !near(at.stripTop, at.index.top)) off.push(`strips ${at.strips.join(' and ')}px tall, the list's at ${at.stripTop}`);
+                    for (const [name, col] of [['grid', at.grid], ['list', at.list]]) if (!near(col.top, under) || !near(col.bottom, at.window[1]) || col.over !== 'auto') off.push(`the ${name} scrolls (${col.over}) from ${col.top} to ${col.bottom}`);
+                    if (!near(at.cell.top, under + 12) || !near(at.row.top, under + 9) || !near(at.list.all, Math.max(at.list.height, 9 + at.rows * 23 + 24))) off.push(`the first cell ${at.cell.top - under}px and the first row ${at.row.top - under}px under the strip; the list is ${at.list.all}px in all, its ${at.rows} rows and the 9px and 24px round them ${9 + at.rows * 23 + 24}px`);
+                    if (!near(at.tracks[0].top, under) || !near(at.tracks[1].top, under) || !near(at.tracks[0].right, at.images.right) || !near(at.tracks[1].right, at.section.right) || !at.tracks.every(t => near(t.width, 8) && near(t.bottom, at.window[1]))) off.push(`the thumbs' tracks at ${at.tracks.map(t => `${t.left}, ${t.top}`).join(' and ')}`);
+                    if (at.grid.more <= 0 || !near(at.afterGrid.grid, at.grid.more) || at.afterGrid.list !== 0 || at.afterGrid.page !== 0 || !near(at.afterList.list, Math.max(0, at.list.more)) || !near(at.afterList.grid, at.grid.more) || at.afterList.page !== 0) off.push(`scrolling one column moved another, or the page: ${JSON.stringify([at.afterGrid.grid, at.afterGrid.list, at.afterGrid.page, at.afterList.grid, at.afterList.list, at.afterList.page])}`);
+                    if (timeline) {
+                        // The thumbs: at the top of their track at rest, at its bottom when the column is at its end.
+                        if (!near(at.rest[0].top, under) || !near(at.afterGrid.thumbs[0].bottom, at.window[1]) || !near(at.rest[0].height, Math.min(123, at.tracks[0].height * 0.4))) off.push(`the grid's thumb from ${at.rest[0].top} (${at.rest[0].height}px) to ${at.afterGrid.thumbs[0].bottom}`);
+                        if (!near(at.rest[1].top, under) || (at.list.more > 0 && !near(at.afterList.thumbs[1].bottom, at.window[1])) || !near(at.rest[1].height, Math.min(299, at.tracks[1].height * 0.5))) off.push(`the list's thumb from ${at.rest[1].top} (${at.rest[1].height}px) to ${at.afterList.thumbs[1].bottom}`);
+                    }
+                    if (off.length) fills.push(`${width} × ${height}: ${off.join('; ')}`);
+                }
+                check(`6. from 720px the page does not scroll and the index fills what the intro leaves of the window, whether the intro takes ${[...counted].sort().join(', ')} lines: two equal columns 20px from the page's edges and 29px apart, each scrolling on its own under its 29px strip, its thumb under the strip (720 × 500, 800 × 600, 1024 × 768, 1366 × 710, 1920 × 1080, 720 × 400)`,
+                    fills.length === 0 && counted.size >= 2, fills.slice(0, 3).join(' | '));
+            }
+
+            // The list from 720px up: three rigid columns, every row one line. The date starts 12px from the
+            // list's left edge, in a column as wide as the widest date
             // printed plus 32.2px (5px of air and the 27.2px the hover chevron takes), never more than 40% of
             // the list; what is left before the 16px right padding is the title's column and the type's,
-            // 11 : 10, 15px apart. A column cuts its text and fades it out over its last 1em (13px); text that
+            // 11 : 10, 15px apart. A column cuts its text and fades it out over its last 1em (12.5px); text that
             // ends before the fade is left alone, text that reaches it slides left at 100px a second while its
             // row is pointed at, until its end is clear of the fade, and goes back in 0.2s. The dates are
             // Light and the titles Bold, in the text colour both.
-            const FADE = 13;
+            const FADE = HOME_FADE;
             const show = async (width, height) => {
                 await page.setViewportSize({ width, height });
                 await page.mouse.move(1, 1);
@@ -1375,7 +1562,7 @@ try {
             }), { slug, i });
             // The ink in three strips of a column of a row at rest, each as the furthest any pixel is from the
             // ground colour (0 to 255): the 17px of text before the fade, the last 5px of the fade (at most
-            // 5/13 of the ink left there), and the 7px after the column's edge.
+            // 5/12.5 of the ink left there), and the 7px after the column's edge.
             const inkAt = async (r, cell, ground) => {
                 const edge = Math.floor(cell.right);
                 const clip = { x: edge - 30, y: Math.ceil(r.top), width: 38, height: Math.floor(r.bottom) - Math.ceil(r.top) };
@@ -1396,7 +1583,7 @@ try {
             // test. (Not with no mask at all: on some systems a browser smooths text under a mask in another
             // way than text on the plain ground, GitHub's runners among them, and then every letter differs.)
             for (const width of [1366, 1536]) {
-                await show(width, 88 + published.length * 23 + 40);
+                await show(width, 109 + HOME_STRIP + 9 + published.length * 23 + 24 + 20);
                 const m = await list();
                 const shot = async () => sharp(await page.screenshot()).raw().toBuffer({ resolveWithObject: true });
                 const masked = await shot();
@@ -1437,9 +1624,18 @@ try {
                     page: document.documentElement.clientWidth,
                     left: index.left,
                     width: index.width,
-                    sizer: getComputedStyle(document.querySelector('project-index .years'), '::after').content,
-                    // What the list scrolls over, against its rows (side by side); the page's end against the list's (below 720px).
-                    scrolls: scroller.scrollHeight - Math.max(scroller.clientHeight, [...scroller.children].reduce((sum, r) => sum + r.getBoundingClientRect().height, 0)),
+                    sizer: getComputedStyle(document.querySelector('project-index .row .years'), '::after').content,
+                    // What the list scrolls over, against its rows and its own padding (side by side); the page's end against the list's (below 720px).
+                    scrolls: scroller.scrollHeight - Math.max(scroller.clientHeight, [...scroller.children].reduce((sum, r) => sum + r.getBoundingClientRect().height, px(getComputedStyle(scroller).paddingTop) + px(getComputedStyle(scroller).paddingBottom))),
+                    // The two words over the list's columns (from 720px): where "Projects" and "tags" start, and the
+                    // date cell before them. The slanted word's box is wider than its layout by the lean on each side.
+                    head: (() => {
+                        const head = document.querySelector('project-index .head');
+                        if (!head || head.getClientRects().length === 0) return null;
+                        const tags = head.querySelector('.tags');
+                        const tb = tags.getBoundingClientRect();
+                        return { date: head.querySelector('.years').getBoundingClientRect().left, title: head.querySelector('.title').getBoundingClientRect().left, tags: tb.left + (tb.width - px(getComputedStyle(tags).width)) / 2 };
+                    })(),
                     under: document.documentElement.scrollHeight - (document.querySelector('project-index .index').getBoundingClientRect().bottom + scrollY),
                     sideways: document.documentElement.scrollWidth - document.documentElement.clientWidth,
                     rows: [...document.querySelectorAll('project-index .row')].map((r) => {
@@ -1463,6 +1659,8 @@ try {
                             // How far the date's line is under the first line of its title: they are one line.
                             level: tb.height ? tb.top - r.querySelector('.title').getClientRects()[0].top : 0,
                             title: what.getBoundingClientRect().left,
+                            // The left edges of the titles' column and of the types' (from 720px, where each is a box): where its text starts.
+                            columns: [...r.querySelectorAll('.clip')].map(c => c.getBoundingClientRect().left + px(getComputedStyle(c).paddingLeft)),
                             chevron: before.content === 'none' ? null : what.getBoundingClientRect().left + px(before.left),
                             tags: [...r.querySelectorAll('.tag')].map(t => t.dataset.tag),
                             // The unseen text: generated, so no node; no height; hidden, so not read out.
@@ -1473,7 +1671,23 @@ try {
                     }),
                 };
             });
-            const inset = (m) => (m.page >= 720 ? Math.max(m.page * 0.01676, 12) : 16);
+            // A row's date starts 12px from the list's left edge from 720px; below that a row has no side padding (the list has the page's 16px).
+            const inset = (m) => (m.page >= 720 ? 12 : 0);
+            // The two words over the list: "Projects" starts on the left edge of the titles' column and "tags" on that
+            // of the types' column, in every row, and the strip's date cell where the rows' dates start. Layout
+            // against layout, to a tenth of a pixel (the design asks for half a pixel). Below 720px they do not show.
+            // Returns what is off, or ''.
+            const headsOff = (m) => {
+                if (m.page < 720) return m.head ? 'the two words show below 720px' : '';
+                if (!m.head) return 'the two words do not show';
+                const titles = m.rows.map(r => r.columns[0]);
+                const types = m.rows.filter(r => r.columns.length > 1).map(r => r.columns[1]);
+                const off = [];
+                if (!titles.length || titles.some(v => Math.abs(v - m.head.title) > 0.1)) off.push(`"Projects" at ${m.head.title}, the titles' column at ${titles.find(v => Math.abs(v - m.head.title) > 0.1)}`);
+                if (!types.length || types.some(v => Math.abs(v - m.head.tags) > 0.1)) off.push(`"tags" at ${m.head.tags}, the types' column at ${types.find(v => Math.abs(v - m.head.tags) > 0.1)}`);
+                if (m.rows.some(r => Math.abs(r.date - m.head.date) > 0.1)) off.push(`the strip's date cell at ${m.head.date}, the rows' at ${m.rows[0].date}`);
+                return off.join('; ');
+            };
             // The rows whose title's column is not `column` px after the date, or whose date is not at the row's inset.
             const strays = (m, column) => m.rows.filter(r => Math.abs(r.title - r.date - column) > 0.5 || Math.abs(r.date - (m.left + inset(m))) > 0.5);
             const say = (rows) => rows.slice(0, 3).map(r => `${r.slug}: date at ${r.date}, title ${(r.title - r.date).toFixed(2)}px after it`).join('; ');
@@ -1487,7 +1701,7 @@ try {
                 await show(1366, 710);
                 const style = await page.addStyleTag({ content: `${madeUpCss}project-index{--after:ok}` });
                 const read = await page.evaluate(() => ({
-                    content: getComputedStyle(document.querySelector('project-index .years'), '::after').content,
+                    content: getComputedStyle(document.querySelector('project-index .row .years'), '::after').content,
                     after: getComputedStyle(document.querySelector('project-index')).getPropertyValue('--after').trim(),
                 }));
                 await style.evaluate(el => el.remove());
@@ -1499,6 +1713,8 @@ try {
             for (const [width, height] of [[390, 844], [720, 800], [1024, 768], [1366, 710], [1920, 1080]]) {
                 await show(width, height);
                 const m = await dateCells();
+                // The two words over the list's columns, in every state this loop puts the list in.
+                const heads = [['at rest', headsOff(m)]];
                 const widest = Math.max(...m.rows.map(r => r.text));
                 const column = widest + 32.2;
                 const off = strays(m, column);
@@ -1525,6 +1741,7 @@ try {
                 const { nodes } = await ax.send('Accessibility.getFullAXTree');
                 const said = nodes.filter(n => !n.ignored && n.role?.value === 'StaticText').map(n => spaced(n.name?.value ?? ''));
                 const count = (list, d) => list.filter(t => t === d).length;
+                const headSaid = ['Projects', 'tags'].map(word => count(said, word));
                 const dates = m.rows.map(r => printedDates[r.slug]).filter(Boolean);
                 const extra = want.filter(d => count(said, d) !== count(dates, d)).map(d => `${d}: ${count(said, d)} times for ${count(dates, d)} rows`);
                 const whole = nodes.filter(n => !n.ignored && want.length > 1 && spaced(n.name?.value ?? '').includes(spaced(lines.join(' ')))).length;
@@ -1554,6 +1771,7 @@ try {
                     const was = new Map(m.rows.map(r => [r.slug, r]));
                     const moved = left.rows.filter(r => Math.abs(r.date - was.get(r.slug).date) > 0.01 || Math.abs(r.title - was.get(r.slug).title) > 0.01);
                     const now = Math.max(...left.rows.map(r => r.text));
+                    heads.push([`with the filter "${hiding}", which hides the widest date`, headsOff(left)]);
                     check(`6. at ${width}px the columns do not move when a filter hides every row with the widest date (${hiding}: ${left.rows.length} of ${m.rows.length} rows left, their widest date ${now.toFixed(2)}px): the column is still ${column.toFixed(2)}px`,
                         applied && left.rows.length > 0 && left.rows.length < m.rows.length && now < widest - 1 && moved.length === 0 && strays(left, column).length === 0, `${say(moved)} ${say(strays(left, column))}`);
                     await show(width, height);
@@ -1562,6 +1780,10 @@ try {
                 // A longer date, as the next build would have it: the first row prints it (through the
                 // component's own state) and --dates carries it (set in the page for the test). Every row's
                 // column is then that date's width plus 32.2px; with both taken back, it is as it was.
+                // (Two years in full: longer than any date the list prints, and still short of the 40% of
+                // the list at which the column stops, which the next check is for. Three years, as this
+                // check had until 26 Nov 2026, reach that limit in the redesign's narrower list at 720px
+                // and in its larger type at 390px.)
                 const withDate = async (date) => {
                     const style = await page.addStyleTag({ content: `project-index { --dates: "${date}"; }` });
                     await page.evaluate((date) => {
@@ -1574,8 +1796,17 @@ try {
                         await page.evaluate(() => document.querySelector('project-index').setState({ projects: window.__projects }));
                     };
                 };
-                const takeBack = await withDate('2019, 2020, 2021');
+                // Any filter: the most used tag.
+                {
+                    await page.evaluate((t) => document.querySelector(`project-index .tag[data-tag="${CSS.escape(t)}"]`).click(), tagA);
+                    const applied = await filteredBy(tagA);
+                    const some = await dateCells();
+                    heads.push([`with the filter "${tagA}"`, applied && some.rows.length > 0 && some.rows.length < m.rows.length ? headsOff(some) : 'the filter was not applied']);
+                    await show(width, height);
+                }
+                const takeBack = await withDate('2019, 2020');
                 const longer = await dateCells();
+                heads.push(['with a longer date', headsOff(longer)]);
                 const wide = longer.rows[0].text;
                 check(`6. at ${width}px a longer date (${wide.toFixed(2)}px for ${widest.toFixed(2)}px) makes the date column wider in every row: the title's column ${(wide + 32.2).toFixed(2)}px after the date`,
                     wide > widest + 5 && strays(longer, wide + 32.2).length === 0 && longer.rows[0].textLines === 1 && longer.sideways <= 0, say(strays(longer, wide + 32.2)));
@@ -1591,6 +1822,7 @@ try {
                 const sentence = 'from the spring of 2019 until some day and perhaps still going on today, as far as anyone can tell, or longer';
                 const undo = await withDate(sentence);
                 const most = await dateCells();
+                heads.push(['with a date that stops its column at 40% of the list', headsOff(most)]);
                 const first = most.rows[0];
                 const limit = most.width * 0.4;
                 const capped = strays(most, limit);
@@ -1618,18 +1850,25 @@ try {
                 check(`6. at ${width}px a date as long as a sentence stops the date column at 40% of the list (${limit.toFixed(1)}px) in every row, and is ${width >= 720 ? 'cut at its cell\'s edge, 27.2px before the title\'s column: one line, nothing of it printed after the cell, no row taller' : 'wrapped inside its cell'}`,
                     capped.length === 0 && Math.abs(first.title - first.boxRight - 27.2) <= 0.5 && held && most.sideways <= 0, `${say(capped)} ${said2}`);
                 await undo();
+
+                // The two words over the list. From 720px each starts on the left edge of the column it names,
+                // whatever the date column's width is and whichever rows a filter leaves, and each is real
+                // text, read out once. Below 720px they do not show and are not read out.
+                const headWrong = heads.filter(([, wrong]) => wrong).map(([state, wrong]) => `${state}: ${wrong}`);
+                if (width >= 720) {
+                    check(`6. at ${width}px the words "Projects" and "tags" start on the left edge of the titles' column and of the types' column in every row, to a tenth of a pixel (${heads.map(([state]) => state).join('; ')}), and each is read out once`,
+                        headWrong.length === 0 && headSaid.join() === '1,1', `${headWrong.slice(0, 3).join(' | ')}; read out ${headSaid.join(' and ')} times`);
+                } else {
+                    check(`6. at ${width}px the words "Projects" and "tags" do not show and are not read out`, headWrong.length === 0 && headSaid.join() === '0,0', `${headWrong.slice(0, 3).join(' | ')}; read out ${headSaid.join(' and ')} times`);
+                }
             }
             await ax.detach();
 
-            // The sub-projects' rows (20 Nov 2026), at every width, the phone's one column included: no
-            // bullet (nothing stands before the title in its column, in the HTML or drawn by the stylesheet),
-            // an empty date cell, and the title in Fluxisch Else Light, five word spaces of its own type in
-            // from the start of the title's column (the stylesheet gives the indent in em; the space is
-            // measured here, in the page, in the title's own face: a probe inside the title, taken out again
-            // at once. The probe is set a hundred times the title's size and its width divided by a hundred:
-            // at the title's own 13px some systems round a glyph's advance to whole pixels, GitHub's runners
-            // among them, where five spaces of 3.6px then measure 20px and not 18.07px, and the check failed
-            // there on a page that was right). A main project's row: its date, and its title Bold on the column's start. Colour and
+            // The sub-projects' rows (20 Nov 2026; the indent of 26 Nov 2026), at every width, the phone's one
+            // column included: no bullet (nothing stands before the title in its column, in the HTML or drawn
+            // by the stylesheet), an empty date cell, and the title in Fluxisch Else Light, 20px in from the
+            // start of the title's column (the redesign's measure; it was five word spaces of the title's own
+            // type until then, 1.39em). A main project's row: its date, and its title Bold on the column's start. Colour and
             // underline are the same for both. Every row is read at rest, with the pointer off the list.
             const rowsAsSet = () => page.evaluate(() => {
                 const px = (v) => parseFloat(v) || 0;
@@ -1638,12 +1877,6 @@ try {
                     const title = r.querySelector('.title');
                     const years = r.querySelector('.years');
                     const line = title.parentElement;
-                    const probe = document.createElement('span');
-                    probe.style.cssText = 'position: absolute; visibility: hidden; white-space: pre; font-size: 10000%;';
-                    probe.textContent = ' '.repeat(5);
-                    title.append(probe);
-                    const five = probe.getBoundingClientRect().width / 100;
-                    probe.remove();
                     const ts = getComputedStyle(title);
                     const first = title.getClientRects()[0];
                     const whole = title.getBoundingClientRect();
@@ -1664,7 +1897,6 @@ try {
                         face: ts.fontFamily,
                         colour: ts.color,
                         line: ts.textDecorationLine,
-                        five,
                         indent: first.left - column,
                         titleLeft: whole.left - column,
                         titleRight: whole.right - column,
@@ -1675,16 +1907,17 @@ try {
                         y: b.top + b.height / 2,
                     };
                 });
-                // The probes were mutations of this check's own making.
-                window.__mutations?.();
-                return { rows, faces: [...document.fonts].filter(f => f.status === 'loaded').map(f => `${f.family.replace(/["']/g, '')} ${f.weight}`).sort() };
+                // The faces that are loaded, each once: the two files of Fluxisch Else. (The stylesheet has two more
+                // faces of that name and those weights, a system font for the apostrophe; whether one of them counts
+                // as loaded is the machine's matter, not the page's.)
+                return { rows, faces: [...new Set([...document.fonts].filter(f => f.status === 'loaded').map(f => `${f.family.replace(/["']/g, '')} ${f.weight}`))].sort() };
             });
             for (const [width, height] of [[390, 844], [720, 800], [800, 600], [1024, 768], [1366, 710], [1920, 1080]]) {
                 await show(width, height);
                 const as = await rowsAsSet();
                 const kids = as.rows.filter(r => subs.has(r.slug));
                 const mains = as.rows.filter(r => !subs.has(r.slug));
-                const five = kids[0]?.five ?? as.rows[0].five;
+                const size = width >= 720 ? HOME_TYPE.wide : HOME_TYPE.narrow;
                 const ink = mains[0]?.colour ?? as.rows[0].colour;
                 const wrong = [];
                 for (const r of kids) {
@@ -1692,8 +1925,8 @@ try {
                     if (!r.child) why.push('not marked as a sub-project');
                     if (r.bullets) why.push('a bullet, or something else before its title');
                     if (r.date !== '' || r.dateNodes !== 0) why.push(`a date cell with "${r.date}"`);
-                    if (r.type !== '300 13px') why.push(`its title ${r.type}`);
-                    if (!(r.five > 5) || Math.abs(r.indent - r.five) > 0.1) why.push(`its title ${r.indent.toFixed(3)}px in, five spaces of its type are ${r.five.toFixed(3)}px`);
+                    if (r.type !== `300 ${size}`) why.push(`its title ${r.type}`);
+                    if (Math.abs(r.indent - HOME_INDENT) > 0.1) why.push(`its title ${r.indent.toFixed(3)}px in, not ${HOME_INDENT}px`);
                     if (r.colour !== ink || r.line !== 'none' || !/Fluxisch Else/.test(r.face)) why.push(`its title ${r.colour}, ${r.line}, ${r.face}`);
                     if (why.length) wrong.push(`${r.slug}: ${why.join(', ')}`);
                 }
@@ -1702,21 +1935,21 @@ try {
                     if (r.child) why.push('marked as a sub-project');
                     if (r.bullets) why.push('a bullet, or something else before its title');
                     if (spaced(r.date) !== printedDates[r.slug]) why.push(`its date "${r.date}", not "${printedDates[r.slug]}"`);
-                    if (r.type !== '700 13px') why.push(`its title ${r.type}`);
+                    if (r.type !== `700 ${size}`) why.push(`its title ${r.type}`);
                     if (Math.abs(r.indent) > 0.05) why.push(`its title ${r.indent.toFixed(3)}px in`);
                     if (r.colour !== ink || r.line !== 'none' || !/Fluxisch Else/.test(r.face)) why.push(`its title ${r.colour}, ${r.line}, ${r.face}`);
                     if (why.length) wrong.push(`${r.slug}: ${why.join(', ')}`);
                 }
                 const faces = as.faces.join(', ');
                 if (!kids.length) check(`6. at ${width}px: ok (no sub-project in content; the checks of a sub-project's row were skipped)`, true);
-                check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, an empty date cell and a Light title (300), five word spaces of its own type (${five.toFixed(2)}px, measured in the page) in from the start of the title's column; every main project's row (${mains.length}) has its date and a Bold title (700) on the column's start; both faces of Fluxisch Else are loaded`,
+check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, an empty date cell and a Light title (300, ${size}), ${HOME_INDENT}px in from the start of the title's column; every main project's row (${mains.length}) has its date and a Bold title (700, ${size}) on the column's start; both faces of Fluxisch Else are loaded`,
                     as.rows.length === published.length && wrong.length === 0 && faces === 'Fluxisch Else 300, Fluxisch Else 700', `${wrong.slice(0, 4).join(' | ')}${faces === 'Fluxisch Else 300, Fluxisch Else 700' ? '' : ` faces loaded: ${faces || 'none'}`}`);
                 if (!kids.length) continue;
 
                 // Pointed at, a sub-project's row is highlighted like any other: its title the link colour (the
                 // chevron's), still Light and still indented, the chevron 14px left of the title's column (not
                 // of the indented title), and still no date. Rather one whose title fits its column, so nothing
-                // slides and the title must still be five spaces in; where every sub-project's title is cut,
+                // slides and the title must still be 20px in; where every sub-project's title is cut,
                 // the first of them, and where its title is then is the next checks' matter.
                 const widths = width >= 720 ? Object.fromEntries((await list()).rows.map(r => [r.slug, r.cells[0]])) : {};
                 const calm = kids.find(r => width < 720 || widths[r.slug].text <= widths[r.slug].width - FADE + 0.01);
@@ -1727,10 +1960,10 @@ try {
                     await page.mouse.move(at.x, at.y);
                     await page.waitForFunction((slug) => document.querySelector(`#row-${slug}`).classList.contains('on') && getComputedStyle(document.querySelector(`#row-${slug} .what`), '::before').content !== 'none', slug, { timeout: 5000 }).catch(() => {});
                     const pointed = (await rowsAsSet()).rows.find(r => r.slug === slug);
-                    check(`6. at ${width}px a sub-project's row pointed at is highlighted like any other: its title the link colour, still Light${calm ? ' and five spaces in' : ''}, the chevron 14px left of the title's column, no date (${slug}${calm ? '' : ', whose title is cut and slides, as is every sub-project\'s at this width'})`,
+                    check(`6. at ${width}px a sub-project's row pointed at is highlighted like any other: its title the link colour, still Light${calm ? ` and ${HOME_INDENT}px in` : ''}, the chevron 14px left of the title's column, no date (${slug}${calm ? '' : ', whose title is cut and slides, as is every sub-project\'s at this width'})`,
                         pointed.on && pointed.chevron !== null && Math.abs(pointed.chevron.left + 27.2) <= 0.01 && pointed.chevron.width === 14 && pointed.colour === pointed.chevron.colour && pointed.colour !== at.colour
-                        && pointed.type === '300 13px' && (!calm || Math.abs(pointed.indent - pointed.five) <= 0.1) && pointed.date === '' && pointed.bullets === 0,
-                        JSON.stringify({ on: pointed.on, chevron: pointed.chevron, title: pointed.colour, rest: at.colour, type: pointed.type, indent: pointed.indent, five: pointed.five, date: pointed.date }));
+                        && pointed.type === `300 ${size}` && (!calm || Math.abs(pointed.indent - HOME_INDENT) <= 0.1) && pointed.date === '' && pointed.bullets === 0,
+                        JSON.stringify({ on: pointed.on, chevron: pointed.chevron, title: pointed.colour, rest: at.colour, type: pointed.type, indent: pointed.indent, date: pointed.date }));
                     await page.mouse.move(1, 1);
                     // Home again before anything else is read: the highlight off, and a title that slid back at its start.
                     await page.waitForFunction((slug) => {
@@ -1756,24 +1989,24 @@ try {
                 const lies = (await rowsAsSet()).rows.find(r => r.slug === slug);
                 const inked = await inkAt(rest, cell, m.ground);
                 const full = Math.max(...cell.colour.map((v, c) => Math.abs(v - m.ground[c])));
-                check(`6. at ${width}px a sub-project's title too long for its column (by ${worst.over.toFixed(1)}px, the indent counted: the line is the ${lies.five.toFixed(2)}px of five spaces and the title's ${lies.titleWidth.toFixed(1)}px) starts five spaces in, is cut at the column's edge and faded before it (${slug})`,
-                    Math.abs(lies.indent - lies.five) <= 0.1 && Math.abs(cell.text - (lies.five + lies.titleWidth)) <= 0.2 && Math.abs(cell.start) < 0.01 && lies.titleRight > cell.width - FADE
+                check(`6. at ${width}px a sub-project's title too long for its column (by ${worst.over.toFixed(1)}px, the indent counted: the line is the ${HOME_INDENT}px of the indent and the title's ${lies.titleWidth.toFixed(1)}px) starts ${HOME_INDENT}px in, is cut at the column's edge and faded before it (${slug})`,
+                    Math.abs(lies.indent - HOME_INDENT) <= 0.1 && Math.abs(cell.text - (HOME_INDENT + lies.titleWidth)) <= 0.2 && Math.abs(cell.start) < 0.01 && lies.titleRight > cell.width - FADE
                     && inked.text > full * 0.6 && inked.after <= 6 && inked.fade <= full * 0.5,
-                    `the line ${cell.text}px for ${(lies.five + lies.titleWidth).toFixed(2)}; the title from ${lies.titleLeft.toFixed(2)} to ${lies.titleRight.toFixed(2)} in a column of ${cell.width.toFixed(2)}; ink ${JSON.stringify(inked)} of ${full}`);
+                    `the line ${cell.text}px for ${(HOME_INDENT + lies.titleWidth).toFixed(2)}; the title from ${lies.titleLeft.toFixed(2)} to ${lies.titleRight.toFixed(2)} in a column of ${cell.width.toFixed(2)}; ink ${JSON.stringify(inked)} of ${full}`);
                 const watch = follow(slug, 0, 'stopped');
                 await pointAt(slug);
                 await watch;
                 const slid = await row(slug);
                 const moved = (await rowsAsSet()).rows.find(r => r.slug === slug);
                 check(`6. at ${width}px pointing at its row slides that title left, indent and all, until the end of the title is where the fade begins, and it stays there (${slug})`,
-                    slid.on && Math.abs(slid.cells[0].start + worst.over) <= 1 && Math.abs(moved.titleRight - (cell.width - FADE)) <= 1 && Math.abs(moved.titleLeft - (lies.five - worst.over)) <= 1,
+                    slid.on && Math.abs(slid.cells[0].start + worst.over) <= 1 && Math.abs(moved.titleRight - (cell.width - FADE)) <= 1 && Math.abs(moved.titleLeft - (HOME_INDENT - worst.over)) <= 1,
                     `the line starts ${slid.cells[0].start.toFixed(2)}px left of its column (wanted ${(-worst.over).toFixed(2)}); the title from ${moved.titleLeft.toFixed(2)} to ${moved.titleRight.toFixed(2)}, the fade begins at ${(cell.width - FADE).toFixed(2)}`);
                 const gone = home(slug, 0);
                 await page.mouse.move(1, 1);
                 const took = await gone;
                 const back = await row(slug);
                 const again = (await rowsAsSet()).rows.find(r => r.slug === slug);
-                check(`6. at ${width}px when the pointer leaves, that title is back in 0.2s, five spaces in from its column's start`, Math.abs(took - 0.2) < 0.005 && Math.abs(back.cells[0].start) < 0.01 && !back.on && Math.abs(again.indent - again.five) <= 0.1, `${took}s, the line at ${back.cells[0].start}, the title ${again.indent.toFixed(3)}px in`);
+                check(`6. at ${width}px when the pointer leaves, that title is back in 0.2s, ${HOME_INDENT}px in from its column's start`, Math.abs(took - 0.2) < 0.005 && Math.abs(back.cells[0].start) < 0.01 && !back.on && Math.abs(again.indent - HOME_INDENT) <= 0.1, `${took}s, the line at ${back.cells[0].start}, the title ${again.indent.toFixed(3)}px in`);
             }
 
             // A sub-project's own page is as it was: its years in its information, its title in the header Bold.
@@ -1799,7 +2032,8 @@ try {
                 const first = await page.evaluate(() => window.__mutations());
                 check(`6. zero mutations on first render at ${width}px: /`, first.length === 0, first.slice(0, 5).join('; '));
                 const m = await list();
-                const padding = Math.max(m.page * 0.01676, 12);
+                // A row's date starts 12px from the list's left edge.
+                const padding = 12;
                 // The date column: the widest date printed, 5px of air and the 27.2px the hover chevron takes.
                 const widest = Math.max(...m.rows.map(r => r.dateWidth));
                 const dates = widest + 32.2;
@@ -1819,14 +2053,14 @@ try {
                     off.slice(0, 3).map(r => `${r.slug}: date ${r.date}, title ${r.cells[0].left} + ${r.cells[0].width}, type ${r.cells[1]?.left} + ${r.cells[1]?.width}`).join('; '));
 
                 // The dates are Fluxisch Else Light and the titles Bold, a sub-project's title Light (20 Nov 2026),
-                // all at the body's 13px, in the text colour.
-                const set = `13px rgb(${m.rows[0].cells[0].colour.join(', ')})`;
+                // all at the body's 12.5px, in the text colour.
+                const set = `${HOME_TYPE.wide} rgb(${m.rows[0].cells[0].colour.join(', ')})`;
                 const weights = m.rows.filter(r => r.type !== `300 ${set} | ${subs.has(r.slug) ? 300 : 700} ${set}` || r.child !== subs.has(r.slug));
-                check(`6. at ${width}px every row's date is Light (300) and its title Bold (700), a sub-project's title Light (300; ${subs.size} of the ${m.rows.length} rows), all 13px in the text colour`,
+                check(`6. at ${width}px every row's date is Light (300) and its title Bold (700), a sub-project's title Light (300; ${subs.size} of the ${m.rows.length} rows), all ${HOME_TYPE.wide} in the text colour`,
                     m.rows.length === published.length && weights.length === 0, weights.slice(0, 3).map(r => `${r.slug}: ${r.type}`).join(' ; '));
 
                 // Every column is a box that cuts (not a scroller: nothing to drag with a mouse), with the fade over its
-                // last 1em (13px), and at rest its text starts at its left edge.
+                // last 1em (12.5px), and at rest its text starts at its left edge.
                 const fade = new RegExp(`^linear-gradient\\(to right, .*rgb\\(0, 0, 0\\) calc\\(100% - ${FADE}px\\), rgba\\(0, 0, 0, 0\\)\\)$`);
                 const loose = m.rows.flatMap(r => r.cells.filter(c => c.cut !== 'clip' || !fade.test(c.mask) || Math.abs(c.start) > 0.01).map(c => `${r.slug}: ${c.cut}, start ${c.start}, ${c.mask}`));
                 const cells = m.rows.flatMap(r => r.cells.map((c, i) => ({ slug: r.slug, i, over: c.text - (c.width - FADE), r, c })));
@@ -2067,10 +2301,10 @@ try {
             };
 
             // From 720px up nothing shows of the titles, and every cell keeps its fixed proportion.
-            const fixed = () => page.evaluate(() => {
+            const fixed = () => page.evaluate(({ edge, gap }) => {
                 const names = [...document.querySelectorAll('project-index .name')];
                 const cells = [...document.querySelectorAll('project-index .cell')];
-                const quarter = document.documentElement.clientWidth / 4;
+                const quarter = (document.documentElement.clientWidth - 2 * edge - gap) / 4;
                 return {
                     names: names.length,
                     shown: names.filter(n => n.getClientRects().length > 0 || getComputedStyle(n).display !== 'none').length,
@@ -2080,20 +2314,28 @@ try {
                     }).length,
                     pair: cells.length < 2 || Math.abs(cells[0].getBoundingClientRect().top - cells[1].getBoundingClientRect().top) < 0.5,
                 };
-            });
+            }, { edge: HOME_EDGE, gap: HOME_GAP });
             for (const [width, height] of [[1366, 710], [720, 800]]) {
                 await open(width, height);
                 const m = await fixed();
-                check(`7. at ${width}×${height} the titles under the thumbnails are not displayed and take no space: a cell is still a quarter of the page at 341.2 : 197.12, two to a row`, m.names === published.length && m.shown === 0 && m.off === 0 && m.pair, JSON.stringify(m));
+                check(`7. at ${width}×${height} the titles under the thumbnails are not displayed and take no space: a cell is a quarter of what the two columns have (${homeCell(width)}px) at 341.2 : 197.12, two to a row`, m.names === published.length && m.shown === 0 && m.off === 0 && m.pair, JSON.stringify(m));
             }
 
-            // Below 720px: what is wrong with each cell, by slug.
-            const phone = () => page.evaluate(({ titles, shadow, exact }) => {
+            // Below 720px: what is wrong with each cell, by slug, and the list's frame under the grid.
+            const phone = () => page.evaluate(({ titles, shadow, exact, fit, line }) => {
                 const page = document.documentElement.clientWidth;
                 const box = (el) => el.getBoundingClientRect();
                 const cells = [...document.querySelectorAll('project-index .cell')];
                 const rows = [...document.querySelectorAll('project-index .row')];
                 const bad = { rows: [], titles: [], thumbs: [], sized: [] };
+                // A colour of the stylesheet as the browser gives it back, and the thin line as it draws it.
+                const probe = document.createElement('i');
+                probe.style.cssText = `position: absolute; color: var(--caption); border-top: ${line} solid var(--line);`;
+                document.body.append(probe);
+                const caption = getComputedStyle(probe).color;
+                const rule = `${getComputedStyle(probe).borderTopWidth} ${getComputedStyle(probe).borderTopStyle} ${getComputedStyle(probe).borderTopColor}`;
+                probe.remove();
+                window.__mutations?.();
                 cells.forEach((c, i) => {
                     const slug = c.dataset.slug;
                     const a = box(c);
@@ -2105,29 +2347,33 @@ try {
                     // one cell to a row, as wide as the page
                     if (Math.abs(a.left) > 0.5 || Math.abs(a.width - page) > 0.5 || (i > 0 && a.top < box(cells[i - 1]).bottom - 0.5)) bad.rows.push(slug);
 
-                    // the title: shown, the project's own, under its picture and nearer to it than to the next one
+                    // the title: shown, the project's own, 16px under its picture and 44px before the next one
+                    // (22px under it in its own cell, 22px over the next picture in the next), so nearer to its own
                     const n = name ? box(name) : null;
                     const first = next ? next.querySelector('.box') ?? next.querySelector('.name') : null;
                     const after = first ? box(first).top - n?.bottom : null;
                     const under = f ? n?.top - f.bottom : null;
                     const why = [];
-                    if (!name || name.getClientRects().length === 0 || getComputedStyle(name).visibility !== 'visible' || n.height < 16) why.push('not shown');
+                    if (!name || name.getClientRects().length === 0 || getComputedStyle(name).visibility !== 'visible' || n.height < 18) why.push('not shown');
                     else {
                         if (name.textContent !== titles[slug]) why.push(`reads "${name.textContent}"`);
                         if (n.top < a.top - 0.5 || n.bottom > a.bottom + 0.5) why.push('outside its cell');
-                        if (under !== null && !(under > 0 && Math.abs(under - 10) < 0.5)) why.push(`${under.toFixed(2)}px under its picture, not 10`);
-                        if (after !== null && !(after > 0 && Math.abs(after - 32) < 0.5)) why.push(`${after.toFixed(2)}px before the next, not 32`);
+                        if (under !== null && !(under > 0 && Math.abs(under - fit.under) < 0.5)) why.push(`${under.toFixed(2)}px under its picture, not ${fit.under}`);
+                        if (after !== null && !(after > 0 && Math.abs(after - 2 * fit.pad) < 0.5)) why.push(`${after.toFixed(2)}px before the next, not ${2 * fit.pad}`);
+                        if (Math.abs(a.bottom - n.bottom - fit.pad) > 0.5) why.push(`${(a.bottom - n.bottom).toFixed(2)}px over its cell's end, not ${fit.pad}`);
                         if (under !== null && after !== null && !(under < after)) why.push('nearer to the next picture than to its own');
-                        if (n.width > page * 0.91 + 0.5 || Math.abs((n.left + n.right) / 2 - page / 2) > 0.5) why.push('not centred within 91% of the page');
+                        if (n.width > page * fit.name + 0.5 || Math.abs((n.left + n.right) / 2 - page / 2) > 0.5) why.push(`not centred within ${fit.name * 100}% of the page`);
+                        if (getComputedStyle(name).color !== caption) why.push(`${getComputedStyle(name).color}, not the caption colour`);
                     }
                     if (why.length) bad.titles.push(`${slug}: ${why.join(', ')}`);
 
-                    // the thumbnail: whole, centred, without a border, with the shadow, as large as fits 91% of the
-                    // page's width and 49.9733% of it in height: one of the two exactly
+                    // the thumbnail: whole, centred, without a border, with the shadow, as large as fits the page's
+                    // width less 124px and 132% of that width in height: one of the two exactly; 22px under its cell's top
                     if (frame) {
                         const s = getComputedStyle(frame);
                         const img = frame.querySelector('img');
                         const im = box(img);
+                        const limit = { width: page - fit.side, height: page * fit.height };
                         const wrong = [];
                         if (Math.abs(f.width / f.height - img.getAttribute('width') / img.getAttribute('height')) > 0.01
                             || Math.abs(im.width - f.width) > 0.5 || Math.abs(im.height - f.height) > 0.5) wrong.push('cropped, or not filling its box');
@@ -2136,14 +2382,17 @@ try {
                         if (!['Top', 'Right', 'Bottom', 'Left'].every(k => s[`border${k}Width`] === '0px')) wrong.push(`a border (${s.borderTopWidth})`);
                         if (s.boxShadow !== shadow) wrong.push(`shadow ${s.boxShadow}`);
                         if (Math.abs((f.left + f.right) / 2 - page / 2) > 0.5) wrong.push('not centred');
-                        if (f.width > page * 0.91 + exact || f.height > page * 0.499733 + exact) wrong.push('too large');
-                        if (Math.abs(f.width - page * 0.91) > exact && Math.abs(f.height - page * 0.499733) > exact) wrong.push(`neither side on its limit (${f.width} × ${f.height} in ${page * 0.91} × ${page * 0.499733})`);
-                        if (f.top < a.top - 0.5 || f.bottom > a.bottom + 0.5) wrong.push('outside its cell');
+                        if (f.width > limit.width + exact || f.height > limit.height + exact) wrong.push('too large');
+                        if (Math.abs(f.width - limit.width) > exact && Math.abs(f.height - limit.height) > exact) wrong.push(`neither side on its limit (${f.width} × ${f.height} in ${limit.width} × ${limit.height})`);
+                        if (Math.abs(f.top - a.top - fit.pad) > 0.5 || f.bottom > a.bottom + 0.5) wrong.push(`${(f.top - a.top).toFixed(2)}px under its cell's top, not ${fit.pad}`);
                         if (wrong.length) bad.thumbs.push(`${slug}: ${wrong.join(', ')}`);
                     }
                 });
-                const list = box(document.querySelector('project-index .index'));
+                const index = document.querySelector('project-index .index');
+                const list = box(index);
+                const ls = getComputedStyle(index);
                 const last = cells.length ? box(cells[cells.length - 1]) : null;
+                const head = document.querySelector('project-index .head');
                 return {
                     ...bad,
                     cells: cells.map(c => c.dataset.slug),
@@ -2152,12 +2401,43 @@ try {
                     scroll: document.documentElement.scrollWidth - page,
                     vw: innerWidth,
                     vh: innerHeight,
+                    page,
+                    // the list's frame: 32px under the grid, 16px from either edge of the page, a thin line over it and
+                    // no other border, its first row 20px under the line, 48px after its last row, where the page ends;
+                    // a row as wide as the list (no side padding) and at least 28px tall
+                    frame: {
+                        left: list.left,
+                        right: list.right,
+                        gap: last ? list.top - last.bottom : null,
+                        rule: `${ls.borderTopWidth} ${ls.borderTopStyle} ${ls.borderTopColor}`,
+                        wanted: rule,
+                        others: [ls.borderRightWidth, ls.borderBottomWidth, ls.borderLeftWidth].join(' '),
+                        first: rows.length ? box(rows[0]).top - list.top - parseFloat(ls.borderTopWidth) : null,
+                        after: rows.length ? list.bottom - box(rows.at(-1)).bottom : null,
+                        end: document.documentElement.scrollHeight - (list.bottom + scrollY),
+                        rows: rows.filter((r) => { const b = box(r); return Math.abs(b.left - list.left) > 0.5 || Math.abs(b.right - list.right) > 0.5 || b.height < 28 - 0.05 || parseFloat(getComputedStyle(r).paddingLeft) + parseFloat(getComputedStyle(r).paddingRight) > 0; }).map(r => r.dataset.slug),
+                        shortest: Math.min(...rows.map(r => box(r).height)),
+                        words: Boolean(head) && head.getClientRects().length === 0 && getComputedStyle(document.querySelector('project-index .images'), '::before').content === 'none',
+                    },
                     // every row's date and title, the titles under the thumbnails, and the page's own type
                     type: rows.map(r => ({ slug: r.dataset.slug, set: [r.querySelector('.years'), r.querySelector('.title')].map(el => `${getComputedStyle(el).fontWeight} ${getComputedStyle(el).fontSize}`).join(' | ') })),
                     names: [...new Set(cells.map(c => `${getComputedStyle(c.querySelector('.name')).fontWeight} ${getComputedStyle(c.querySelector('.name')).fontSize}`))],
                     body: [getComputedStyle(document.body).fontSize, getComputedStyle(document.body).lineHeight, getComputedStyle(document.body).fontWeight].join(' / '),
                 };
-            }, { titles, shadow: SHADOW, exact: EXACT });
+            }, { titles, shadow: SHADOW, exact: EXACT, fit: HOME_PHONE, line: '0.67px' });
+            // What is off in the list's frame, or ''.
+            const frameOff = (m) => {
+                const f = m.frame;
+                const near = (a, b) => a !== null && Math.abs(a - b) <= 0.5;
+                const off = [];
+                if (!near(f.left, 16) || !near(f.right, m.page - 16)) off.push(`the list from ${f.left} to ${f.right}`);
+                if (!near(f.gap, 32)) off.push(`${f.gap}px under the grid, not 32`);
+                if (f.rule !== f.wanted || f.others !== '0px 0px 0px') off.push(`its line ${f.rule} (wanted ${f.wanted}), other borders ${f.others}`);
+                if (!near(f.first, 20) || !near(f.after, 48) || !near(f.end, 0)) off.push(`the first row ${f.first}px under the line, ${f.after}px after the last, the page ${f.end}px longer`);
+                if (f.rows.length || !near(f.shortest, 28)) off.push(`${f.rows.length} rows not as wide as the list or under 28px (${f.rows.slice(0, 3).join(', ')}); the shortest ${f.shortest}px`);
+                if (!f.words) off.push('the columns\' strips or their words show');
+                return off.join('; ');
+            };
             const want = JSON.stringify(published.map(p => p.data.slug).sort());
             for (const [width, height] of [[390, 844], [360, 740], [719, 900]]) {
                 await open(width, height);
@@ -2170,34 +2450,52 @@ try {
                 const m = await phone();
                 const at = `at ${width}×${height}`;
                 check(`7. ${at} one cell to a row, each as wide as the page, the list under the grid, no horizontal scroll`, m.rows.length === 0 && m.under && m.scroll <= 0 && JSON.stringify([...m.cells].sort()) === want, `${m.rows.slice(0, 5).join(', ')} under=${m.under} scroll=${m.scroll} cells=${m.cells.length}`);
-                check(`7. ${at} every project's title shows under its thumbnail: 10px under its own picture, 32px before the next`, m.titles.length === 0 && m.cells.length === published.length, m.titles.slice(0, 5).join(' | '));
-                check(`7. ${at} every thumbnail is whole, centred, without a border, with the shadow, filling its box edge to edge, and as large as fits: the side that limits it is exactly on its limit`, m.thumbs.length === 0, m.thumbs.slice(0, 5).join(' | '));
+                check(`7. ${at} every project's title shows under its thumbnail, in the caption colour, centred within 88% of the page: 16px under its own picture, 44px before the next`, m.titles.length === 0 && m.cells.length === published.length, m.titles.slice(0, 5).join(' | '));
+                check(`7. ${at} every thumbnail is whole, centred, without a border, with the shadow, filling its box edge to edge, and as large as fits the page's width less 124px and 132% of that width in height: the side that limits it is exactly on its limit`, m.thumbs.length === 0, m.thumbs.slice(0, 5).join(' | '));
                 {
                     const off = sizesOff(m.sized, m.vw, m.vh);
                     check(`7. ${at} every thumbnail's sizes attribute gives the width it is shown at, to the pixel`, m.sized.length > 0 && off.length === 0, off.slice(0, 3).join(' | '));
                 }
+                check(`7. ${at} the list lies 32px under the grid, 16px from either edge of the page, under a thin line (0.67px in the line colour, as the browser draws it) and no other: its first row 20px under the line, every row as wide as the list and at least 28px tall, 48px after the last row; the columns' strips and their two words do not show`,
+                    frameOff(m) === '', frameOff(m));
                 {
-                    const off = m.type.filter(r => r.set !== `300 13px | ${subs.has(r.slug) ? 300 : 700} 13px`);
-                    check(`7. ${at} the type is 13px on a 16px line, Light; in the list every date is Light (300), every title Bold (700) and a sub-project's title Light (300); under the thumbnails every title is Bold, a sub-project's too`,
-                        m.body === BODY && m.type.length === published.length && off.length === 0 && m.names.length === 1 && m.names[0] === '700 13px', `body ${m.body}; rows ${off.slice(0, 3).map(r => `${r.slug}: ${r.set}`).join(' ; ')}; under the thumbnails ${m.names.join(', ')}`);
+                    const off = m.type.filter(r => r.set !== `300 ${HOME_TYPE.narrow} | ${subs.has(r.slug) ? 300 : 700} ${HOME_TYPE.narrow}`);
+                    check(`7. ${at} the type is 14.5px on an 18px line, Light; in the list every date is Light (300), every title Bold (700) and a sub-project's title Light (300); under the thumbnails every title is Light`,
+                        m.body === HOME_BODY.narrow && m.type.length === published.length && off.length === 0 && m.names.length === 1 && m.names[0] === `300 ${HOME_TYPE.narrow}`, `body ${m.body}; rows ${off.slice(0, 3).map(r => `${r.slug}: ${r.set}`).join(' ; ')}; under the thumbnails ${m.names.join(', ')}`);
                 }
             }
 
-            // The title's type is the list titles' (a main project's: the first cell is one); pointing at the thumbnail or focusing it turns it the link colour.
+            // The title under a thumbnail is in the page's own type (Light, the list's size and line), in the caption
+            // colour, where a main project's title in the list is Bold in the text colour; pointing at the thumbnail
+            // or focusing it turns both the link colour.
             // The first cell: it is on screen, so neither pointing at it nor focusing it scrolls the page under the pointer.
             await open(390, 844);
             const slug = await page.evaluate(() => document.querySelector('project-index .cell').dataset.slug);
             const type = await page.evaluate((slug) => {
                 const pick = (el) => { const s = getComputedStyle(el); return [s.fontFamily, s.fontWeight, s.fontSize, s.lineHeight, s.color].join(' / '); };
                 const cell = document.querySelector(`#cell-${slug}`);
+                const probe = document.createElement('i');
+                probe.style.cssText = 'position: absolute; color: var(--caption);';
+                document.body.append(probe);
+                const caption = pick(probe);
+                probe.style.color = 'var(--link)';
+                const link = getComputedStyle(probe).color;
+                probe.remove();
+                window.__mutations?.();
                 return {
                     name: pick(cell.querySelector('.name')),
+                    caption,
+                    link,
                     title: pick(document.querySelector(`#row-${slug} .title`)),
+                    body: pick(document.body),
                     align: getComputedStyle(cell.querySelector('.name')).textAlign,
+                    wrap: getComputedStyle(cell.querySelector('.name')).textWrapStyle ?? getComputedStyle(cell.querySelector('.name')).textWrap,
                     line: getComputedStyle(cell).textDecorationLine,
                 };
             }, slug);
-            check('7. the title under a thumbnail is set like the list\'s titles, centred, not underlined', type.name === type.title && type.align === 'center' && type.line === 'none', JSON.stringify(type));
+            check('7. the title under a thumbnail is in the page\'s type (Fluxisch Else Light, 14.5px on an 18px line) in the caption colour, centred, its lines balanced, not underlined; the list\'s title is Bold in the text colour',
+                type.name === type.caption && type.name.split(' / ').slice(0, 4).join() === type.body.split(' / ').slice(0, 4).join() && type.name.includes(` / 300 / ${HOME_TYPE.narrow} / 18px / `) && /Fluxisch Else/.test(type.name)
+                && type.title === type.body.replace(' / 300 / ', ' / 700 / ') && type.align === 'center' && /balance/.test(type.wrap) && type.line === 'none', JSON.stringify(type));
             const colours = () => page.evaluate((slug) => ({
                 name: getComputedStyle(document.querySelector(`#cell-${slug} .name`)).color,
                 title: getComputedStyle(document.querySelector(`#row-${slug} .title`)).color,
@@ -2215,12 +2513,12 @@ try {
             const focused = await colours();
             await page.evaluate(() => document.activeElement.blur());
             check('7. pointing at a thumbnail or focusing it turns its title the link colour, highlights its row and touches nothing else',
-                rest.name === rest.title && rest.on === ''
-                && pointed.name !== rest.name && pointed.name === pointed.title && pointed.on === slug
-                && left.name === rest.name && left.on === ''
+                rest.name !== rest.title && rest.on === ''
+                && pointed.name === type.link && pointed.name === pointed.title && pointed.on === slug
+                && left.name === rest.name && left.title === rest.title && left.on === ''
                 && focused.name === pointed.name && focused.on === slug
                 && [...pointed.muts, ...left.muts, ...focused.muts].every(m => m === 'attributes LI [class]'),
-                JSON.stringify({ rest: rest.name, pointed: pointed.name, left: left.name, focused: focused.name, on: [pointed.on, focused.on] }));
+                JSON.stringify({ rest: [rest.name, rest.title], pointed: [pointed.name, pointed.title], left: left.name, focused: focused.name, on: [pointed.on, focused.on], link: type.link }));
 
             // A tag clicked on a phone: the grid and the list show the same projects, and the survivors are the same nodes.
             await open(390, 844);
@@ -2245,7 +2543,7 @@ try {
             check(`7. at 390px clicking a tag filters the grid and the list alike (${tagA}), and the morph only removes`,
                 kept.url === `?filter=${encodeURIComponent(tagA)}` && JSON.stringify([...some.cells].sort()) === tag && JSON.stringify([...some.list].sort()) === tag && kept.same && kept.other.length === 0,
                 `${kept.url} cells=${some.cells.length} rows=${some.list.length} want=${tagged(tagA).length} ${kept.other.slice(0, 5).join('; ')}`);
-            check('7. at 390px the filtered grid keeps its layout: one cell to a row, titles under their thumbnails', some.rows.length === 0 && some.titles.length === 0 && some.thumbs.length === 0 && some.under && some.scroll <= 0, [...some.rows, ...some.titles, ...some.thumbs].slice(0, 5).join(' | '));
+            check('7. at 390px the filtered grid keeps its layout: one cell to a row, titles under their thumbnails, the list in its frame under them', some.rows.length === 0 && some.titles.length === 0 && some.thumbs.length === 0 && some.under && some.scroll <= 0 && frameOff(some) === '', [...some.rows, ...some.titles, ...some.thumbs, frameOff(some)].slice(0, 5).join(' | '));
             await page.click('project-index .tag.on');
             await page.waitForTimeout(50);
             const again = await page.evaluate(() => ({ url: location.search, cells: document.querySelectorAll('project-index .cell').length, rows: document.querySelectorAll('project-index .row').length }));
@@ -2269,7 +2567,7 @@ try {
             // Below 720px the list is as it was before it had columns: a row's title and types are one flow
             // that wraps, the types 15px after the title (or 15px in on a line of their own); the two
             // columns make no box, so nothing is cut or faded, and nothing moves when a row is pointed at.
-            // A sub-project's row (20 Nov 2026) is the same flow five word spaces further in: its types on
+            // A sub-project's row (20 Nov 2026) is the same flow 20px further in: its types on
             // a line of their own start 15px in from where its title starts, like a main project's (not 15px
             // in from the column's start, 3px left of the title above them), and a second line of a title
             // starts under its first. 320px is here because that is where most types have a line of their own.
@@ -2303,7 +2601,7 @@ try {
                 });
                 const rows = await flow();
                 const boxed = rows.filter(r => r.boxes > 0 || !/^inline none 0(, inline-block none 0)?$/.test(r.lines) || Math.abs(r.gap - 15) > 0.5 || r.ragged > 0.05);
-                const wrapped = rows.filter(r => r.height > 26.5).length;
+                const wrapped = rows.filter(r => r.height > 28.5).length;
                 const alone = rows.filter(r => r.own);
                 const aloneKids = alone.filter(r => subs.has(r.slug)).length;
                 const pointed = rows.find(r => r.tags) ?? rows[0];
@@ -2314,7 +2612,7 @@ try {
                 await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
                 const during = (await flow()).find(r => r.slug === pointed.slug);
                 await away();
-                check(`7. at ${width}×${height} the list has no columns: a row's types follow its title in the same flow, 15px after it, or on a line of their own 15px in from where the title starts (${alone.length} rows, ${aloneKids} of them sub-projects', whose title starts five spaces in), and every line of a title starts under its first; all wrap as they need (${wrapped} of ${rows.length} rows take more than one line); nothing is cut, and nothing moves when a row is pointed at`,
+                check(`7. at ${width}×${height} the list has no columns: a row's types follow its title in the same flow, 15px after it, or on a line of their own 15px in from where the title starts (${alone.length} rows, ${aloneKids} of them sub-projects', whose title starts 20px in), and every line of a title starts under its first; all wrap as they need (${wrapped} of ${rows.length} rows take more than one line); nothing is cut, and nothing moves when a row is pointed at`,
                     rows.length === published.length && boxed.length === 0 && during.on && during.tags === before.tags,
                     `${boxed.slice(0, 3).map(r => `${r.slug}: ${r.boxes} boxes, ${r.lines}, gap ${r.gap.toFixed(2)}${r.own ? ' on a line of their own' : ''}, title lines ${r.ragged.toFixed(2)}px apart`).join('; ')} pointed: ${before.tags} → ${during.tags}`);
             }
@@ -2326,6 +2624,7 @@ try {
         const wide = [];
         const type = [];
         const boxes = [];
+        const homeType = [];
         let pictures = 0;
         let captions = 0;
         for (const path of routes) {
@@ -2359,37 +2658,116 @@ try {
                     }).filter(Boolean),
                 };
             }, SHADOW);
-            if (look.body !== BODY || look.other.length) type.push(`${path}: body ${look.body}${look.other.length ? `; ${look.other.slice(0, 3).join(', ')}` : ''}`);
+            if (HOME_ROUTES.includes(path)) {
+                // The home page has its own sizes (the redesign of 26 Nov 2026): every text that shows at 390px is the
+                // body's 14.5px on an 18px line, but the intro, which is 17.5px on a 21px line.
+                const sizes = await page.evaluate(() => [...new Set([...document.querySelectorAll('body *')].filter(el => el.getClientRects().length && [...el.childNodes].some(n => n.nodeType === 3 && n.data.trim()) && !el.closest('.visually-hidden'))
+                    .map(el => `${el.closest('.site-head') ? 'intro' : el.localName} ${getComputedStyle(el).fontSize} / ${getComputedStyle(el).lineHeight}`))]);
+                const strange = sizes.filter(t => (t.startsWith('intro ') ? t !== `intro ${HOME_INTRO.narrow.split(' / ').slice(0, 2).join(' / ')}` : !t.endsWith(` ${HOME_BODY.narrow.split(' / ').slice(0, 2).join(' / ')}`)));
+                if (look.body !== HOME_BODY.narrow || strange.length || !sizes.some(t => t.startsWith('intro '))) homeType.push(`${path}: body ${look.body}${strange.length ? `; ${strange.slice(0, 3).join(', ')}` : ''}`);
+            } else if (look.body !== BODY || look.other.length) type.push(`${path}: body ${look.body}${look.other.length ? `; ${look.other.slice(0, 3).join(', ')}` : ''}`);
             pictures += look.count;
             captions += look.captions;
             if (look.wrong.length) boxes.push(`${path}: ${look.wrong.length} of ${look.count}, ${look.wrong[0]}`);
         }
         check('4. no horizontal scroll at 390px on any route', wide.length === 0, wide.join(', '));
+        check('the type on the home page at 390px is 14.5px on an 18px line, Light; the intro is 17.5px on a 21px line, and nothing is any other size (/ and /projects/)', homeType.length === 0, homeType.join(' | '));
         check(`the type on every route is 13px on a 16px line, Light (a project's type, role and client on an 18.73px line); a caption is 11px / 13.2px and nothing else (${captions} captions on screen)`, type.length === 0 && captions > 0, type.slice(0, 4).join(' | ') || (captions ? '' : 'no caption on screen on any route'));
         check(`no picture on any route has a border, every one has the shadow and is stretched over its whole box (object-fit: fill): the ${pictures} thumbnails and project photos`, pictures > 0 && boxes.length === 0, boxes.slice(0, 4).join(' | '));
 
-        // 6. the intro line stays on the grid's side of the page: side by side (from 720px) it wraps before the
-        // middle, 16px short of it, and the header keeps its 88px, so the columns under it do not move.
+        // 6. the intro (the redesign of 26 Nov 2026; Fluxisch Else Light by the owner's word of that day). In
+        // the link colour, its links in the text colour, underlined 1px thick 3px under the text, not Bold,
+        // the link colour when pointed at. From 720px: one running paragraph, 15px on a 21px line, set left,
+        // from 44px to at most 44px before the page's right edge, 34px under the top; the header is that, the
+        // paragraph's lines and 12px (88px with two lines). Below 720px: 17.5px on a 21px line, every line of
+        // the field a block of its own, 12px apart, its lines centred in the page between 30px margins,
+        // 52px under the top and 30px over the grid. The lines are counted in the page: where one breaks is
+        // the font's matter. At both addresses of the home page.
         const intro = [];
-        for (const width of [720, 807, 1024, 1366, 1920]) {
+        const introSeen = { lines: new Set(), parts: 0 };
+        for (const [width, path] of [[320, '/'], [390, '/'], [390, '/projects/'], [719, '/'], [720, '/'], [807, '/'], [1024, '/'], [1366, '/'], [1366, '/projects/'], [1920, '/']]) {
             await page.setViewportSize({ width, height: 800 });
-            await page.goto(base + '/');
-            await page.evaluate(() => document.fonts.ready);
-            const m = await page.evaluate(() => {
-                const p = document.querySelector('.site-head p');
-                const range = document.createRange();
-                range.selectNodeContents(p);
-                const rects = [...range.getClientRects()].filter(r => r.width > 0);
+            await page.mouse.move(1, 700);
+            await page.goto(base + path);
+            await page.evaluate(() => document.fonts.ready.then(() => true));
+            const read = () => page.evaluate(() => {
+                const box = (el) => { const b = el.getBoundingClientRect(); return { left: b.left, right: b.right, top: b.top, bottom: b.bottom, height: b.height }; };
+                const head = document.querySelector('.site-head');
+                const p = head.querySelector('p');
+                const hs = getComputedStyle(head);
+                // The lines of some text: each as its left and right ends and its middle, top to bottom.
+                const linesOf = (el) => {
+                    const range = document.createRange();
+                    range.selectNodeContents(el);
+                    const rows = new Map();
+                    for (const r of [...range.getClientRects()].filter(r => r.width > 0)) {
+                        const key = Math.round((r.top + r.bottom) / 2);
+                        const row = [...rows.keys()].find(k => Math.abs(k - key) <= 3) ?? key;
+                        const at = rows.get(row) ?? { left: Infinity, right: -Infinity };
+                        rows.set(row, { left: Math.min(at.left, r.left), right: Math.max(at.right, r.right) });
+                    }
+                    return [...rows].sort((a, b) => a[0] - b[0]).map(([middle, ends]) => ({ middle, ...ends }));
+                };
+                const probe = document.createElement('i');
+                probe.style.cssText = 'position: absolute; color: var(--link);';
+                document.body.append(probe);
+                const link = getComputedStyle(probe).color;
+                probe.remove();
+                const a = head.querySelector('a');
+                const as = a ? getComputedStyle(a) : null;
                 return {
-                    right: Math.max(...rects.map(r => r.right)),
-                    lines: new Set(rects.map(r => Math.round(r.top))).size,
-                    head: document.querySelector('.site-head').getBoundingClientRect().height,
-                    middle: document.documentElement.clientWidth / 2,
+                    page: document.documentElement.clientWidth,
+                    head: box(head),
+                    main: document.querySelector('main').getBoundingClientRect().top,
+                    type: [hs.fontSize, hs.lineHeight, hs.fontWeight].join(' / '),
+                    face: hs.fontFamily,
+                    colour: hs.color,
+                    link,
+                    ink: getComputedStyle(document.body).color,
+                    align: hs.textAlign,
+                    padding: [hs.paddingTop, hs.paddingRight, hs.paddingBottom, hs.paddingLeft].join(' '),
+                    text: box(p),
+                    lines: linesOf(p),
+                    parts: [...p.querySelectorAll('.l')].map(l => ({ display: getComputedStyle(l).display, wrap: getComputedStyle(l).textWrapStyle ?? getComputedStyle(l).textWrap, ...box(l), lines: linesOf(l) })),
+                    links: [...head.querySelectorAll('a')].map((el) => { const s = getComputedStyle(el); return [s.color, s.fontWeight, s.textDecorationLine, s.textDecorationThickness, s.textUnderlineOffset].join(' '); }),
+                    hover: as ? as.color : '',
+                    loaded: [...new Set([...document.fonts].filter(f => f.status === 'loaded').map(f => f.family.replace(/["']/g, '')))].sort().join(', '),
                 };
             });
-            if (m.right > m.middle - 16 + 0.5 || Math.abs(m.head - 88) > 0.5) intro.push(`${width}px: text to ${m.right.toFixed(1)}, middle ${m.middle}, ${m.lines} line(s), header ${m.head}`);
+            const m = await read();
+            const near = (a, b) => Math.abs(a - b) <= 0.5;
+            const off = [];
+            const wide = width >= 720;
+            introSeen.parts = Math.max(introSeen.parts, m.parts.length);
+            if (m.type !== (wide ? HOME_INTRO.wide : HOME_INTRO.narrow) || !/^"?Fluxisch Else/.test(m.face) || m.loaded !== 'Fluxisch Else') off.push(`set ${m.type} in ${m.face} (loaded: ${m.loaded})`);
+            if (m.colour !== m.link || m.colour === m.ink) off.push(`colour ${m.colour}`);
+            if (!m.links.length || m.links.some(l => l !== `${m.ink} 300 underline 1px 3px`)) off.push(`links ${[...new Set(m.links)].join(' | ')}`);
+            if (m.padding !== (wide ? '34px 44px 12px 44px' : '52px 30px 30px 30px')) off.push(`padding ${m.padding}`);
+            if (!near(m.head.bottom, m.main) || !near(m.head.top, 0)) off.push(`the header ends at ${m.head.bottom}, the index starts at ${m.main}`);
+            if (wide) {
+                introSeen.lines.add(m.lines.length);
+                if (!['left', 'start'].includes(m.align) || m.parts.some(l => l.display !== 'inline')) off.push(`aligned ${m.align}, parts ${m.parts.map(l => l.display).join(' ')}`);
+                if (!near(m.head.height, 34 + m.lines.length * 21 + 12)) off.push(`a header of ${m.head.height}px for ${m.lines.length} line(s)`);
+                if (m.lines.some(l => !near(l.left, 44) || l.right > m.page - 44 + 0.5)) off.push(`lines from ${m.lines.map(l => `${l.left} to ${l.right}`).join(', ')}`);
+                // One running paragraph: there are fewer lines than parts, or every part but the last fills its line.
+                if (m.parts.length > 1 && m.lines.length >= m.parts.length && m.parts.slice(0, -1).some(l => l.lines.length === 1 && l.lines[0].right < m.page - 44 - 200)) off.push('the parts do not run on');
+            } else {
+                if (m.align !== 'center' || m.parts.some(l => l.display !== 'block' || !/balance/.test(l.wrap))) off.push(`aligned ${m.align}, parts ${m.parts.map(l => `${l.display} ${l.wrap}`).join(', ')}`);
+                if (!near(m.parts[0]?.top, 52) || !near(m.head.bottom - m.parts.at(-1)?.bottom, 30)) off.push(`the first part ${m.parts[0]?.top}px down, the last ${m.head.bottom - m.parts.at(-1)?.bottom}px over the header's end`);
+                m.parts.forEach((l, i) => {
+                    if (i > 0 && !near(l.top - m.parts[i - 1].bottom, 12)) off.push(`part ${i + 1} is ${l.top - m.parts[i - 1].bottom}px under part ${i}`);
+                    if (!near(l.height, l.lines.length * 21)) off.push(`part ${i + 1}: ${l.lines.length} line(s) in ${l.height}px`);
+                    if (l.lines.some(r => Math.abs((r.left + r.right) / 2 - m.page / 2) > 1 || r.left < 30 - 0.5 || r.right > m.page - 30 + 0.5)) off.push(`part ${i + 1} is not centred between the 30px margins: ${l.lines.map(r => `${r.left.toFixed(1)} to ${r.right.toFixed(1)}`).join(', ')}`);
+                });
+            }
+            // Pointed at, a link is the link colour (and the text round it already is).
+            await page.hover('.site-head a');
+            const pointed = (await read()).hover;
+            if (pointed !== m.link) off.push(`a link pointed at is ${pointed}`);
+            if (off.length) intro.push(`${width}px ${path}: ${off.join('; ')}`);
         }
-        check('6. side by side, the intro line ends at least 16px before the middle of the page and the header stays 88px (720 to 1920px)', intro.length === 0, intro.join(' | '));
+        check(`6. the intro: Fluxisch Else Light in the link colour, its links underlined in the text colour; from 720px one running paragraph of 15px / 21px across the page between 44px margins (${[...introSeen.lines].sort().join(', ')} lines at 720 to 1920px), the header as tall as its lines; below 720px 17.5px / 21px, each of its ${introSeen.parts} parts a block of its own, 12px apart, centred and balanced between 30px margins (/ and /projects/)`,
+            intro.length === 0 && introSeen.lines.size >= 2 && introSeen.parts > 1, intro.slice(0, 3).join(' | '));
 
         // console errors on every route
         await page.setViewportSize({ width: 1328, height: 900 });
@@ -2442,7 +2820,7 @@ try {
     // stops where the fade begins, and shows no scrollbar; a column whose text fits cannot be dragged
     // at all (the slanted types lean 0.84px over their own end, which a scroller counts and rounds up,
     // so their way is up to 2px longer and one that just fits may give 1px); a tap on a tag filters.
-    // The fade is the last 1em of a column, 13px: a list dragged to its end has its last tag clear of it.
+    // The fade is the last 1em of a column, 12.5px: a list dragged to its end has its last tag clear of it.
     {
         const context = await browser.newContext({ viewport: { width: 820, height: 1180 }, deviceScaleFactor: 1, hasTouch: true });
         const page = await context.newPage();
@@ -2451,18 +2829,18 @@ try {
         await page.evaluate(() => document.fonts.ready.then(() => true));
         if (!await page.evaluate(() => matchMedia('(hover: none)').matches)) check('6. on a touch screen at 820px: ok (this browser says it can hover; the check was skipped)', true);
         else {
-            const cells = await page.evaluate(() => [...document.querySelectorAll('project-index .clip')].map((c, k) => {
+            const cells = await page.evaluate((fade) => [...document.querySelectorAll('project-index .clip')].map((c, k) => {
                 const px = (v) => parseFloat(v) || 0;
                 const line = c.querySelector('.line');
                 const cs = getComputedStyle(c);
                 const ls = getComputedStyle(line);
                 c.scrollLeft = 10000;
                 const tag = [...c.querySelectorAll('.tag')].at(-1)?.getBoundingClientRect();
-                const at = { k, slug: c.closest('.row').dataset.slug, over: px(ls.width) - (c.getBoundingClientRect().width - px(cs.paddingLeft) - 13), drag: c.scrollLeft, cut: cs.overflowX, bar: c.offsetHeight - c.clientHeight, moved: ls.translate, tags: Boolean(tag), last: tag ? c.getBoundingClientRect().right - tag.right : 13 };
+                const at = { k, slug: c.closest('.row').dataset.slug, over: px(ls.width) - (c.getBoundingClientRect().width - px(cs.paddingLeft) - fade), drag: c.scrollLeft, cut: cs.overflowX, bar: c.offsetHeight - c.clientHeight, moved: ls.translate, tags: Boolean(tag), last: tag ? c.getBoundingClientRect().right - tag.right : fade };
                 c.scrollLeft = 0;
                 return at;
-            }));
-            const wrong = cells.filter(c => c.cut !== 'auto' || c.bar !== 0 || c.moved !== 'none' || (c.over <= 0.01 ? c.drag > 1 : c.drag < c.over - 1 || c.drag > c.over + 2.5 || c.last < 11.5));
+            }), HOME_FADE);
+            const wrong = cells.filter(c => c.cut !== 'auto' || c.bar !== 0 || c.moved !== 'none' || (c.over <= 0.01 ? c.drag > 1 : c.drag < c.over - 1 || c.drag > c.over + 2.5 || c.last < HOME_FADE - 1.5));
             const most = cells.filter(c => c.over > 0.01 && c.tags).sort((a, b) => b.over - a.over)[0];
             let tapped = 'no type list is cut';
             if (most) {
@@ -2531,6 +2909,17 @@ try {
         check('5. every key of a project photo (image, alt, caption, set) is a field in .pages.yml', photoKeys.length === 0, photoKeys.join(', '));
         const set = photoFields.get('set');
         check('5. a photo\'s set is a number field in .pages.yml, whole numbers from 1', set?.type === 'number' && set?.options?.min === 1 && set?.options?.step === 1, JSON.stringify(set ?? null));
+        // The home page's text: every key of content/site/index.md is a field of its entry; the intro is a
+        // text of several lines whose help says how lines and links are written, the description a field of its own.
+        {
+            const home = (config.content ?? []).find(c => c.path === 'content/site/index.md');
+            const homeFields = new Map((home?.fields ?? []).map(f => [f.name, f]));
+            const homeKeys = Object.keys(matter(readFileSync(join(root, 'content/site/index.md'), 'utf8'), {}).data).filter(k => !homeFields.has(k));
+            const help = String(homeFields.get('intro')?.description ?? '');
+            check('5. the home page\'s intro and description are fields of its entry in .pages.yml: the intro a text of several lines, with help on lines and on how a link is written; every key of content/site/index.md is a field',
+                home?.type === 'file' && homeKeys.length === 0 && homeFields.get('intro')?.type === 'text' && /line/i.test(help) && /\[[^\]]+\]\([^)]+\)/.test(help) && ['string', 'text'].includes(homeFields.get('description')?.type) && Boolean(homeFields.get('description')?.description),
+                `keys without a field: ${homeKeys.join(', ') || 'none'}; intro: ${homeFields.get('intro')?.type}; description: ${homeFields.get('description')?.type}`);
+        }
         const files = (config.content ?? []).filter(c => c.type === 'file').map(c => c.path).sort();
         check('5. the two text pages are editable', JSON.stringify(files) === JSON.stringify(['content/site/index.md', 'content/site/info.md']), files.join(', '));
     }

@@ -57,11 +57,7 @@ export function loadContent({ root, images, config, log = () => {} }) {
 
     const tags = [...new Set(projects.flatMap(p => p.tags))].sort((a, b) => a.localeCompare(b));
     return {
-        site: {
-            // The line at the top of the home page: Markdown, its link the name that opens Info.
-            intro: markdownInline(str(index.data.intro)),
-            description: markdownText(str(index.data.intro)),
-        },
+        site: homeText(index.data),
         info: { title: str(info.data.title) || 'Info', body: markdown(info.content) },
         projects,
         // What the index component needs, and nothing more (but see lean()): it rides on the page as JSON.
@@ -69,6 +65,19 @@ export function loadContent({ root, images, config, log = () => {} }) {
         tags,
         coversCss: coversCss(projects, config),
         slidesCss: slidesCss(projects),
+    };
+}
+
+// The home page's text, from the front matter of content/site/index.md (exported for
+// scripts/verify.js). `intro` is one field of several lines: each line that is not empty is a
+// line of Markdown, and the page prints it as a part of its own (a block below 720px; from 720px
+// the parts run on as one paragraph). `description` is the meta description of the home page,
+// About and Collaborations: plain text; left empty, it is the words of the intro.
+export function homeText(data) {
+    const lines = str(data?.intro).split(/\r\n?|\n/).map(line => line.trim()).filter(Boolean);
+    return {
+        intro: lines.map(markdownInline).filter(Boolean),
+        description: str(data?.description).replace(/\s+/g, ' ') || markdownText(lines.join(' ')),
     };
 }
 
@@ -221,14 +230,15 @@ function lean(p) {
     };
 }
 
-// A thumbnail is as large as fits 91% of its cell's width and 49.9733% of that width in height
-// (86.5% of a 341.2 : 197.12 cell): the picture itself, which has had no border since 19 Nov 2026
-// (components/project-index.css); a cell is a quarter of the page wide, and the whole page below
-// 720px, where the grid is one column.
+// A thumbnail's width, as its `sizes` (components/project-index.css; the picture itself, which has
+// no border). From 720px a cell is a quarter of what the page has left after the 20px either side
+// of the index and the 29px between its two columns, (100vw - 69px) / 4, and the thumbnail as large
+// as fits 88% of that width and 49.9733% of it in height (86.5% of a 341.2 : 197.12 cell). Below
+// 720px, where the grid is one column, a cell is the page wide and the thumbnail as large as fits
+// that width less 124px and 132% of it in height.
 function coverSizes(c) {
     const a = aspect(c) ?? 1.5;
-    const fit = (cell) => `min(${Math.round(cell * 91) / 100}vw, calc(${Math.round(cell * 49.9733) / 100}vw * ${a}))`;
-    return `(max-width: 719px) ${fit(100)}, ${fit(25)}`;
+    return `(max-width: 719.98px) min(calc(100vw - 124px), calc(132vw * ${a})), min(calc(22vw - 15.18px), calc((12.4933vw - 8.6204px) * ${a}))`;
 }
 
 // One photo of a project page, as the project-slides component prints it; `caption` is HTML.

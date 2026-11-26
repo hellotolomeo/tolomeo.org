@@ -8,7 +8,9 @@
 {% block content %}
 <header class="site-head">
 <h1 class="visually-hidden">Tolomeo</h1>
-<p>{{ site.intro | safe }}</p>
+{% if site.intro | length %}
+<p>{% for line in site.intro %}<span class="l">{{ line | safe }}</span>{% if not loop.last %} {% endif %}{% endfor %}</p>
+{% endif %}
 </header>
 <main>
 <project-index projects="{{ projects | dump | e }}" match="{{ match }}"></project-index>
