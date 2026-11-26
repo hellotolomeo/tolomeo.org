@@ -45,6 +45,11 @@
 > now covers the intro and both text pages. Still standing from the notes above: photo sets, no
 > frames, short dates, Light dates, the fitted date column, sub-projects without bullet and date;
 > and the Index list keeps its three one-line columns with their cut, fade and slide. The current values are in `CLAUDE.md`, "Design".
+>
+> **The same day, after it**, at the owner's request: the home page's intro is set in the page's
+> own type size (the handoff had it larger), with 18px lines from 720px wide; and the three photo
+> sets of Thesis Design Support became one (content only: `images[].set` stays). With these three
+> changes the redesign was published to `main` on 26 Nov 2026. See `CLAUDE.md`, "Design".
 
 Portfolio site for Tolomeo, an artist researcher, publisher and educator in the Netherlands.
 Read this file completely before writing code. `CLAUDE.md` holds the standing rules;
