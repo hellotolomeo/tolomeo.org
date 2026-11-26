@@ -153,6 +153,11 @@ content:
         type: string
         description: "Shown as 'for:'."
 
+      - name: details
+        label: More details
+        type: text
+        description: "Optional. Extra lines for the project page, shown under type, role, for and the years: stockists, edition details, where to order. Every line you type is a line on the page. Leave an empty line to start a new group (the page shows an empty line there too). A link is written [the words](https://the.address), bold is written **like this**."
+
       - name: body
         label: Description
         type: rich-text
@@ -246,8 +251,8 @@ content:
         description: "One or two plain sentences that search engines and link previews show for the home page, About and Collaborations. Plain text, no links. Leave it empty to use the words of the intro."
 
   - name: info
-    label: Info page
-    description: "The Info page. Guide: https://github.com/hellotolomeo/tolomeo.org/blob/main/EDITING.md"
+    label: About page
+    description: "The About page (tolomeo.org/info/): a text with one picture beside it. Guide: https://github.com/hellotolomeo/tolomeo.org/blob/main/EDITING.md"
     type: file
     path: content/site/info.md
     format: yaml-frontmatter
@@ -268,3 +273,65 @@ content:
           format: markdown
           media: false
         description: "Paragraphs, links, bold and italic (italic shows slanted); other formatting is simplified on the site."
+      - name: image
+        label: Picture
+        type: image
+        options:
+          path: images/info
+          extensions: [jpg, jpeg, png, webp, avif, gif, svg, heic, heif, tif, tiff, JPG, JPEG, PNG, WEBP, HEIC, HEIF, TIF, TIFF]
+        description: "The one picture on the page, shown whole, with a soft shadow around it: to the left of the text on a computer, under the text on a phone. Its folder is images/info. Empty = the page is the text alone."
+      - name: alt
+        label: Description of the picture
+        type: string
+        description: "Describe the picture for people who can't see it."
+      - name: caption
+        label: Caption
+        type: string
+        description: "Optional. Shown under the picture. Put *asterisks* around words to slant them, e.g. a *Book Title*."
+      - name: note
+        label: Footnote
+        type: text
+        description: "Optional. A note to the text: under the text on a computer, after the picture on a phone. Start it with the mark you put in the text, e.g. an asterisk and a space. An empty line starts a second note."
+
+  - name: collaborations
+    label: Collaborations page
+    description: "The Collaborations page (tolomeo.org/collaborations/): a text with one picture beside it. Guide: https://github.com/hellotolomeo/tolomeo.org/blob/main/EDITING.md"
+    type: file
+    path: content/site/collaborations.md
+    format: yaml-frontmatter
+    operations:
+      create: false
+      rename: false
+      delete: false
+    fields:
+      - name: title
+        label: Title
+        type: string
+        readonly: true
+        description: "Fixed by the design."
+      - name: body
+        label: Text
+        type: rich-text
+        options:
+          format: markdown
+          media: false
+        description: "Paragraphs, links, bold and italic (italic shows slanted); other formatting is simplified on the site."
+      - name: image
+        label: Picture
+        type: image
+        options:
+          path: images/collaborations
+          extensions: [jpg, jpeg, png, webp, avif, gif, svg, heic, heif, tif, tiff, JPG, JPEG, PNG, WEBP, HEIC, HEIF, TIF, TIFF]
+        description: "The one picture on the page, shown whole, with a soft shadow around it: to the left of the text on a computer, under the text on a phone. Its folder is images/collaborations. Empty = the page is the text alone."
+      - name: alt
+        label: Description of the picture
+        type: string
+        description: "Describe the picture for people who can't see it."
+      - name: caption
+        label: Caption
+        type: string
+        description: "Optional. Shown under the picture. Put *asterisks* around words to slant them, e.g. a *Book Title*."
+      - name: note
+        label: Footnote
+        type: text
+        description: "Optional. A note to the text: under the text on a computer, after the picture on a phone. Start it with the mark you put in the text, e.g. an asterisk and a space. An empty line starts a second note."

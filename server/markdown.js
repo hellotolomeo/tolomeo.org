@@ -94,7 +94,7 @@ function paragraphs(html) {
     return html.trimStart().startsWith('<p>') ? html : wrap(html);
 }
 
-/** Block Markdown (a description, the Info page) → paragraphs and links. */
+/** Block Markdown (a description, the text of the About and Collaborations pages) → paragraphs and links. */
 export function markdown(src) {
     return src && typeof src === 'string' ? tie(md.parse(src)).trim() : '';
 }
@@ -102,6 +102,24 @@ export function markdown(src) {
 /** One line of Markdown (the intro line, a caption) → inline HTML, no <p>. */
 export function markdownInline(src) {
     return src && typeof src === 'string' ? tie(md.parseInline(src)).trim() : '';
+}
+
+/**
+ * Lines of Markdown in blocks (a project's "More details") → the blocks, each a list of its lines
+ * as inline HTML. An empty line ends a block; every other line is a line of its own, one line of
+ * Markdown each (links, **bold**, *slanted*; raw HTML is escaped, as everywhere). The mark of a
+ * list line ("- " or "* " before the text) is dropped: the page prints lines, not bullets.
+ */
+export function markdownLines(src) {
+    if (!src || typeof src !== 'string') return [];
+    const blocks = [[]];
+    for (const typed of src.split(/\r\n?|\n/)) {
+        const line = typed.trim();
+        const html = markdownInline(line.replace(/^[-*]\s+/, ''));
+        if (html) blocks[blocks.length - 1].push(html);
+        else if (!line && blocks[blocks.length - 1].length) blocks.push([]);
+    }
+    return blocks.filter(block => block.length);
 }
 
 const ENTITIES = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" };

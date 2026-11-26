@@ -51,6 +51,7 @@ copy('fonts');
 copy('public', '.');
 write('client/covers.css', data.coversCss);
 write('client/slides.css', data.slidesCss);
+write('client/figures.css', data.figuresCss);
 write('CNAME', 'tolomeo.org\n');
 write('.nojekyll', '');
 write('robots.txt', 'User-agent: *\nDisallow:\n');

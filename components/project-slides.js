@@ -7,6 +7,9 @@ import BaseComponent from '../client/lib/BaseComponent.js';
  * click on the photo and the left / right arrow keys move through them; the
  * chevron that leads nowhere is not printed, so the first photo has no
  * "previous" and the last no "next". The next photo is loaded ahead.
+ * (client/zoom.js, which opens a photo to the full window on a double click,
+ * holds a click on a photo back for a moment and then hands it on: it arrives
+ * here as the same click, a little later.)
  * Until this class is defined (JavaScript off, or the script still loading)
  * the photos are simply one under the other: project-slides.css, :defined.
  */
@@ -45,14 +48,29 @@ class ProjectSlides extends BaseComponent {
         this.go(e.key === 'ArrowLeft' ? -1 : 1);
     }
 
-    // The set on screen is the one whose box covers the middle of the window below the page's
-    // header (`--head`, project-slides.css). Sets do not overlap, so that is one set at most;
-    // while the project's information is there instead, it is none.
+    // The set on screen is the one with the most of itself in the window below the page's header
+    // (`--head`, client/site.css), the first of two with as much. To count at all a set must
+    // cover the middle of that part of the window or be more than half in view: where each set
+    // fills the window that is the one in the middle, and none while the project's information
+    // is there instead; where the sets are short and stand one under the other beside the
+    // information, a set that ends above the middle still has the keys.
     onScreen() {
         const head = parseFloat(getComputedStyle(this).getPropertyValue('--head')) || 0;
         const middle = (head + innerHeight) / 2;
-        const { top, bottom } = this.getBoundingClientRect();
-        return top <= middle && middle < bottom;
+        const inView = (el) => {
+            const { top, bottom, height } = el.getBoundingClientRect();
+            const shown = Math.min(bottom, innerHeight) - Math.max(top, head);
+            return (top <= middle && middle < bottom) || shown > height / 2 ? shown : 0;
+        };
+        const mine = inView(this);
+        if (mine <= 0) return false;
+        for (const other of document.querySelectorAll('project-slides')) {
+            if (other === this) continue;
+            const theirs = inView(other);
+            const before = Boolean(other.compareDocumentPosition(this) & Node.DOCUMENT_POSITION_FOLLOWING);
+            if (theirs > mine || (theirs === mine && before)) return false;
+        }
+        return true;
     }
 
     // The page scrolled: once any of this set is in the window, its current photo and the next

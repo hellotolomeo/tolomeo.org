@@ -1,0 +1,48 @@
+{% extends 'shared/pages/base.html' %}
+{#- A page of text with one picture: About (/info/) and Collaborations. The header is the project pages' (client/site.css), its title not a link. Then the text, the picture with its caption, and the footnote, in that order: in a narrow window that is the order on the page; in a wide one the picture is the left half and the text the right, the footnote under the text (client/sheet.css). What is empty is left out: a page without a picture loads no script, and a caption is printed only under a picture. The picture's proportions come from client/figures.css, by the figure's id. `sheet` is the page, as server/content.js shapes it. -#}
+{% block head %}
+<link rel="stylesheet" href="/client/sheet.css">
+{% if sheet.picture %}
+<link rel="stylesheet" href="/client/figures.css">
+<script type="module" src="/client/zoom.js"></script>
+{% endif %}
+{% endblock %}
+{% block content %}
+<header class="project-head">
+<p class="back"><a href="/">back</a></p>
+<h1>{{ sheet.title }}</h1>
+</header>
+<main class="sheet">
+{% if sheet.body %}
+<div class="text">
+{{ sheet.body | safe }}
+</div>
+{% endif %}
+{% if sheet.picture %}
+<figure id="{{ sheet.id }}">
+<picture data-zoom>{% if sheet.picture.webp %}<source
+  type="image/webp"
+  srcset="{{ sheet.picture.webp }}"
+  sizes="{{ sheet.picture.sizes }}"
+>{% endif %}<img
+  src="{{ sheet.picture.src }}"
+{% if sheet.picture.srcset %}
+  srcset="{{ sheet.picture.srcset }}"
+  sizes="{{ sheet.picture.sizes }}"
+{% endif %}
+  width="{{ sheet.picture.width }}"
+  height="{{ sheet.picture.height }}"
+  alt="{{ sheet.picture.alt }}"
+></picture>
+{% if sheet.caption %}
+<figcaption>{{ sheet.caption | safe }}</figcaption>
+{% endif %}
+</figure>
+{% endif %}
+{% if sheet.note %}
+<div class="note">
+{{ sheet.note | safe }}
+</div>
+{% endif %}
+</main>
+{% endblock %}

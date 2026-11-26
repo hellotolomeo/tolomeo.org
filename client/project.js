@@ -11,6 +11,8 @@ await import('../components/project-slides.js');
 // way the title link does: the new scroll takes over from the one under way (an instant one would
 // be carried on by it for a few pixels). A scroll, no change to the DOM. Only when the page was
 // opened (a link, an address); a reload or the back button brings back where the reader was.
+// (That is the page below 900px, where the information comes after the photos. From 900px it
+// stands beside them, in place under the header from the start, and this moves nothing.)
 if (location.hash === '#project-info' && performance.getEntriesByType('navigation')[0]?.type === 'navigate') {
     document.getElementById('project-info')?.scrollIntoView();
 }

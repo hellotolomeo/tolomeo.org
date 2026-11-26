@@ -1,4 +1,4 @@
-{#- One set of a project's photos, one at a time: the current one in the middle (`.frame` is its box: no border since 19 Nov 2026, only the shadow), a chevron on either side of it, its caption under it. -#}
+{#- One set of a project's photos, one at a time: the current photo (`.frame` is its box: no border since 19 Nov 2026, only the shadow) and under it one row: its caption, with a chevron at either end of the row. -#}
 {#- `index` and `near` exist only in the browser; the server renders the first photo as the current one. -#}
 {#- The current photo and the next load right away in the set at the top of the page (`eager`), and in any other once it has come on screen (`near`). -#}
 {% set index = index | default(0) %}
