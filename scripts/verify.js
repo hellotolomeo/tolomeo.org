@@ -4,7 +4,10 @@
  *   npm run build && npm run verify
  *
  * Serves dist/ on a local port (404.html for unknown paths, as GitHub Pages
- * does) and drives Chromium with Playwright:
+ * does) and drives Chromium with Playwright. What the owner's content need not
+ * hold is tried on made-up cases, which never reach dist/: texts and proportions
+ * set in the open page, the data layer run on made-up values, and one made-up
+ * project page (under 3. below), served from memory on a second local port.
  *   1. HTML before JS: every route's raw HTML carries its content.
  *   2. Filtering: from the URL and from clicks; the morph only removes what
  *      stops matching (surviving rows and cells are the same nodes) and touches
@@ -15,7 +18,25 @@
  *      move the set on screen and no other), and all of them with JavaScript
  *      off. A double click opens a photo to the full window (client/zoom.js),
  *      which holds a single click back for a moment, keeps the page behind an
- *      open photo still and touches nothing until a photo is opened. From 900px
+ *      open photo still and touches nothing until a photo is opened.
+ *      Two of these take a page with several sets of which a later one has
+ *      photos to move through: the "next" chevron of a later set moves that
+ *      set only and keeps focus in it, and a click on a photo of one set and
+ *      at once on a photo of another moves both on and opens nothing. The
+ *      content has had no such project since 26 Nov 2026, and may have one
+ *      again any day, so both run on a made-up project page on every run, and
+ *      on a project of the content as well when it has one. The made-up page
+ *      (`madePage`: three sets of 3, 1 and 3 photos, a project before it and
+ *      one after) is the site's own work: loadContent(), routes() and the
+ *      templates, as in build.js, from a content folder in the system's
+ *      temporary directory that is removed as soon as it is read, its photos
+ *      pictures of the build (dist/images/manifest.json). Its pages and
+ *      generated stylesheets are held in memory and served by a second local
+ *      server, which answers with the files of dist/ for everything else.
+ *      Nothing is written to content/, images/ or dist/. One check says that
+ *      the page was made and served so, one that in the browser it is a
+ *      project page like any other; the two behaviours stand on those.
+ *      From 900px
  *      the sets are the left half of the page, each photo right-aligned to the
  *      centre with its caption and chevrons in a row under it; the information
  *      (the description, then type, role, client, years and any details) stays
@@ -716,19 +737,29 @@ const madeUpCss = coversCss(madeUp, { TAG_COLOR: '#000' });
 // --- a static server for dist/, like GitHub Pages
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.woff2': 'font/woff2', '.otf': 'font/otf', '.json': 'application/json', '.txt': 'text/plain', '.ico': 'image/x-icon' };
-const server = createServer((req, res) => {
-    const { pathname } = new URL(req.url, 'http://x');
-    let path = normalize(join(dist, decodeURIComponent(pathname)));
-    if (!path.startsWith(dist)) { res.writeHead(403); return res.end(); }
-    try { if (statSync(path).isDirectory()) path = join(path, 'index.html'); } catch { /* falls through */ }
-    if (!path.startsWith(dist + sep) || !existsSync(path) || statSync(path).isDirectory()) {
-        res.writeHead(404, { 'Content-Type': TYPES['.html'] });
-        return res.end(readFileSync(join(dist, '404.html')));
-    }
-    res.writeHead(200, { 'Content-Type': TYPES[extname(path)] ?? 'application/octet-stream' });
-    res.end(readFileSync(path));
-});
-await new Promise(r => server.listen(0, '127.0.0.1', r));
+// `held`: what a server answers with from memory instead of a file of dist/, by path (the made-up
+// site further down has such a server; the site's own has nothing held, and is dist/ and no more).
+const serve = async (held = new Map()) => {
+    const server = createServer((req, res) => {
+        const { pathname } = new URL(req.url, 'http://x');
+        if (held.has(pathname)) {
+            res.writeHead(200, { 'Content-Type': TYPES[extname(pathname) || '.html'] ?? 'application/octet-stream' });
+            return res.end(held.get(pathname));
+        }
+        let path = normalize(join(dist, decodeURIComponent(pathname)));
+        if (!path.startsWith(dist)) { res.writeHead(403); return res.end(); }
+        try { if (statSync(path).isDirectory()) path = join(path, 'index.html'); } catch { /* falls through */ }
+        if (!path.startsWith(dist + sep) || !existsSync(path) || statSync(path).isDirectory()) {
+            res.writeHead(404, { 'Content-Type': TYPES['.html'] });
+            return res.end(readFileSync(join(dist, '404.html')));
+        }
+        res.writeHead(200, { 'Content-Type': TYPES[extname(path)] ?? 'application/octet-stream' });
+        res.end(readFileSync(path));
+    });
+    await new Promise(r => server.listen(0, '127.0.0.1', r));
+    return server;
+};
+const server = await serve();
 const base = `http://127.0.0.1:${server.address().port}`;
 
 const routes = ['/', '/projects/', '/info/', '/collaborations/', '/404.html', ...published.map(p => `/projects/${p.data.slug}/`)];
@@ -747,6 +778,135 @@ const oneSet = [...published].filter(p => setsOf(p).length === 1).sort((a, b) =>
 const longest = [...published].filter(p => photos(p).length).sort((a, b) => b.content.length - a.content.length)[0];
 // A page's scripts load only if some set has a photo to move to.
 const scripted = (p) => setsOf(p).some(s => s.length > 1);
+
+// --- A made-up project page with several sets of photos (26 Nov 2026)
+//
+// Two behaviours of a project page can only be seen on a page with several sets of which a later one
+// has photos to move through: a chevron of one set moves that set and no other, and a click on a
+// photo of one set followed at once by a click on a photo of another is two clicks, not the double
+// click that opens a photo. The content had such a project until 26 Nov 2026, when the owner made
+// Thesis Design Support one set of its three; Chapter Symbols, the one project with several sets
+// that is left, has 15 photos and then 1. The content is the owner's and can change again any day,
+// so the two are checked on a made-up page, on every run, and on a project of the content as well
+// whenever it has a suitable one. On every run, not only when the content has no such project: the
+// case is then the same each time, so a failure means the site changed and not the content, and
+// what makes the page is not left unrun for months until the day it is needed.
+//
+// The page is the site's own work, made the way build.js makes dist/: loadContent() (server/content.js)
+// reads a content folder, routes() (server/routes.js) lists its pages and createEnvironment renders
+// each from the site's templates. Only the folder is another: a temporary one in the system's
+// temporary directory, outside the repository, with a copy of content/site and three made-up
+// projects, written as the CMS writes a project. The one in the middle has MADE_SETS photos in its
+// sets, so its page has the words "previous" and "next" like any project page but the first and
+// the last. The folder is removed as soon as it has been read. The photos are pictures of the build:
+// dist/images/manifest.json, which processImages() (server/images.js) writes, is read (not written)
+// for the files and sizes it gave build.js, and the pictures are taken from it at even steps,
+// whichever the content has that day. Nothing is written to content/, images/ or dist/, which this
+// script only reads: the made-up site's pages and its three generated stylesheets (client/covers.css,
+// slides.css and figures.css, as build.js writes them from the same data) are held in memory, and a
+// second server, on a port of its own, answers with them and with the files of dist/ for everything
+// else: the stylesheets, the scripts, the components, the fonts and the pictures, all as built. The
+// deploy uploads dist/, so nothing of this can reach the site.
+// (Imports of their own, so that the imports the other checks share stay as they are.)
+import { mkdtempSync, mkdirSync, writeFileSync, cpSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { loadContent } from '../server/content.js';
+import { routes as siteRoutes } from '../server/routes.js';
+
+// The photos in each set of the made-up page: a set of one between two sets of several.
+const MADE_SETS = [3, 1, 3];
+// The made-up project as the checks read a project of the content ({ data, content }: its front
+// matter and text, so setsOf(), photos() and stem() read it as they read the owner's), and with it
+// what its site is served from (`held`: path → text), what the data layer made of it (`project`,
+// `css`), what the data layer warned of and why the page could not be made, if it could not.
+const madePage = (() => {
+    const out = { data: { slug: 'made-up-sets', title: '' }, content: '', held: new Map(), project: null, css: '', folder: '', warnings: [], error: '' };
+    try {
+        // Names no project of the content has.
+        const taken = new Set(fronts.flatMap(f => [f.file.replace(/\.md$/, ''), text(f.data.slug)]));
+        const free = (name) => { let slug = name; for (let n = 2; taken.has(slug); n++) slug = `${name}-${n}`; return slug; };
+        const [before, slug, after] = ['made-up-before', 'made-up-sets', 'made-up-after'].map(free);
+        out.data.slug = slug;
+        // The build's pictures, as processImages() hands them to loadContent(): path under images/ → its files and size.
+        const built = JSON.parse(readFileSync(join(dist, 'images/manifest.json'), 'utf8')).entries;
+        const images = new Map(Object.entries(built).map(([rel, e]) => [rel, { src: `/images/${rel}`, type: e.type, width: e.width, height: e.height, variants: e.variants.map(v => ({ ...v })) }]));
+        // Those a photo can be: resized by the build, and with a name the data layer reads back as it is written.
+        const asWritten = (rel) => { try { return decodeURIComponent(rel) === rel; } catch { return false; } };
+        const usable = [...images].filter(([rel, e]) => e.type === 'raster' && e.variants.length && e.width && e.height && asWritten(rel)).map(([rel]) => rel).sort();
+        if (!usable.length) throw new Error('the build has no picture to make its photos of');
+        const total = MADE_SETS.reduce((sum, n) => sum + n, 0);
+        const picked = Array.from({ length: total }, (_, i) => usable[Math.floor((i * usable.length) / total)]);
+        // The three projects, as the CMS writes one: the full /images/… path, a set number with every photo.
+        const photosMade = MADE_SETS.flatMap((count, n) => Array.from({ length: count }, (_, i) => ({ set: n + 1, first: i === 0 })))
+            .map(({ set, first }, i) => ({ image: `/images/${picked[i]}`, alt: `Made-up photo ${i + 1}`, ...(first ? { caption: `Made-up caption of set ${set}` } : {}), set }));
+        const files = new Map([
+            [before, matter.stringify('', { title: 'Made-up project before', slug: before, order: 1, published: true })],
+            [slug, matter.stringify('A made-up project of scripts/verify.js, on no page of the site.\n', { title: 'Made-up sets', slug, order: 2, years: '2026', tags: ['made-up'], published: true, images: photosMade })],
+            [after, matter.stringify('', { title: 'Made-up project after', slug: after, order: 3, published: true })],
+        ]);
+        const typed = matter(files.get(slug), {});
+        out.data = typed.data;
+        out.content = typed.content;
+        // The data layer reads them from a folder of its own, which is gone again when it has.
+        out.folder = mkdtempSync(join(tmpdir(), 'tolomeo-verify-'));
+        let data;
+        try {
+            cpSync(join(root, 'content/site'), join(out.folder, 'content/site'), { recursive: true });
+            mkdirSync(join(out.folder, 'content/projects'), { recursive: true });
+            for (const [name, front] of files) writeFileSync(join(out.folder, 'content/projects', `${name}.md`), front);
+            data = loadContent({ root: out.folder, images, config: siteConfig, log: (line) => { if ([before, slug, after].some(name => line.includes(name))) out.warnings.push(line); } });
+        } finally {
+            rmSync(out.folder, { recursive: true, force: true });
+        }
+        // Its pages and generated stylesheets, as build.js writes them into dist/; here they stay in memory.
+        const site = createEnvironment(nunjucks, { templates: [root], components: join(root, 'components') });
+        for (const route of siteRoutes(data, siteConfig)) out.held.set(route.path, site.render(route.page, route.context));
+        out.held.set('/client/covers.css', data.coversCss);
+        out.held.set('/client/slides.css', data.slidesCss);
+        out.held.set('/client/figures.css', data.figuresCss);
+        out.project = data.projects.find(p => p.slug === slug) ?? null;
+        out.css = data.slidesCss;
+    } catch (err) {
+        out.error = String(err?.message ?? err);
+    }
+    return out;
+})();
+const madeServer = await serve(madePage.held);
+const madeBase = `http://127.0.0.1:${madeServer.address().port}`;
+// A project page's address: the made-up page is on the made-up site's server, every other on the site's.
+const addressOf = (p, hash = '') => `${p === madePage ? madeBase : base}/projects/${p.data.slug}/${hash}`;
+// Was the made-up page made as it was meant: by the data layer, with the sets it was given, every photo a
+// picture of the build; is it served as rendered, beside the files as built; and does dist/ know nothing of it?
+{
+    const off = [];
+    if (madePage.error) off.push(`it could not be made: ${madePage.error}`);
+    else {
+        const sets = madePage.project?.sets ?? [];
+        const rendered = madePage.held.get(`/projects/${madePage.data.slug}/`) ?? '';
+        if (madePage.warnings.length) off.push(`the data layer warns: ${madePage.warnings.join(' / ')}`);
+        if (sets.map(set => set.slides.length).join() !== MADE_SETS.join() || setsOf(madePage).map(set => set.length).join() !== MADE_SETS.join()) off.push(`its sets hold ${sets.map(set => set.slides.length).join(' + ') || 'nothing'}`);
+        if (rendered.split('<project-slides').length - 1 !== MADE_SETS.length) off.push(`its page has ${rendered.split('<project-slides').length - 1} slideshows`);
+        const missing = sets.flatMap(set => set.slides).filter(sl => !existsSync(join(dist, decodeURI(sl.src)))).map(sl => sl.src);
+        if (missing.length) off.push(`not files of the build: ${missing.join(', ')}`);
+        if (madePage.css.split('\n').filter(line => line.startsWith(`#slides-${madePage.data.slug}-`)).length !== MADE_SETS.reduce((sum, n) => sum + n, 0)) off.push('its generated stylesheet has not one rule for each photo');
+        if (!madePage.project?.prevHref || !madePage.project?.nextHref) off.push('it has no project before it or none after it');
+        const served = await (await fetch(addressOf(madePage))).text();
+        if (!rendered || served !== rendered) off.push('its server does not answer with the page as rendered');
+        if (await (await fetch(`${madeBase}/client/slides.css`)).text() !== madePage.css) off.push('its server does not answer with its generated stylesheet');
+        for (const file of ['client/project.js', 'client/zoom.js', 'components/project-slides.js', 'components/project-slides.css', 'client/project.css']) {
+            if (await (await fetch(`${madeBase}/${file}`)).text() !== readFileSync(join(dist, file), 'utf8')) off.push(`its server does not answer with ${file} as built`);
+        }
+    }
+    if (madePage.folder && existsSync(madePage.folder)) off.push(`its content folder is still there (${madePage.folder})`);
+    if (madePage.folder && (madePage.folder === root || madePage.folder.startsWith(root + sep))) off.push(`its content folder was inside the repository (${madePage.folder})`);
+    const inDist = [
+        existsSync(join(dist, 'projects', madePage.data.slug)) ? 'a page' : '',
+        readFileSync(join(dist, 'client/slides.css'), 'utf8').includes(`#slides-${madePage.data.slug}-`) ? 'rules in client/slides.css' : '',
+        readFileSync(join(dist, 'index.html'), 'utf8').includes(`"row-${madePage.data.slug}"`) ? 'a row in the Index' : '',
+    ].filter(Boolean);
+    if (inDist.length) off.push(`dist/ has ${inDist.join(' and ')} of it`);
+    check(`3. the made-up project page with several sets (${MADE_SETS.join(' + ')} photos), on which a later set's chevron and two quick clicks on two sets are checked whatever the content holds: made by the site's data layer and templates from a content folder outside the repository, which is gone again; its photos pictures of the build; served from memory beside the files as built; nothing of it in dist/`, off.length === 0, off.join('; '));
+}
 
 // The page has come to rest: its scroll position has stopped changing (a snap, or a smooth scroll, is over).
 const rest = async (page) => {
@@ -1707,16 +1867,43 @@ try {
             const given = await page.evaluate(() => document.activeElement?.matches('project-slides:first-of-type .slide.current .next') ?? false);
             const after = await state();
             check('3. what had keyboard focus when a photo was opened has it again when the photo closes', taken.open === 1 && taken.focus === 'zoom' && given && after.open === 0 && after.index === taken.index, `${taken.focus}, then ${given ? 'the chevron again' : after.focus}`);
-            // A click on a photo of one set and at once on a photo of another: both were single clicks.
-            if (multi && setsOf(multi).filter(set => set.length > 1).length > 1) {
-                await page.goto(`${base}/projects/${multi.data.slug}/`);
+        }
+        // A click on a photo of one set and at once on a photo of another: both were single clicks. zoom.js holds
+        // the first back to see whether a second follows on the same photo; one on another photo is no such
+        // second, so the first is handed on at once and the second after the wait, and no photo opens. It takes a
+        // page with two sets of several photos: the made-up one (madePage), on every run, and a project of the
+        // content as well when it has one. Both clicks are sent in one go, and the page is read once it has had
+        // both: zoom.js stops a click on a photo before the page hears it and hands it on as a click of its own, so
+        // the clicks on photos that come up to the document are counted, and the second of them is the moment (read
+        // sooner, when both sets have moved, a page on which the first click moved both sets and the second moved
+        // them again would pass). A photo that opens ends the wait as well; so do 5s, after which the page is
+        // read as it then is.
+        {
+            const quick = async (p) => {
+                const counts = setsOf(p).map(set => set.length);
+                const pair = counts.map((n, i) => (n > 1 ? i : -1)).filter(i => i >= 0).slice(0, 2);
+                await page.goto(addressOf(p));
                 await slidesReady(page);
-                const pair = setsOf(multi).map((set, i) => (set.length > 1 ? i : -1)).filter(i => i >= 0).slice(0, 2);
-                await page.evaluate(([a, b]) => { const sets = document.querySelectorAll('project-slides'); sets[a].querySelector('.current .frame').click(); sets[b].querySelector('.current .frame').click(); }, pair);
-                await page.waitForTimeout(ZOOM_WAIT + 250);
-                const both = await page.evaluate(() => ({ at: [...document.querySelectorAll('project-slides')].map(el => el.state.index).join(), open: document.querySelectorAll('.zoom').length }));
-                check('3. a click on a photo of one set and at once on a photo of another moves both sets on, and opens nothing', both.at === setsOf(multi).map((_, i) => (pair.includes(i) ? 1 : 0)).join() && both.open === 0, JSON.stringify(both));
-            }
+                const there = await page.evaluate(() => document.querySelectorAll('project-slides').length);
+                if (there !== counts.length || pair.length < 2) return { pair, ok: false, said: `${p.data.slug}: ${there} slideshows on the page, ${counts.join(' + ') || 'no'} photos wanted` };
+                await page.evaluate(([a, b]) => {
+                    window.__heard = 0;
+                    document.addEventListener('click', (e) => { if (e.target.closest?.('project-slides .frame')) window.__heard++; });
+                    const sets = document.querySelectorAll('project-slides');
+                    sets[a].querySelector('.current .frame').click();
+                    sets[b].querySelector('.current .frame').click();
+                }, pair);
+                await page.waitForFunction(() => window.__heard >= 2 || Boolean(document.querySelector('.zoom')), null, { timeout: 5000 }).catch(() => {});
+                const both = await page.evaluate(() => ({ at: [...document.querySelectorAll('project-slides')].map(el => el.state.index).join(), open: document.querySelectorAll('.zoom').length, heard: window.__heard }));
+                return { pair, ok: both.at === counts.map((_, i) => (pair.includes(i) ? 1 : 0)).join() && both.open === 0, said: `${p.data.slug}: the sets at ${both.at}, ${both.open} open, ${both.heard} of the 2 clicks handed on to the page` };
+            };
+            await page.setViewportSize({ width: 1366, height: 710 });
+            const own = published.find(p => setsOf(p).filter(set => set.length > 1).length > 1);
+            const tried = madePage.error ? [{ pair: [], ok: false, said: `the made-up page could not be made: ${madePage.error}` }] : [await quick(madePage)];
+            if (own) tried.push(await quick(own));
+            const sets = (t) => `sets ${t.pair.map(i => i + 1).join(' and ')}`;
+            check(`3. a click on a photo of one set and at once on a photo of another moves both sets on, and opens nothing (${sets(tried[0])} of the made-up page, ${MADE_SETS.join(' + ')} photos; ${own ? `${sets(tried[1])} of ${own.data.slug}, ${setsOf(own).map(set => set.length).join(' + ')}` : 'no project in content has two sets of several photos'})`,
+                tried.every(t => t.ok), tried.map(t => t.said).join('; '));
         }
         if (single) {
             await page.setViewportSize({ width: 1366, height: 710 });
@@ -1742,7 +1929,7 @@ try {
         {
             const near = (a, b, by = 0.5) => Math.abs(a - b) <= by;
             const open = async (p, hash = '') => {
-                await page.goto(`${base}/projects/${p.data.slug}/${hash}`);
+                await page.goto(addressOf(p, hash));
                 await slidesReady(page);
                 await page.mouse.move(Math.round(page.viewportSize().width / 2), 400);
                 return lie(page);
@@ -2114,12 +2301,11 @@ try {
                 await page.setViewportSize({ width: 1366, height: 710 });
             }
 
-            // The arrow keys: the set on screen, and no other. Sets are short here, so several are in the window at once.
-            if (!multi) check('3. sets: ok (no multi-set project in content; the checks that need two sets were skipped)', true);
-            else {
-                const want = setsOf(multi);
-                const title = String(multi.data.title).trim();
-                const start = await open(multi);
+            // A page with several sets, as it opens: a slideshow for each set, in set order, each directly under the one
+            // before, with its own photos, named for its place and showing its first. Returns what is off.
+            const setsOff = (start, p) => {
+                const want = setsOf(p);
+                const title = String(p.data.title).trim();
                 const wrong = [];
                 if (start.sets.length !== want.length) wrong.push(`${start.sets.length} slideshows for ${want.length} sets`);
                 start.sets.forEach((set, i) => {
@@ -2129,21 +2315,66 @@ try {
                     if (set.label !== `Photos of ${title}, set ${i + 1} of ${want.length}`) wrong.push(`set ${i + 1} is named "${set.label}"`);
                     if (i > 0 && !near(set.top, start.sets[i - 1].bottom)) wrong.push(`set ${i + 1} starts ${set.top - start.sets[i - 1].bottom}px after the one before`);
                 });
+                return wrong;
+            };
+            // The made-up page with several sets (madePage, above), in the browser: is it a project page like any other?
+            // Its slideshows as on any page with several sets; the first photo loaded, so the build's pictures are the ones
+            // it shows; and each set's first photo, with the row under it, as the design has it for every photo of every
+            // project (offDesign, overlapping), which takes the site's stylesheets, the proportions its generated rules
+            // give and the words "previous" and "next" on the page. The two checks that need such a page whatever the
+            // content holds stand on this one: the chevron of a later set, after this, and the two quick clicks, above.
+            if (madePage.error) check('3. in the browser the made-up page with several sets is a project page like any other', false, `it could not be made: ${madePage.error}`);
+            else {
+                const start = await open(madePage);
+                const wrong = setsOff(start, madePage);
+                const loaded = await page.waitForFunction(() => { const img = document.querySelector('project-slides .slide.current img'); return Boolean(img) && img.complete && img.naturalWidth > 0; }, null, { timeout: 10000 }).then(() => true, () => false);
+                if (!loaded) wrong.push('its first photo did not load');
+                if (!start.prev || !start.next) wrong.push('it has not both words, "previous" and "next"');
+                for (let n = 0; n < Math.min(start.sets.length, MADE_SETS.length); n++) {
+                    if (n > 0) await page.evaluate(([k, head]) => window.scrollTo({ top: document.querySelectorAll('project-slides')[k].getBoundingClientRect().top + scrollY - head, behavior: 'instant' }), [n, pageOf(1366).head]);
+                    const at = await lie(page);
+                    const off = [offDesign(at.sets[n], at), overlapping(at.sets[n], at)].filter(Boolean).join('; ');
+                    if (off) wrong.push(`set ${n + 1}: ${off}`);
+                }
+                check(`3. in the browser the made-up page with several sets is a project page like any other: one slideshow per set, in set order, one directly under the other, each with its own photos and showing its first; the first photo loaded; each set's first photo, its caption and its chevrons as the design has them at 1366 × 710 (${MADE_SETS.join(' + ')} photos)`, wrong.length === 0, wrong.slice(0, 4).join('; '));
+            }
+            // The "next" chevron of a later set that has photos to move through: it moves that set on and no other, and
+            // focus stays in that set, on a chevron. Tried on the made-up page on every run, and on a project of the
+            // content as well when one has such a set (none has since 26 Nov 2026). The page is read once the set has
+            // moved on (or after 5s, which the check then fails on).
+            {
+                const laterNext = async (p) => {
+                    const counts = setsOf(p).map(set => set.length);
+                    const later = counts.findIndex((n, i) => i > 0 && n > 1);
+                    const start = await open(p);
+                    if (start.sets.length !== counts.length || later < 0) return { later, ok: false, said: `${p.data.slug}: ${start.sets.length} slideshows on the page, ${counts.join(' + ') || 'no'} photos wanted` };
+                    await page.evaluate(i => document.querySelectorAll('project-slides')[i].scrollIntoView({ behavior: 'instant' }), later);
+                    await rest(page);
+                    await page.click(`project-slides:nth-of-type(${later + 1}) .current .next`);
+                    await page.waitForFunction(i => document.querySelectorAll('project-slides')[i].state.index > 0, later, { timeout: 5000 }).catch(() => {});
+                    const moved = (await lie(page)).sets.map(set => set.current).join();
+                    const focus = await page.evaluate(i => document.activeElement?.closest('project-slides') === document.querySelectorAll('project-slides')[i] && document.activeElement.classList.contains('arrow'), later);
+                    return { later, ok: moved === counts.map((_, k) => (k === later ? 1 : 0)).join() && focus, said: `${p.data.slug}: the sets at ${moved}, focus ${focus ? 'on a chevron of that set' : 'not on a chevron of that set'}` };
+                };
+                const own = multis.find(p => setsOf(p).slice(1).some(set => set.length > 1));
+                const tried = madePage.error ? [{ later: -1, ok: false, said: `the made-up page could not be made: ${madePage.error}` }] : [await laterNext(madePage)];
+                if (own) tried.push(await laterNext(own));
+                check(`3. the "next" chevron of a later set moves that set only, and keeps focus on a chevron of that set (set ${tried[0].later + 1} of the made-up page, ${MADE_SETS.join(' + ')} photos; ${own ? `set ${tried[1].later + 1} of ${own.data.slug}, ${setsOf(own).map(set => set.length).join(' + ')}` : 'no project in content has a later set of several photos'})`,
+                    tried.every(t => t.ok), tried.map(t => t.said).join('; '));
+            }
+
+            // The arrow keys: the set on screen, and no other. Sets are short here, so several are in the window at once.
+            if (!multi) check('3. sets: ok (no multi-set project in content; the checks that need two sets were skipped)', true);
+            else {
+                const want = setsOf(multi);
+                const start = await open(multi);
+                const wrong = setsOff(start, multi);
                 check(`3. one slideshow per set, in set order, one directly under the other, each with its own photos and showing its first (${multi.data.slug}: ${want.map(set => set.length).join(' + ')})`, wrong.length === 0, wrong.slice(0, 4).join('; '));
 
                 const indexes = async () => (await lie(page)).sets.map(set => set.current);
                 const only = (i, n) => want.map((_, k) => (k === i ? n : 0)).join();
-                // A later set with photos to move through, if there is one.
+                // The set the keys are tried on under the header: a later set with photos to move through, if there is one.
                 const later = want.findIndex((set, i) => i > 0 && set.length > 1);
-                if (later < 0) check('3. sets: ok (no later set with more than one photo in content; its chevron check was skipped)', true);
-                else {
-                    await page.evaluate(i => document.querySelectorAll('project-slides')[i].scrollIntoView({ behavior: 'instant' }), later);
-                    await rest(page);
-                    await page.click(`project-slides:nth-of-type(${later + 1}) .current .next`);
-                    const moved = (await indexes()).join();
-                    const focus = await page.evaluate(i => document.activeElement?.closest('project-slides') === document.querySelectorAll('project-slides')[i] && document.activeElement.classList.contains('arrow'), later);
-                    check(`3. the "next" chevron of set ${later + 1} moves set ${later + 1} only, and keeps focus on a chevron of that set`, moved === only(later, 1) && focus, moved);
-                }
                 const keyed = later > 0 ? later : 1;
                 await open(multi);
                 await page.evaluate(i => document.querySelectorAll('project-slides')[i].scrollIntoView({ behavior: 'instant' }), keyed);
@@ -5088,6 +5319,7 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
 } finally {
     await browser.close();
     server.close();
+    madeServer.close();
 }
 
 const failed = results.filter(r => !r.ok);
