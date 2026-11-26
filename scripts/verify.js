@@ -541,7 +541,7 @@ try {
             const fontFiles = readdirSync(join(dist, 'fonts'));
             const strange = fontFiles.filter(f => !/^FluxischElse-(Light|Bold)\.(woff2|otf)$/.test(f));
             check('1. the home page\'s stylesheets name no font family but Fluxisch Else (and the system fallbacks), and the built site has no font file but Fluxisch Else Light and Bold',
-                families.length > 0 && families.every(f => /^"Fluxisch Else"(, Helvetica, Arial, sans-serif)?$/.test(f)) && !/schwabacher|katsu/i.test(sheets) && strange.length === 0,
+                families.length > 0 && families.every(f => /^("Fluxisch Else"(, Helvetica, Arial, sans-serif)?|inherit)$/.test(f)) && !/schwabacher|katsu/i.test(sheets) && strange.length === 0,
                 `${families.join(' | ')}; fonts: ${fontFiles.join(', ')}`);
         }
         check('1. the home page\'s tab title is the name alone', index.includes('<title>Tolomeo</title>'));
@@ -1382,6 +1382,23 @@ try {
                             section: box(q('project-index .index')),
                             strips: [parseFloat(getComputedStyle(q('project-index .images'), '::before').height), box(q('project-index .head')).height],
                             stripTop: box(q('project-index .head')).top,
+                            // The two words in the list's strip: each set like the column it names (a main project's title at
+                            // rest, a row's types), in a 24px line at the top of the strip.
+                            words: (() => {
+                                const head = q('project-index .head');
+                                const set = (el) => { const s = getComputedStyle(el); return [s.fontWeight, s.fontSize, s.color, s.transform].join(' '); };
+                                const middle = (el) => { const r = document.createRange(); r.selectNodeContents(el); const b = r.getBoundingClientRect(); return (b.top + b.bottom) / 2 - head.getBoundingClientRect().top; };
+                                const [projects, tags] = [head.querySelector('.title'), head.querySelector('.tags')];
+                                return {
+                                    text: [projects.textContent, tags.textContent].join(' | '),
+                                    projects: set(projects),
+                                    titles: set(q('project-index .row:not(.child) .title')),
+                                    tags: set(tags),
+                                    types: set(q('project-index .row .tags')),
+                                    line: getComputedStyle(head).lineHeight,
+                                    middles: [middle(projects), middle(tags)],
+                                };
+                            })(),
                             grid: { ...box(grid), over: getComputedStyle(grid).overflowY, more: grid.scrollHeight - grid.clientHeight },
                             list: { ...box(list), over: getComputedStyle(list).overflowY, more: list.scrollHeight - list.clientHeight, all: list.scrollHeight },
                             tracks: [...document.querySelectorAll('project-index .track')].map(box),
@@ -1403,6 +1420,8 @@ try {
                     if (!near(at.index.top, at.head.bottom) || !near(at.index.bottom, at.window[1])) off.push(`the index from ${at.index.top} to ${at.index.bottom}`);
                     if (!near(at.images.left, HOME_EDGE) || !near(at.images.width, half) || !near(at.section.left, HOME_EDGE + half + HOME_GAP) || !near(at.section.width, half) || !near(at.section.right, at.page - HOME_EDGE)) off.push(`the columns at ${at.images.left} + ${at.images.width} and ${at.section.left} + ${at.section.width}`);
                     if (!at.strips.every(h => near(h, HOME_STRIP)) || !near(at.stripTop, at.index.top)) off.push(`strips ${at.strips.join(' and ')}px tall, the list's at ${at.stripTop}`);
+                    if (at.words.text !== 'Projects | tags' || at.words.projects !== at.words.titles || !at.words.projects.startsWith(`700 ${HOME_TYPE.wide} `) || at.words.tags !== at.words.types || !at.words.tags.startsWith(`300 ${HOME_TYPE.wide} `) || at.words.tags.endsWith(' none')
+                        || at.words.line !== '24px' || at.words.middles.some(y => Math.abs(y - 12) > 1)) off.push(`the strip's words: ${JSON.stringify(at.words)}`);
                     for (const [name, col] of [['grid', at.grid], ['list', at.list]]) if (!near(col.top, under) || !near(col.bottom, at.window[1]) || col.over !== 'auto') off.push(`the ${name} scrolls (${col.over}) from ${col.top} to ${col.bottom}`);
                     if (!near(at.cell.top, under + 12) || !near(at.row.top, under + 9) || !near(at.list.all, Math.max(at.list.height, 9 + at.rows * 23 + 24))) off.push(`the first cell ${at.cell.top - under}px and the first row ${at.row.top - under}px under the strip; the list is ${at.list.all}px in all, its ${at.rows} rows and the 9px and 24px round them ${9 + at.rows * 23 + 24}px`);
                     if (!near(at.tracks[0].top, under) || !near(at.tracks[1].top, under) || !near(at.tracks[0].right, at.images.right) || !near(at.tracks[1].right, at.section.right) || !at.tracks.every(t => near(t.width, 8) && near(t.bottom, at.window[1]))) off.push(`the thumbs' tracks at ${at.tracks.map(t => `${t.left}, ${t.top}`).join(' and ')}`);
@@ -1414,7 +1433,7 @@ try {
                     }
                     if (off.length) fills.push(`${width} × ${height}: ${off.join('; ')}`);
                 }
-                check(`6. from 720px the page does not scroll and the index fills what the intro leaves of the window, whether the intro takes ${[...counted].sort().join(', ')} lines: two equal columns 20px from the page's edges and 29px apart, each scrolling on its own under its 29px strip, its thumb under the strip (720 × 500, 800 × 600, 1024 × 768, 1366 × 710, 1920 × 1080, 720 × 400)`,
+                check(`6. from 720px the page does not scroll and the index fills what the intro leaves of the window, whether the intro takes ${[...counted].sort().join(', ')} lines: two equal columns 20px from the page's edges and 29px apart, each scrolling on its own under its 29px strip, its thumb under the strip; in the list's strip "Projects" set like the titles (Bold) and "tags" like the types (the tag colour, slanted), in a 24px line at its top (720 × 500, 800 × 600, 1024 × 768, 1366 × 710, 1920 × 1080, 720 × 400)`,
                     fills.length === 0 && counted.size >= 2, fills.slice(0, 3).join(' | '));
             }
 
