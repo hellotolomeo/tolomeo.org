@@ -1,9 +1,9 @@
 # tolomeo.org — build brief (v2, 7 Nov 2026)
 
-> **Redesign, 11 Nov 2026.** The look and the page layouts described here (§3, §5, the cover
-> styles and thumbnail tuner in §6, `HOVER_SWAP` and `FRAME_JITTER` in §9) were replaced: light
-> ground, no lines, one framed thumbnail style, no hover photo, a one-photo-at-a-time project page
-> with captions. The current values are in `CLAUDE.md`, "Design". The stack, the content model
+> **Redesign, 11 Nov 2026** (and again 26 Nov 2026: the last note of this block). The look and
+> the page layouts described here (§3, §5, the cover styles and thumbnail tuner in §6,
+> `HOVER_SWAP` and `FRAME_JITTER` in §9) were replaced: light ground, no lines, one framed
+> thumbnail style, no hover photo, a one-photo-at-a-time project page with captions. The current values are in `CLAUDE.md`, "Design". The stack, the content model
 > (less `cover_style`, `cover_focus`, `cover_zoom`, `hover_image`; plus `images[].caption`), the
 > image pipeline, the CMS and the acceptance points below still stand.
 >
@@ -22,6 +22,29 @@
 > **20 Nov 2026**, at the owner's request: in the Index list a sub-project (a project with a
 > `parent`) has no `•` and no date; its title is indented by five word spaces and set in Fluxisch
 > Else Light. Its own page is unchanged and still prints its years. See `CLAUDE.md`, "Design".
+>
+> **Redesign, 26 Nov 2026** (a Claude Design handoff, reviewed with the owner, and the owner's
+> answers of that day). It builds on the notes above and supersedes these parts of them, as well
+> as §3 and §5 once more:
+> - the type is no longer 13px: it has a size per layout (larger on a phone);
+> - a sub-project's indent is 20px, not five word spaces;
+> - from 900px wide a project page no longer snaps and has no screen of its own for the
+>   information: the photo sets are the left half of the page, the project's information stays in
+>   place on the right, and the words `previous` and `next` (no longer arrows) are in the window's
+>   lower corners; below 900px the page still goes from set to set and then to the information;
+> - "no lines" has three exceptions on the home page (a thin rule under the strip over each of
+>   its two columns, and over the phone's list);
+> - the back link is the word `back`.
+>
+> New with it: the home page's intro is a text of several lines (`site/index.md`: `intro`, and
+> `description` for search engines; `contact_line` and `email` of §4 no longer exist); the Info page
+> of §5.3 is the **About** page, still at `/info/`, and there is a **Collaborations** page at
+> `/collaborations/` (`site/collaborations.md`), each a text with one picture (`image`, `alt`,
+> `caption`, `note` in its front matter); a project has an optional `details` field ("More
+> details" on its page); a double click opens a picture to the full window. Acceptance point 5
+> now covers the intro and both text pages. Still standing from the notes above: photo sets, no
+> frames, short dates, Light dates, the fitted date column, sub-projects without bullet and date;
+> and the Index list keeps its three one-line columns with their cut, fade and slide. The current values are in `CLAUDE.md`, "Design".
 
 Portfolio site for Tolomeo, an artist researcher, publisher and educator in the Netherlands.
 Read this file completely before writing code. `CLAUDE.md` holds the standing rules;
