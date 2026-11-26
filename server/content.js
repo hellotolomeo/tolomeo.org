@@ -10,11 +10,13 @@
  * may be { image, alt, caption, set } objects or bare strings; a caption is one
  * line of Markdown; `set` is the number of the group the photo is shown in (1
  * when it is left out), and a project page shows its sets one under the other.
+ * `details` ("More details") is plain text of several lines: blocks of lines,
+ * an empty line between two blocks, each line one line of Markdown.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import matter from 'gray-matter';
-import { markdown, markdownInline, markdownText } from './markdown.js';
+import { markdown, markdownInline, markdownLines, markdownText } from './markdown.js';
 
 // Grid cells offer every size of the cover and say how wide the thumbnail is (coverSizes), so the
 // browser takes the smallest file that is sharp enough; a project page shows each set of photos one
@@ -114,6 +116,8 @@ function normalize({ data, content }, file, warn) {
         tags: list(data.tags).map(str).filter(Boolean),
         role: list(data.role).map(str).filter(Boolean),
         client: str(data.client),
+        // Several lines of text; a list of lines (typed as YAML by hand) is read as those lines.
+        details: Array.isArray(data.details) ? data.details.map(str).join('\n') : str(data.details),
         parent: str(data.parent) || null,
         published: data.published === true,
         cover: str(data.cover),
@@ -179,7 +183,7 @@ function shape(p, { images, warn }) {
     const sets = numbers.map((n, i) => ({
         id: `slides-${p.slug}-${i + 1}`,
         label: numbers.length > 1 ? `Photos of ${p.title}, set ${i + 1} of ${numbers.length}` : `Photos of ${p.title}`,
-        slides: photos.filter(s => s.set === n).map(s => slide(s.pic, s.caption)),
+        slides: photos.filter(s => s.set === n).map((s, _, all) => slide(s.pic, s.caption, all.length > 1)),
     }));
     return {
         slug: p.slug,
@@ -191,6 +195,7 @@ function shape(p, { images, warn }) {
         tags: p.tags,
         role: p.role.join(', '),
         client: p.client,
+        details: details(p.details),
         child: Boolean(p.parent),
         parent: p.parent,
         href: `/projects/${p.slug}/`,
@@ -231,9 +236,10 @@ function coverSizes(c) {
     return `(max-width: 719px) ${fit(100)}, ${fit(25)}`;
 }
 
-// One photo of a project page, as the project-slides component prints it; `caption` is HTML.
-function slide(g, caption) {
-    const sizes = slideSizes(g);
+// One photo of a project page, as the project-slides component prints it; `caption` is HTML,
+// `several` says that its set holds more photos than this one.
+function slide(g, caption, several) {
+    const sizes = slideSizes(g, several);
     return { src: g.src, srcset: g.srcset, webp: g.webp, sizes, width: g.width, height: g.height, alt: g.alt, caption };
 }
 
@@ -279,14 +285,28 @@ export function relPath(value, slug) {
 
 const aspect = (pic) => (pic?.width && pic?.height ? Math.round((pic.width / pic.height) * 10000) / 10000 : null);
 
-// A slide is as large as fits its room (components/project-slides.css): the width left between
-// the arrows (the page less 2 × 44px of chevron targets below 600px, and less 2 × 74.25px above,
-// where each side also has a 14.25px gap and a 16px edge) and the height left between the 79px
-// header and the caption's 63px. Every set has the same room: each is one window tall under the header.
-function slideSizes(g) {
+// A photo is as large as fits its room (components/project-slides.css), and `sizes` says that width
+// before any stylesheet is read. Below 900px: the page less 24px on either side, and the window's
+// height less the 95px header and the 76px kept for the caption. From 900px the photos are the
+// left half of the page: the page less its 34px paddings and the 17px between the halves, halved
+// (50vw - 42.5px), and the height less the 71px header and the caption's 70px. There a photo that
+// has others in its set (`several`: it may have a chevron at its lower left corner) also keeps
+// clear of the word "previous" in the window's corner: it either ends 60px before the half's left
+// edge or is 48px less tall, whichever leaves it larger.
+function slideSizes(g, several) {
     const a = aspect(g) ?? 1.5;
-    const tall = `calc((100vh - 142px) * ${a})`;
-    return `(max-width: 600px) min(calc(100vw - 88px), ${tall}), min(calc(100vw - 148.5px), ${tall})`;
+    const narrow = `min(calc(100vw - 48px), calc((100vh - 171px) * ${a}))`;
+    const tall = `calc((100vh - 141px) * ${a})`;
+    const wide = several
+        ? `min(calc(50vw - 42.5px), max(min(${tall}, calc(50vw - 102.5px)), calc((100vh - 189px) * ${a})))`
+        : `min(calc(50vw - 42.5px), ${tall})`;
+    return `(max-width: 899px) ${narrow}, ${wide}`;
+}
+
+// A project's "More details" → the HTML its page prints under the years: a block of the text is
+// a <div class="extra">, each of its lines a <p> (client/project.css puts one empty line before a block).
+function details(text) {
+    return markdownLines(text).map(lines => `<div class="extra">\n${lines.map(line => `<p>${line}</p>`).join('\n')}\n</div>`).join('\n');
 }
 
 // --- Generated stylesheets: proportions never go inline. Each picture's box (`.box` in the grid,

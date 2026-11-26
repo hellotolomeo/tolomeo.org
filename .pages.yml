@@ -153,6 +153,13 @@ content:
         type: string
         description: "Shown as 'for:'."
 
+      - name: details
+        label: More details
+        type: text
+        options:
+          rows: 12
+        description: "Optional. Extra lines for the project page, shown under type, role, for and the years: stockists, edition details, where to order. Every line you type is a line on the page. Leave an empty line to start a new group (the page shows an empty line there too). A link is written [the words](https://the.address), bold is written **like this**."
+
       - name: body
         label: Description
         type: rich-text

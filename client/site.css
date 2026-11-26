@@ -148,6 +148,47 @@ a span {
   color: var(--link);
 }
 
+.project-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(0, 1fr);
+  column-gap: 16px;
+  box-sizing: border-box;
+  min-height: var(--head);
+  padding: 50px 24px 22px;
+  background: var(--ground);
+  font-size: 16.5px;
+  line-height: 20px;
+}
+
+.project-head h1 {
+  grid-column: 2;
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: 700;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.project-head h1 a {
+  text-decoration: none;
+}
+
+.project-head a {
+  scroll-margin: calc(0px - var(--head)) 0 var(--head);
+}
+
+@media (min-width: 900px) {
+  .project-head {
+    padding: 39px 34px 16px;
+    font-size: 12.5px;
+    line-height: 16px;
+  }
+}
+
 [data-zoom],
 project-slides .frame {
   touch-action: manipulation;

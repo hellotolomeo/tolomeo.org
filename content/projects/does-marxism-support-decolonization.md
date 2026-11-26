@@ -7,11 +7,27 @@ year_start: 2026
 year_end: 2026
 tags:
 - book
+- publication
 role:
 - publisher
 - editor
 - book designer
 client: Landline
+details: |-
+  **featured stockists:**
+  [KIOSK Rotterdam](https://kioskrotterdam.com/)
+  [Southern Nomad](https://www.instagram.com/southerncomrade/)
+  [Het Fort van Sjakoo](https://sjakoo.nl/)
+
+  Risoprinted edition of 300
+  Published: 24 April, 2026
+  Language: English
+  Paperback: 74 pages
+  ISBN: 9789083623306
+  Item Weight: 5 ounces
+  Dimensions: 126 x 6 x 205 mm
+
+  Order at [Landline Press](https://landlinepress.nl)
 parent: null
 published: true
 cover: /images/projects/does-marxism-support-decolonization/does-marxism-support-decolonization-cover.jpg
