@@ -65,7 +65,7 @@ class ProjectIndex extends BaseComponent {
             else if (matchMedia('(max-width: 719.98px)').matches) window.scrollBy({ top: tag.getBoundingClientRect().top - top, behavior: 'instant' });
             return;
         }
-        // Leaving for a project page: remember the filter, so its "Back" link can bring it back.
+        // Leaving for a project page: remember the filter, so its "back" link can bring it back.
         if (e.target.closest('a[href^="/projects/"]')) remember(this.state.filter);
     }
 

@@ -45,7 +45,7 @@ export function loadContent({ root, images, config, log = () => {} }) {
     const projects = order(raw.filter(p => p.published), warn)
         .map(p => shape(p, { images, warn }));
     // The projects either side of each one, in the order the Index lists them (sub-items in
-    // their place): what the two arrows of a project page's information lead to. The first
+    // their place): what the words "previous" and "next" of a project page lead to. The first
     // has no previous and the last no next; the fields are then ''.
     projects.forEach((p, i) => {
         const before = projects[i - 1];
