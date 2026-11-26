@@ -136,7 +136,7 @@ html {
     margin-top: 0;
   }
 
-  .after > project-slides + project-slides:last-child {
+  .has-previous > project-slides + project-slides:last-child {
     padding-bottom: 52px;
   }
 

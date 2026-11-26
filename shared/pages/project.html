@@ -20,7 +20,7 @@
 </header>
 <main class="project">
 {% if project.sets | length %}
-<div class="sets{{ ' after' if project.prevHref }}">
+<div class="sets{{ ' has-previous' if project.prevHref }}">
 {% for s in project.sets %}
 <project-slides
   id="{{ s.id }}"

@@ -165,11 +165,11 @@ project-slides:not(:defined) .slide:not(:first-child) {
     padding-bottom: 20px;
   }
 
-  .after project-slides .slide:not(:only-child) {
+  .has-previous project-slides .slide:not(:only-child) {
     --fw: min(var(--w), max(min(var(--h) * var(--a, 1.5), var(--w) - 60px), (var(--h) - 48px) * var(--a, 1.5)));
   }
 
-  .after project-slides .arrow {
+  .has-previous project-slides .arrow {
     align-self: stretch;
     height: auto;
     min-height: 44px;

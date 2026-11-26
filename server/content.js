@@ -10,13 +10,12 @@
  * may be { image, alt, caption, set } objects or bare strings; a caption is one
  * line of Markdown; `set` is the number of the group the photo is shown in (1
  * when it is left out), and a project page shows its sets one under the other.
- * `details` ("More details") is plain text of several lines: blocks of lines,
- * an empty line between two blocks, each line one line of Markdown.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import matter from 'gray-matter';
-import { markdown, markdownInline, markdownLines, markdownText } from './markdown.js';
+import { markdown, markdownInline, markdownText } from './markdown.js';
+import { markdownLines } from './markdown.js';
 
 // Grid cells offer every size of the cover and say how wide the thumbnail is (coverSizes), so the
 // browser takes the smallest file that is sharp enough; a project page shows each set of photos one
@@ -119,7 +118,9 @@ function normalize({ data, content }, file, warn) {
         tags: list(data.tags).map(str).filter(Boolean),
         role: list(data.role).map(str).filter(Boolean),
         client: str(data.client),
-        // Several lines of text; a list of lines (typed as YAML by hand) is read as those lines.
+        // "More details": plain text of several lines, in blocks with an empty line between two
+        // of them, each line one line of Markdown (details() below makes the page's HTML of it).
+        // A list of lines (typed as YAML by hand) is read as those lines.
         details: Array.isArray(data.details) ? data.details.map(str).join('\n') : str(data.details),
         parent: str(data.parent) || null,
         published: data.published === true,
