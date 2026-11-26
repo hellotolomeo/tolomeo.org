@@ -2196,6 +2196,48 @@ try {
                 }
                 check('the 404 page keeps its layout: back 42px down and 16px in (37px from 720px), in the tag colour, Light, leaning backwards, a link to the home page; the page\'s words 55px under it; nothing to scroll', wrong.length === 0, wrong.join('; '));
             }
+            // 3. A project page with one photo snaps without a script, from the first moment (below 900px, with a mouse).
+            // Its set must be a block there even before its own stylesheet (components/project-slides.css) has
+            // arrived: laid out without it, a custom element is an inline box, which is no place to snap to; the
+            // information is then the only one, and when the stylesheet comes in Chromium scrolls the page to the
+            // information by itself (about one load in fifty did, measured; here the stylesheet is held back for
+            // 300ms and the page is laid out each time another one arrives, and every load did). client/project.css,
+            // which turns snapping on, therefore makes the set a block itself.
+            {
+                const lone = published.filter(p => photos(p).length === 1).slice(0, 3);
+                const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+                const late = await context.newPage();
+                await late.route('**/components/project-slides.css', async (route) => { await new Promise(r => setTimeout(r, 300)); await route.continue(); });
+                await late.addInitScript(() => {
+                    window.__early = [];
+                    // Reading a box lays the page out with the stylesheets that are there by then.
+                    const look = () => {
+                        const set = document.querySelector('project-slides');
+                        if (set) window.__early.push({ waiting: [...document.querySelectorAll('link[rel=stylesheet]')].filter(l => !l.sheet).map(l => l.getAttribute('href').split('/').pop()).join(), set: getComputedStyle(set).display, top: set.getBoundingClientRect().top, snap: getComputedStyle(document.documentElement).scrollSnapType });
+                    };
+                    document.addEventListener('readystatechange', () => {
+                        if (document.readyState !== 'interactive') return;
+                        look();
+                        for (const l of document.querySelectorAll('link[rel=stylesheet]')) if (!l.sheet) l.addEventListener('load', look);
+                    });
+                });
+                const wrong = [];
+                let early = 0;
+                let snaps = true;
+                for (const p of lone) {
+                    await late.goto(`${base}/projects/${p.data.slug}/`);
+                    await late.evaluate(() => document.fonts.ready.then(() => true));
+                    const y = await rest(late);
+                    const seen = (await late.evaluate(() => window.__early)).filter(e => e.snap !== 'none' && /project-slides\.css/.test(e.waiting));
+                    snaps = await late.evaluate(() => getComputedStyle(document.documentElement).scrollSnapType !== 'none');
+                    if (seen.length) early++;
+                    if (y !== 0 || seen.some(e => e.set !== 'block')) wrong.push(`${p.data.slug}: rests at ${y}; laid out without its stylesheet the set is ${seen[0]?.set ?? 'not seen'}`);
+                }
+                await context.close();
+                if (!lone.length) check('3. a one-photo page whose set\'s stylesheet arrives late: ok (no project in content has exactly one photo; the check was skipped)', true);
+                else if (!snaps) check('3. a one-photo page whose set\'s stylesheet arrives late: ok (this browser has no mouse, so the page does not snap; the check was skipped)', true);
+                else check(`3. a project page with one photo stays at its top when its set's stylesheet arrives late and the page is laid out before it is there: the set is a block already, a place to snap to, so the page does not scroll to the information by itself (390 × 844; ${lone.map(p => p.data.slug).join(', ')}; laid out while it snapped and the stylesheet was still on its way in ${early} of ${lone.length} loads)`, wrong.length === 0 && early === lone.length, wrong.join(' | ') || (early === lone.length ? '' : 'the page was not laid out before the stylesheet came in every load: the check tried nothing there'));
+            }
             // 3. The pages of text with one picture, About and Collaborations (client/sheet.css), on a page of their
             // own that watches the document from the moment the parser is done: before the module script runs.
             {

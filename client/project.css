@@ -10,6 +10,10 @@ html {
   container-type: inline-size;
 }
 
+.sets > project-slides {
+  display: block;
+}
+
 .sets > project-slides + project-slides {
   margin-top: 8px;
 }
