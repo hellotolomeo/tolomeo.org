@@ -117,6 +117,10 @@ html {
     scroll-snap-align: start;
     scroll-snap-stop: always;
   }
+
+  .sets > project-slides:first-child {
+    scroll-margin-top: var(--head);
+  }
 }
 
 @media (min-width: 900px) {

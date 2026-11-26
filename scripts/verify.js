@@ -1129,12 +1129,20 @@ try {
                 const d = pageOf(width);
                 const wrong = [];
                 const corners = [];
-                const tally = { photos: 0, upright: 0, lying: 0, alone: 0, bare: 0, long: 0, cleared: 0, widest: null, narrowest: null };
+                const tally = { photos: 0, upright: 0, lying: 0, alone: 0, bare: 0, long: 0, cleared: 0, wrapped: 0, widest: null, narrowest: null };
                 for (const p of published) {
                     const counts = setsOf(p).map(set => set.length);
                     if (!counts.length) continue;
                     await page.goto(`${base}/projects/${p.data.slug}/`);
                     await slidesReady(page);
+                    // Below 900px the page snaps: once it has come to rest it must still be at its top, the first photo under the header and not behind it, whatever the title's length.
+                    if (!d.wide) {
+                        await page.evaluate(() => document.fonts.ready.then(() => true));
+                        await rest(page);
+                        const opened = await lie(page);
+                        if (opened.y !== 0 || opened.sets[0].frame.top < opened.head.bottom - 0.5) wrong.push(`${p.data.slug}: the page opens ${opened.y}px down, its photo from ${opened.sets[0].frame.top} under a header that ends at ${opened.head.bottom}`);
+                        if (opened.head.bottom > d.head + 1) tally.wrapped++;
+                    }
                     const show = (n, i) => page.evaluate(([k, j]) => document.querySelectorAll('project-slides')[k].setState?.({ index: j }), [n, i]);
                     for (let n = 0; n < counts.length; n++) {
                         if (d.wide && n > 0) await page.evaluate(([k, head]) => window.scrollTo({ top: document.querySelectorAll('project-slides')[k].getBoundingClientRect().top + scrollY - head, behavior: 'instant' }), [n, d.head]);
@@ -1525,7 +1533,7 @@ try {
             }
             for (const [width, height] of [[390, 844], [320, 640], [899, 700]]) {
                 const { wrong, tally } = await sweep(width, height);
-                check(`3. at ${width} × ${height} every photo of every project is as large as fits the page less 24px on either side and the window under the header less the caption's room, the side that limits it exactly on its limit, in the middle of the page, without a border, the shadow around it, its picture over the whole box; its caption is between the two chevrons at the page's edges, and nothing lies over anything else or reaches outside the page; its sizes attribute gives its width to the pixel (${told(tally)})`,
+                check(`3. at ${width} × ${height} every project page opens at its top with its photo under the header, not behind it (${tally.wrapped} with a title of two lines), and every photo of every project is as large as fits the page less 24px on either side and the window under the header less the caption's room, the side that limits it exactly on its limit, in the middle of the page, without a border, the shadow around it, its picture over the whole box; its caption is between the two chevrons at the page's edges, and nothing lies over anything else or reaches outside the page; its sizes attribute gives its width to the pixel (${told(tally)})`,
                     wrong.length === 0 && tally.photos === published.reduce((n, p) => n + photos(p).length, 0), wrong.slice(0, 3).join(' | '));
             }
             await page.setViewportSize({ width: 390, height: 844 });
@@ -1736,13 +1744,16 @@ try {
                     await page.goto('about:blank');
                     await page.goto(`${base}/projects/${wordy.data.slug}/`);
                     await slidesReady(page);
+                    await page.evaluate(() => document.fonts.ready.then(() => true));
+                    await page.mouse.move(160, 300);
+                    await rest(page);
                     const opened = await lie(page);
                     await page.click('.project-head h1 a');
                     await rest(page);
                     const at = await lie(page);
                     const first = await page.evaluate(() => document.querySelector('#project-info .facts p').getBoundingClientRect().top);
-                    check(`3. at 320px the title link leaves the information's first line clear of the header, also where the title takes two lines; and when such a page opens, its photo starts under the taller header, not behind it (${wordy.data.slug}: the header is ${at.head.bottom}px tall, the first line starts at ${first}px)`,
-                        infoOff(at) === '' && at.head.bottom > 95 + 1 && first >= at.head.bottom - 0.5 && opened.sets[0].frame.top >= opened.head.bottom - 0.5, `${infoOff(at)}; header to ${at.head.bottom}, first line at ${first}; on opening the photo from ${opened.sets[0].frame.top}, the header to ${opened.head.bottom}`);
+                    check(`3. at 320px the title link leaves the information's first line clear of the header, also where the title takes two lines; and when such a page opens it stays at its top, its photo under the taller header, not behind it, though the page snaps (${wordy.data.slug}: the header is ${at.head.bottom}px tall, the first line starts at ${first}px)`,
+                        infoOff(at) === '' && at.head.bottom > 95 + 1 && first >= at.head.bottom - 0.5 && opened.snap.includes('mandatory') && opened.y === 0 && opened.sets[0].frame.top >= opened.head.bottom - 0.5, `${infoOff(at)}; header to ${at.head.bottom}, first line at ${first}; on opening the page rests at ${opened.y} (${opened.snap}), the photo from ${opened.sets[0].frame.top}, the header to ${opened.head.bottom}`);
                 }
             }
 
@@ -1752,7 +1763,7 @@ try {
                 const wrong = [];
                 let pieces = 0;
                 let captions = 0;
-                for (const [width, height] of [[390, 844], [1366, 710]]) {
+                for (const [width, height] of [[390, 844], [800, 700], [1366, 710]]) {
                     await page.setViewportSize({ width, height });
                     const d = pageOf(width);
                     const bare = (t) => t.replace(/ \/ \d+$/, '');
@@ -1772,7 +1783,7 @@ try {
                     }
                 }
                 const [n, w] = [pageOf(390), pageOf(1366)];
-                check(`3. the type on every project page: below 900px the title ${n.title.replace(' / 700', '')} Bold, back the same Light, the description ${n.text.replace(' / 300', '')}, the facts on a line of 1.42 (${n.facts.split(' / ')[1]}), a caption ${n.caption.replace(' / 300', '')}; from 900px ${w.title.replace(' / 700', '')}, ${w.text.replace(' / 300', '')}, ${w.facts.split(' / ')[1]} and ${w.caption.replace(' / 300', '')}; all Light but the title, the facts' labels and bold in content; the 404 page in the body's own type, ${plainType(390).replace(' / 300', '')} below 720px and ${plainType(1366).replace(' / 300', '')} from there (${pieces} pieces of text, ${captions} of them captions)`,
+                check(`3. the type on every project page: below 900px the title ${n.title.replace(' / 700', '')} Bold, back the same Light, the description ${n.text.replace(' / 300', '')}, the facts on a line of 1.42 (${n.facts.split(' / ')[1]}), a caption ${n.caption.replace(' / 300', '')}; from 900px ${w.title.replace(' / 700', '')}, ${w.text.replace(' / 300', '')}, ${w.facts.split(' / ')[1]} and ${w.caption.replace(' / 300', '')}; all Light but the title, the facts' labels and bold in content; the 404 page in the body's own type, ${plainType(390).replace(' / 300', '')} below 720px and ${plainType(1366).replace(' / 300', '')} from there (at 390, 800 and 1366px: ${pieces} pieces of text, ${captions} of them captions)`,
                     wrong.length === 0 && captions > 0, wrong.slice(0, 4).join(' | '));
             }
             // The 404 page keeps its layout: back where the page's padding puts it, the words 55px under it.
