@@ -97,7 +97,9 @@
  *      from where the title starts (a sub-project's, 20px in, included). From
  *      720px up the titles are not
  *      displayed and the cells keep their fixed proportion.
- *   + the type: 13px on a 16px line, Light, on every route (captions 11px / 13.2px);
+ *   + the type on every route is its kind of page's own and nothing else (the home page's, a project
+ *     page's, a page of text's, the 404 page's): at 390px on every route, and at the other widths in
+ *     each kind's own checks;
  *   + no picture's box has a border, every one has the shadow and its picture is stretched
  *     over all of it (object-fit: fill), on every route; a thumbnail's and a photo's `sizes`
  *     attribute gives the width it is shown at;
@@ -133,8 +135,6 @@ const check = (name, ok, detail = '') => {
 // The shadow around every picture, as the browser gives it back (--frame-shadow in client/site.css).
 // It is all that is left of the frame: since 19 Nov 2026 no picture has a border.
 const SHADOW = 'rgba(100, 40, 95, 0.55) 1px 2px 6px 0px';
-// The body type: 13px on a 16px line, Light (font-size / line-height / font-weight).
-const BODY = '13px / 16px / 300';
 // How far the limiting side of a picture may be from its limit: layout works in 64ths of a pixel,
 // and the side that follows from the proportions is rounded once more (0.04px at most, measured).
 const EXACT = 0.1;
@@ -4393,6 +4393,19 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
         const homeType = [];
         let pictures = 0;
         let captions = 0;
+        let judged = 0;
+        // The sizes of text (font-size / line-height) a page of each kind may show at 390px, a caption's apart, from the measures
+        // each kind is held to in its own checks: a project page (pageOf: the title and "back", the description and the two
+        // words, the facts on their 1.42 line), a page of text (the same header, sheetOf), the 404 page (the body's own type).
+        // The home page's two routes have their own branch below. Nothing for a route of any other kind.
+        const typeAt390 = (path) => {
+            const bare = (t) => t.replace(/ \/ \d+$/, '');
+            const h = pageOf(390);
+            if (/^\/projects\/[^/]+\/$/.test(path)) return { text: [h.title, h.back, h.text, h.facts].map(bare), caption: [bare(h.caption)] };
+            if (SHEET_PAGES.some(sh => path === `/${sh.name}/`)) return { text: [h.title, h.back, sheetOf(390).text].map(bare), caption: [bare(sheetOf(390).caption)] };
+            if (path === '/404.html') return { text: [bare(plainType(390))], caption: [] };
+            return null;
+        };
         for (const path of routes) {
             await page.goto(base + path);
             await page.waitForTimeout(30);
@@ -4403,12 +4416,12 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                 const all = [...document.querySelectorAll('picture, project-index .box, project-slides .frame')];
                 return {
                     body: set(document.body),
-                    // Text that is not the body's size: a photo's caption, and a caption is no other size than its own
-                    // (one that followed the body to 13px / 16px is as wrong as body text that is not).
-                    other: [...new Set([...document.querySelectorAll('body *')].filter(el => el.getClientRects().length && [...el.childNodes].some(n => n.nodeType === 3 && n.data.trim()) && !el.closest('.visually-hidden'))
-                        .map(el => `${el.matches('.caption, .caption *') ? 'caption' : el.localName} ${getComputedStyle(el).fontSize} / ${getComputedStyle(el).lineHeight}`))]
-                        .filter(t => (t.startsWith('caption ') ? t !== 'caption 11px / 13.2px' : !/ 13px \/ (16|18\.73)px$/.test(t))),
-                    captions: [...document.querySelectorAll('.caption')].filter(el => el.getClientRects().length && el.textContent.trim()).length,
+                    // Every size of text that shows, a caption's apart (a photo's, or the one under the picture of a page of
+                    // text): a caption is no other size than its own, and one that followed the text's size is as wrong as
+                    // text that is not its own.
+                    sizes: [...new Set([...document.querySelectorAll('body *')].filter(el => el.getClientRects().length && [...el.childNodes].some(n => n.nodeType === 3 && n.data.trim()) && !el.closest('.visually-hidden'))
+                        .map(el => `${el.matches('.caption, .caption *, figcaption, figcaption *') ? 'caption' : 'text'} ${getComputedStyle(el).fontSize} / ${getComputedStyle(el).lineHeight}`))],
+                    captions: [...document.querySelectorAll('.caption, figcaption')].filter(el => el.getClientRects().length && el.textContent.trim()).length,
                     count: new Set(all).size,
                     wrong: [...new Set(all)].map((el) => {
                         const s = getComputedStyle(el);
@@ -4432,17 +4445,30 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                     .map(el => `${el.closest('.site-head') ? 'intro' : el.localName} ${getComputedStyle(el).fontSize} / ${getComputedStyle(el).lineHeight}`))]);
                 const strange = sizes.filter(t => (t.startsWith('intro ') ? t !== `intro ${HOME_INTRO.narrow.split(' / ').slice(0, 2).join(' / ')}` : !t.endsWith(` ${HOME_BODY.narrow.split(' / ').slice(0, 2).join(' / ')}`)));
                 if (look.body !== HOME_BODY.narrow || strange.length || (homeIntro.length > 0 && !sizes.some(t => t.startsWith('intro ')))) homeType.push(`${path}: body ${look.body}${strange.length ? `; ${strange.slice(0, 3).join(', ')}` : ''}`);
-            } else if (look.body !== BODY || look.other.length) type.push(`${path}: body ${look.body}${look.other.length ? `; ${look.other.slice(0, 3).join(', ')}` : ''}`);
+            } else {
+                // Every other route: its kind of page has its own sizes (typeAt390 below), and a route of a kind that has none is reported.
+                const own = typeAt390(path);
+                const strange = own ? look.sizes.filter((t) => { const [kind, ...size] = t.split(' '); return !own[kind].includes(size.join(' ')); }) : [];
+                if (own) judged++;
+                if (!own) type.push(`${path}: a kind of page this check knows no type for`);
+                else if (look.body !== plainType(390) || strange.length) type.push(`${path}: body ${look.body}${strange.length ? `; ${strange.slice(0, 3).join(', ')}` : ''}`);
+            }
             pictures += look.count;
             captions += look.captions;
             if (look.wrong.length) boxes.push(`${path}: ${look.wrong.length} of ${look.count}, ${look.wrong[0]}`);
         }
-        // (The project pages, the About and Collaborations pages and the 404 page have had their own type since 26 Nov 2026, and
-        // checks of their own for it with the project pages' other checks: they are not judged by the one below.)
-        for (let i = type.length - 1; i >= 0; i--) if (/^\/(projects\/[^/]+\/|404\.html|info\/|collaborations\/):/.test(type[i])) type.splice(i, 1);
+        // (Until the redesign of 26 Nov 2026 one type held on every route, 13px on a 16px line, and one check said so. Each kind
+        // of page has had its own sizes since, and that check, with every route taken out of it one track at a time, judged
+        // none and still reported "ok" for the old sizes. It now holds every route to its own kind's sizes; the checks of each
+        // kind say which element has which, at every width.)
         check('4. no horizontal scroll at 390px on any route', wide.length === 0, wide.join(', '));
         check('the type on the home page at 390px is 14.5px on an 18px line, Light; the intro is 17.5px on a 21px line, and nothing is any other size (/ and /projects/)', homeType.length === 0, homeType.join(' | '));
-        check(`the type on every route is 13px on a 16px line, Light (a project's type, role and client on an 18.73px line); a caption is 11px / 13.2px and nothing else (${captions} captions on screen)`, type.length === 0 && captions > 0, type.slice(0, 4).join(' | ') || (captions ? '' : 'no caption on screen on any route'));
+        {
+            const [h, t] = [pageOf(390), sheetOf(390)];
+            const bare = (v) => v.replace(/ \/ \d+$/, '');
+            check(`the type on every other route at 390px is its kind of page's own and nothing else: on a project page ${bare(h.text)} (the facts on a ${h.facts.split(' / ')[1]} line) and captions ${bare(h.caption)}; on a page of text ${bare(t.text)} and captions ${bare(t.caption)}; on the 404 page ${bare(plainType(390))} (${judged} routes, ${captions} captions on screen)`,
+                type.length === 0 && captions > 0 && judged === routes.length - HOME_ROUTES.length, type.slice(0, 4).join(' | ') || (!captions ? 'no caption on screen on any route' : judged === routes.length - HOME_ROUTES.length ? '' : `${judged} of ${routes.length - HOME_ROUTES.length} routes were judged`));
+        }
         check(`no picture on any route has a border, every one has the shadow and is stretched over its whole box (object-fit: fill): the ${pictures} thumbnails and project photos`, pictures > 0 && boxes.length === 0, boxes.slice(0, 4).join(' | '));
 
         // 6. the intro (the redesign of 26 Nov 2026; Fluxisch Else Light by the owner's word of that day). In
