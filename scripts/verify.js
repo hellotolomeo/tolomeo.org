@@ -1372,16 +1372,23 @@ try {
         } else {
             check(`2. removing a focused row: ok (no row has "${tagA}" as its only active tag; the check was skipped)`, true);
         }
+        // Back after two tags were turned off, one after the other: the filter that was there before the second click, in the
+        // same page (the address changes and the list follows; nothing is loaded again). Each step waits for the page, not for a
+        // fixed 100ms: the filter in the address is applied by the script, and with the script 300ms late (measured with the
+        // component's files served slowly) the clicks found no active tag, turned nothing off, and Back then left for the page
+        // before: the check failed, or passed without having tried what it names.
         await page.goto(`${base}/?filter=${both}`);
-        await page.waitForTimeout(100);
-        await page.evaluate(async (tags) => {
+        await page.waitForFunction(() => document.querySelector('project-index .tag.on') !== null, null, { timeout: 10000 }).catch(() => {});
+        const off = await page.evaluate(async (tags) => {
+            window.__stayed = true;
             for (const t of tags) document.querySelector(`project-index .tag.on[data-tag="${CSS.escape(t)}"]`)?.click();
             await new Promise(r => setTimeout(r, 50));
+            return { url: location.search, rows: document.querySelectorAll('project-index .row').length };
         }, [tagA, tagB]);
         await page.goBack();
-        await page.waitForTimeout(100);
-        const back = await page.evaluate(() => ({ url: location.search, rows: document.querySelectorAll('project-index .row').length }));
-        check('2. back restores the previous filter', back.url !== '' && back.rows < published.length, JSON.stringify(back));
+        await page.waitForFunction(() => location.search !== '' && document.querySelector('project-index .tag.on') !== null, null, { timeout: 10000 }).catch(() => {});
+        const back = await page.evaluate(() => ({ url: location.search, rows: document.querySelectorAll('project-index .row').length, stayed: window.__stayed === true }));
+        check('2. back restores the previous filter', off.url === '' && off.rows === published.length && back.url === `?filter=${encodeURIComponent(tagB)}` && back.rows === tagged(tagB).length && back.stayed, `with both tags off: ${JSON.stringify(off)}; after Back: ${JSON.stringify(back)}; wanted ?filter=${encodeURIComponent(tagB)} with ${tagged(tagB).length} rows, in the same page`);
         await page.goto(`${base}/`);
         const reset = await page.evaluate(() => document.querySelectorAll('project-index .row').length);
         check('2. / with no query shows everything', reset === published.length);
@@ -1401,15 +1408,19 @@ try {
             check('pointing at a thumbnail highlights its row and touches nothing else', hover.on.length === 1 && hover.on[0] === slug && hover.muts.every(m => m === 'attributes LI [class]'), `${hover.on.join(',')} ${hover.muts.slice(0, 5).join('; ')}`);
         }
 
-        // the project page's Back link brings the filter back
+        // the project page's Back link brings the filter back. The filter is the script's to apply, on the way out (it is
+        // remembered when a project is opened, so it must be on by then) and on the way back: both are waited for, where a
+        // fixed 100ms each had run out before a script 300ms late.
         await page.goto(`${base}/?filter=${encodeURIComponent(tagA)}`);
-        await page.waitForTimeout(100);
+        await page.waitForFunction(() => document.querySelector('project-index .tag.on') !== null, null, { timeout: 10000 }).catch(() => {});
+        const leaving = await page.evaluate(() => document.querySelectorAll('project-index .row').length);
         await page.click('project-index .row .title');
         await page.waitForURL(/\/projects\/.+\//);
         await page.click('.back a');
         await page.waitForFunction(() => document.querySelector('project-index')?.rendered);
-        await page.waitForTimeout(100);
-        check('2. the project page\'s Back link keeps the filter', await page.evaluate(q => location.search === q, `?filter=${encodeURIComponent(tagA)}`));
+        await page.waitForFunction(q => location.search === q && document.querySelector('project-index .tag.on') !== null, `?filter=${encodeURIComponent(tagA)}`, { timeout: 10000 }).catch(() => {});
+        const returned = await page.evaluate(() => ({ url: location.search, rows: document.querySelectorAll('project-index .row').length }));
+        check('2. the project page\'s Back link keeps the filter', leaving === tagged(tagA).length && returned.url === `?filter=${encodeURIComponent(tagA)}` && returned.rows === tagged(tagA).length, `${leaving} rows when the project was opened; back on the home page: ${JSON.stringify(returned)}; wanted ${tagged(tagA).length} rows`);
 
         // 3. a project from the grid
         await page.goto(`${base}/`);
