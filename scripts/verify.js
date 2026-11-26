@@ -4631,6 +4631,49 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                 snaps[`${p === single ? 'single' : firstSet(p).length > 1 ? 'stacked' : 'other'} ${width}`] = at.snap;
             }
         }
+        // From 900px, where the words "previous" and "next" are fixed in the window's lower corners: with the photos one under the
+        // other the left column is long, and at the end of the page its last photo, or the caption under it, lay under "previous"
+        // (on 7 of the 29 pages at 900 × 600 and 3 at 1366 × 710, measured). While its photos are one under the other, the last set
+        // of a page with that word therefore ends 52px later (client/project.css), as the last of several sets always does: the
+        // row under the last photo then ends 72px above the window's lower edge, above the word. Every project page, at its end.
+        const cornered = [];
+        let ended = 0;
+        for (const [width, height] of [[1366, 710], [900, 600]]) {
+            await page.setViewportSize({ width, height });
+            for (const p of published.filter(q => photos(q).length)) {
+                await page.goto(`${base}/projects/${p.data.slug}/`);
+                const m = await page.evaluate(() => {
+                    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' });
+                    const hit = (a, b, air) => a.left < b.right + air && b.left < a.right + air && a.top < b.bottom + air && b.top < a.bottom + air;
+                    const textRects = (el) => {
+                        const out = [];
+                        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+                        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+                            if (!n.data.trim()) continue;
+                            const range = document.createRange();
+                            range.selectNodeContents(n);
+                            out.push(...[...range.getClientRects()].filter(r => r.width > 0 && r.height > 0));
+                        }
+                        return out;
+                    };
+                    const found = [];
+                    let fixed = 0;
+                    for (const a of document.querySelectorAll('#project-info .neighbours a')) {
+                        if (getComputedStyle(a).position !== 'fixed') continue;
+                        fixed++;
+                        const name = a.textContent.trim();
+                        const box = a.getBoundingClientRect();
+                        const word = a.querySelector('span').getBoundingClientRect();
+                        if ([...document.querySelectorAll('project-slides .frame')].some(f => f.getClientRects().length && hit(box, f.getBoundingClientRect(), 0))) found.push(`"${name}" on a photo`);
+                        if ([...document.querySelectorAll('project-slides .caption')].some(c => c.getClientRects().length && textRects(c).some(r => hit(word, r, 2)))) found.push(`"${name}" over a caption`);
+                    }
+                    return { found, fixed, end: Math.abs(scrollY - (document.documentElement.scrollHeight - innerHeight)) <= 1, script: matchMedia('(scripting: enabled)').matches };
+                });
+                if (m.end && m.fixed && !m.script) ended++;
+                if (m.found.length || !m.end) cornered.push(`${p.data.slug} at ${width} × ${height}: ${m.found.join(', ') || 'the page is not at its end'}`);
+            }
+        }
+        check(`3. with JavaScript off, from 900px, "previous" and "next" lie on no photo and over no caption at the end of a project page, where its photos, one under the other, come to rest (1366 × 710 and 900 × 600, every project page with a photo: ${ended} ends)`, cornered.length === 0 && ended > 0, cornered.slice(0, 4).join(' | '));
         // The pages of text with one picture need no script: with JavaScript off each is whole in both layouts, as it is
         // with JavaScript on (the same measures), its picture loaded; only the cursor over the picture no longer says it
         // can be enlarged, since nothing would answer the double click.

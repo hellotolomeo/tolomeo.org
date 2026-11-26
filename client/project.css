@@ -153,6 +153,10 @@ html {
     padding-bottom: 52px;
   }
 
+  .has-previous > project-slides:last-child:not(:defined):has(.slide + .slide) {
+    padding-bottom: 52px;
+  }
+
   .project-info {
     grid-area: 1 / 2;
     position: sticky;
