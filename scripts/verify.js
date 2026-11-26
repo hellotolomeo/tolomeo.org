@@ -142,11 +142,14 @@ const EXACT = 0.1;
 // line from 720px, 14.5px on an 18px line below, Light (font-size / line-height / font-weight);
 // the intro is set like the rest of the page (the owner, 26 Nov 2026: "make the intro text on the
 // homepage the same size font as the text on the rest of the page"; the handoff had it at 15px and
-// 17.5px on a 21px line), so its line is the body's as well: HOME_STEP, in px.
+// 17.5px on a 21px line). Its line is the body's below 720px; from 720px, where it runs on in
+// two lines in most windows, it is 18px (the owner, the same day: "please put just a little more
+// breathing room between line 1 and line 2 of the intro text"; it was the body's 15.2px for an
+// hour). HOME_STEP is that line, in px.
 const HOME_BODY = { wide: '12.5px / 15.2px / 300', narrow: '14.5px / 18px / 300' };
 const HOME_TYPE = { wide: '12.5px', narrow: '14.5px' };
-const HOME_INTRO = HOME_BODY;
-const HOME_STEP = { wide: 15.2, narrow: 18 };
+const HOME_INTRO = { wide: '12.5px / 18px / 300', narrow: HOME_BODY.narrow };
+const HOME_STEP = { wide: 18, narrow: 18 };
 // The two addresses of the home page.
 const HOME_ROUTES = ['/', '/projects/'];
 // From 720px: the index is 20px from either edge of the page and its two columns are 29px apart,
@@ -2705,7 +2708,7 @@ try {
             }
 
             // From 720px the page does not scroll. Under the intro, which takes one, two or three lines
-            // (34px above it, a 15.2px line each, 12px under it), the index fills exactly what is left of the
+            // (34px above it, an 18px line each, 12px under it), the index fills exactly what is left of the
             // window: 20px from either edge of the page, its two columns equal and 29px apart. Each column
             // starts with a 29px strip and scrolls on its own under it, down to the window's lower edge; its
             // thumb starts under the strip, at the column's right edge. The grid's first cell is 12px under
@@ -4228,9 +4231,9 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
 
         // 6. the intro (the redesign of 26 Nov 2026; Fluxisch Else Light by the owner's word of that day). In
         // the link colour, its links in the text colour, underlined 1px thick 3px under the text, not Bold,
-        // the link colour when pointed at. From 720px: one running paragraph, the body's 12.5px on a 15.2px line, set left,
+        // the link colour when pointed at. From 720px: one running paragraph, the body's 12.5px on an 18px line, set left,
         // from 44px to at most 44px before the page's right edge, 34px under the top; the header is that, the
-        // paragraph's lines and 12px (76.4px with two lines). Below 720px: the body's 14.5px on an 18px line, every line of
+        // paragraph's lines and 12px (82px with two lines). Below 720px: the body's 14.5px on an 18px line, every line of
         // the field a block of its own, 12px apart, its lines centred in the page between 30px margins,
         // 52px under the top and 30px over the grid. The lines are counted in the page: where one breaks is
         // the font's matter. At both addresses of the home page.
@@ -4414,7 +4417,7 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
             }
             if (off.length) intro.push(`${width}px ${path}${made ? `, the made-up text in ${made} lines` : ''}: ${off.join('; ')}`);
         }
-        check(`6. the intro: Fluxisch Else Light in the link colour, its links underlined in the text colour; from 720px one running paragraph in the page's own type (12.5px / 15.2px) across the page between 44px margins, wrapped as plain text is: a line full before the next begins, a part going on in the line the one before it ends in (as typed: ${[...introSeen.lines].sort().join(', ')} line(s) at 720 to 1920px), the header as tall as its lines; below 720px the page's type there (14.5px / 18px), each of its parts (as typed: ${homeIntro.length}, with ${ownLinks} link(s)) a block of its own, 12px apart, centred and balanced between 30px margins (/ and /projects/); and the same of a made-up text of ${HOME_MADE_INTRO.length} parts with ${madeLinks} links set in its place, in ${[...introSeen.wide].sort().join(', ')} lines from 720px and with a part of ${[...introSeen.narrow].sort().join(', ')} lines below`,
+        check(`6. the intro: Fluxisch Else Light in the link colour, its links underlined in the text colour; from 720px one running paragraph at the page's own type size on a more open line (12.5px / 18px) across the page between 44px margins, wrapped as plain text is: a line full before the next begins, a part going on in the line the one before it ends in (as typed: ${[...introSeen.lines].sort().join(', ')} line(s) at 720 to 1920px), the header as tall as its lines; below 720px the page's type there (14.5px / 18px), each of its parts (as typed: ${homeIntro.length}, with ${ownLinks} link(s)) a block of its own, 12px apart, centred and balanced between 30px margins (/ and /projects/); and the same of a made-up text of ${HOME_MADE_INTRO.length} parts with ${madeLinks} links set in its place, in ${[...introSeen.wide].sort().join(', ')} lines from 720px and with a part of ${[...introSeen.narrow].sort().join(', ')} lines below`,
             intro.length === 0, intro.slice(0, 3).join(' | '));
 
         // console errors on every route

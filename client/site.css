@@ -241,6 +241,7 @@ project-slides .frame {
 @media (min-width: 720px) {
   .site-head {
     padding: 34px 44px 12px;
+    line-height: 18px;
     text-align: left;
     text-wrap: wrap;
   }
