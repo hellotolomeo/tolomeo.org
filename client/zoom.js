@@ -1,5 +1,5 @@
 // A double click (or double tap) on a picture opens it to the full window; a click, a tap,
-// Escape, Enter or the space bar closes it. Pictures that take part: a project's photos
+// Escape, Enter or the space bar closes it (a double click closes it too, and does nothing more). Pictures that take part: a project's photos
 // (`project-slides .frame`) and any picture marked `data-zoom`.
 // A project's photos also answer a single click by moving to the next one
 // (components/project-slides.js), so a click on a picture waits a moment to see whether a second
@@ -15,6 +15,8 @@ const CLOSES = new Set(['Escape', 'Enter', ' ']);
 let timer = 0;
 let first = null;
 let passing = false;
+// When a click last closed an open picture.
+let closedAt = -Infinity;
 
 function open(frame) {
     const img = frame.querySelector('img');
@@ -74,7 +76,7 @@ function open(frame) {
             close();
         } else if (HELD.has(e.key)) e.preventDefault();
     };
-    box.addEventListener('click', close);
+    box.addEventListener('click', () => { closedAt = performance.now(); close(); });
     box.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) close(); });
     // The wheel and a dragging finger would scroll the page behind the picture. Pinching (Ctrl
     // with the wheel on a trackpad, two fingers on a screen) still enlarges it, and a picture
@@ -105,6 +107,15 @@ function pass() {
 
 document.addEventListener('click', e => {
     if (passing || e.target.closest?.('.zoom')) return;
+    // A double click (double tap) on an open picture: its first click closed the picture, and its
+    // second lands on whatever was behind it. That one was not meant for the page: it moves no
+    // photo on and follows no link.
+    if (performance.now() - closedAt < WAIT) {
+        closedAt = -Infinity;
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+    }
     const frame = e.target.closest?.(PICTURE);
     if (!frame) return;
     // Held back until it is known whether it is the first of two.

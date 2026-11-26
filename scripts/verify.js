@@ -1556,6 +1556,46 @@ try {
                 if (after.open !== 0 || after.index !== opened.index || after.y !== opened.y) closes.push(`${how === ' ' ? 'the space bar' : how}: ${JSON.stringify({ open: after.open, index: after.index, y: after.y })}`);
             }
             check('3. Escape, Enter, the space bar and a click each close the open photo, and the page behind is as it was: the same photo, the same place', closes.length === 0, closes.join('; '));
+            // A double click on an open photo (as a double tap enlarges and a double tap goes back): its first click closes the
+            // photo, and its second lands on the page that was behind it: on the photo, or on a link where the pointer is over
+            // one (the header's "back"). That second click is not for the page: the set stays on its photo, no link is followed.
+            // Sent as the mouse sends it. Two clicks that a busy machine sends more than the wait apart are a click that closes
+            // and a click of its own, which rightly moves the set on or follows the link: such a try does not count and is made
+            // again (the time between the two is read in the page; a page that was left cannot say, and is tried again too).
+            {
+                const here = `/projects/${many.data.slug}/`;
+                const twice = async (target) => {
+                    let last = 'not tried';
+                    for (let i = 0; i < 4; i++) {
+                        if (new URL(page.url()).pathname !== here) { await page.goto(base + here); await slidesReady(page); }
+                        if (!(await state()).open) await dbl();
+                        const was = await state();
+                        const spot = await page.evaluate((sel) => {
+                            window.__clicks = [];
+                            if (!window.__timing) { window.__timing = true; document.addEventListener('click', () => window.__clicks.push(performance.now()), true); }
+                            const r = document.querySelector(sel).getBoundingClientRect();
+                            return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+                        }, target);
+                        await page.mouse.dblclick(spot.x, spot.y);
+                        await page.waitForTimeout(ZOOM_WAIT + 250);
+                        const left = new URL(page.url()).pathname !== here;
+                        const after = left ? null : await state();
+                        const gap = left ? NaN : await page.evaluate(() => (window.__clicks.length === 2 ? window.__clicks[1] - window.__clicks[0] : NaN));
+                        last = left ? `the page was left for ${new URL(page.url()).pathname}` : `${after.open} open, photo ${after.index + 1} after photo ${was.index + 1}, the clicks ${Math.round(gap)} ms apart`;
+                        if (!left && gap < ZOOM_WAIT - 20) return { ok: was.open === 1 && after.open === 0 && after.index === was.index && after.y === was.y, last };
+                    }
+                    return { ok: false, last };
+                };
+                // Over the photo last: the page is then as the checks after this one expect it, the pointer on the photo that was open.
+                const onLink = await twice('.project-head .back a');
+                const onPhoto = await twice(`${top} .current .frame`);
+                check('3. a double click on an open photo closes it and does nothing more: the click that follows the closing one lands on the page behind, and moves no photo on and follows no link (tried over the photo, and where the header\'s "back" is behind the open photo)',
+                    onPhoto.ok && onLink.ok, `over the photo: ${onPhoto.last}; over "back": ${onLink.last}`);
+                // As the checks after this one expect the page: this project's, its first photo, nothing open.
+                if (new URL(page.url()).pathname !== here) { await page.goto(base + here); await slidesReady(page); }
+                if ((await state()).open) { await page.keyboard.press('Escape'); await page.waitForTimeout(150); }
+                await page.evaluate(() => document.querySelector('project-slides').setState({ index: 0 }));
+            }
             await page.keyboard.press('ArrowRight');
             const moved = await state();
             await page.keyboard.press('Tab');
@@ -4603,6 +4643,37 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
             if (tapped.open) { await page.touchscreen.tap(195, 420); await page.waitForTimeout(150); }
             const closed = await page.evaluate(() => document.querySelectorAll('.zoom').length);
             check('3. on a touch screen a double tap on a photo opens it (the photo takes no double-tap zoom of the browser\'s: touch-action manipulation), and a tap closes it', tapped.open === 1 && tapped.index === 0 && tapped.touch === 'manipulation' && closed === 0, JSON.stringify({ ...tapped, closed }));
+        }
+        // A double tap on the open photo, the usual way back from an enlarged picture: the first tap closes it and the second lands
+        // on the photo behind, which stays the photo it was (a single tap there would move the set on). On a page whose first set
+        // has photos to move to. Taps this machine sent more than the wait apart are a tap that closes and a tap of its own: such
+        // a try does not count and is made again.
+        if (many && firstSet(many).length > 1) {
+            await page.goto(`${base}/projects/${many.data.slug}/`);
+            await slidesReady(page);
+            await page.waitForFunction(() => { const img = document.querySelector('project-slides .slide.current img'); return img.complete && img.naturalWidth > 0; });
+            let again = { counted: false, last: 'not tried' };
+            for (let i = 0; i < 5 && !again.counted; i++) {
+                await page.evaluate(() => { scrollTo({ top: 0, behavior: 'instant' }); document.querySelector('project-slides').setState({ index: 0 }); });
+                const box = await page.evaluate(() => { const r = document.querySelector('project-slides .slide.current .frame').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+                if (!await page.evaluate(() => document.querySelectorAll('.zoom').length)) {
+                    await page.touchscreen.tap(box.x, box.y);
+                    await page.touchscreen.tap(box.x, box.y);
+                    await page.waitForTimeout(ZOOM_WAIT + 250);
+                }
+                const was = await page.evaluate(() => {
+                    window.__taps = [];
+                    if (!window.__timing) { window.__timing = true; document.addEventListener('click', () => window.__taps.push(performance.now()), true); }
+                    return { open: document.querySelectorAll('.zoom').length, index: document.querySelector('project-slides').state.index };
+                });
+                if (!was.open) { again.last = 'the photo did not open'; continue; }
+                await page.touchscreen.tap(box.x, box.y);
+                await page.touchscreen.tap(box.x, box.y);
+                await page.waitForTimeout(ZOOM_WAIT + 250);
+                const after = await page.evaluate(() => ({ open: document.querySelectorAll('.zoom').length, index: document.querySelector('project-slides').state.index, gap: window.__taps.length === 2 ? window.__taps[1] - window.__taps[0] : NaN }));
+                again = { counted: after.gap < ZOOM_WAIT - 20, ok: after.open === 0 && after.index === was.index, last: `${after.open} open, photo ${after.index + 1} after photo ${was.index + 1}, the taps ${Math.round(after.gap)} ms apart` };
+            }
+            check(`3. on a touch screen a double tap on an open photo closes it and leaves the set on the photo it showed (${many.data.slug})`, again.counted && again.ok, again.last);
         }
         // The same on a page of text with one picture: two taps on the picture open it, one more closes it, and a single tap does nothing.
         {
