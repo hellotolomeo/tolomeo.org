@@ -997,6 +997,72 @@ try {
         check('1. the home page\'s tab title is the name alone', index.includes('<title>Tolomeo</title>'));
         const unpublished = fronts.filter(f => f.data.published !== true && index.includes(`id="row-${f.data.slug}"`));
         check('1. unpublished projects are absent', unpublished.length === 0, unpublished.map(f => f.data.slug).join(', '));
+
+        // Every address on this site that a page of the build points at is there. The pages its links lead to: the intro's,
+        // the text pages', a project's description and details are typed in the CMS, a site address by hand (/collaborations/),
+        // and a mistyped one is seen by nobody until a visitor follows it: the build does not know it, and every other check
+        // starts from the list of pages, not from what links to them. Its stylesheets, scripts, fonts and icons. Every file of
+        // every picture: `src` and each entry of a `srcset`, in the HTML and in the lists of projects and photos a component
+        // carries as JSON (with the links in their captions). What the stylesheets themselves fetch (`url(…)`). And a link
+        // to a place in the same page (#project-info) has that place in the page. Read from dist/ as built; addresses
+        // elsewhere (https:, mailto:) are not followed.
+        {
+            const walk = (dir, rel = '') => readdirSync(dir, { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(join(dir, e.name), `${rel}${e.name}/`) : [`${rel}${e.name}`]));
+            const built = walk(dist);
+            const unescaped = (t) => t.replace(/&(amp|lt|gt|quot|#39|#x27);/g, (_, e) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", '#x27': "'" }[e]));
+            const lost = [];
+            const tally = { pages: 0, sheets: 0, pointed: 0, places: 0 };
+            // `address` as written in `from` (a file of dist/): is the file it names in dist/?
+            const follow = (from, address, what) => {
+                const ref = String(address).trim();
+                if (!ref || ref.startsWith('#') || ref.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(ref)) return;
+                tally.pointed++;
+                let path = '';
+                try { path = decodeURIComponent(new URL(ref, `http://site/${from}`).pathname); } catch { path = ''; }
+                if (path.endsWith('/')) path += 'index.html';
+                const file = path ? normalize(join(dist, path)) : '';
+                if (!file.startsWith(dist + sep) || !existsSync(file) || !statSync(file).isFile()) lost.push(`${from}: ${what} ${ref}`);
+            };
+            const candidates = (from, srcset, what) => { for (const part of String(srcset).split(',')) if (part.trim()) follow(from, part.trim().split(/\s+/)[0], what); };
+            // What a component carries: every `src` and `href`, every entry of a `srcset` (`webp` is one too), and the links inside any HTML it holds (a caption).
+            const carried = (from, value, key = '') => {
+                if (Array.isArray(value)) value.forEach(v => carried(from, v, key));
+                else if (value && typeof value === 'object') for (const [k, v] of Object.entries(value)) carried(from, v, k);
+                else if (typeof value === 'string') {
+                    if (key === 'src' || key === 'href') follow(from, value, `a component's ${key}`);
+                    else if (key === 'srcset' || key === 'webp') candidates(from, value, `a component's ${key}`);
+                    for (const m of value.matchAll(/\b(?:href|src)="([^"]*)"/g)) follow(from, unescaped(m[1]), 'a link in a component\'s text');
+                }
+            };
+            // The pages are the routes' files (dist/ also holds the components' templates, which are no pages); the stylesheets, every one in dist/.
+            const pageFiles = routes.map(r => (r.endsWith('/') ? `${r}index.html` : r).replace(/^\//, ''));
+            for (const file of [...pageFiles, ...built.filter(f => f.endsWith('.css'))]) {
+                if (!existsSync(join(dist, file))) { lost.push(`${file}: the page itself is not in the build`); continue; }
+                const body = readFileSync(join(dist, file), 'utf8');
+                if (file.endsWith('.html')) {
+                    tally.pages++;
+                    for (const m of body.matchAll(/<(a|link|script|img|source)\b([^>]*)>/g)) {
+                        const attr = (name) => { const v = m[2].match(new RegExp(`(?:^|\\s)${name}="([^"]*)"`)); return v ? unescaped(v[1]) : null; };
+                        if (attr('href') !== null && attr('rel') !== 'canonical') {
+                            if (attr('href').startsWith('#')) {
+                                tally.places++;
+                                if (!new RegExp(`\\sid="${attr('href').slice(1).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`).test(body)) lost.push(`${file}: a link to ${attr('href')}, which is not in the page`);
+                            } else follow(file, attr('href'), m[1] === 'a' ? 'a link to' : 'a file');
+                        }
+                        if (attr('src') !== null) follow(file, attr('src'), 'a file');
+                        if (attr('srcset') !== null) candidates(file, attr('srcset'), 'a picture file');
+                    }
+                    for (const m of body.matchAll(/\s(?:projects|images)="([^"]*)"/g)) {
+                        try { carried(file, JSON.parse(unescaped(m[1]))); } catch { lost.push(`${file}: a component's list that does not read as JSON`); }
+                    }
+                } else if (file.endsWith('.css')) {
+                    tally.sheets++;
+                    for (const m of body.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/g)) follow(file, m[1], 'a file');
+                }
+            }
+            check(`1. every address on this site that a built page points at is a file of the build: the pages its links lead to, its stylesheets, scripts, fonts and icons, every file of every picture, in the HTML and in what the components carry, and what the stylesheets fetch (${tally.pointed} addresses in ${tally.pages} pages and ${tally.sheets} stylesheets); a link to a place in its own page has that place (${tally.places})`,
+                lost.length === 0 && tally.pointed > 0 && tally.pages === routes.length, [...new Set(lost)].slice(0, 5).join(' | '));
+        }
         let pageMisses = [];
         let photoMisses = [];
         const infoMisses = [];
