@@ -3891,8 +3891,6 @@ try {
         check('5. every key of a project photo (image, alt, caption, set) is a field in .pages.yml', photoKeys.length === 0, photoKeys.join(', '));
         const set = photoFields.get('set');
         check('5. a photo\'s set is a number field in .pages.yml, whole numbers from 1', set?.type === 'number' && set?.options?.min === 1 && set?.options?.step === 1, JSON.stringify(set ?? null));
-        const details = fields.get('details');
-        check('5. a project\'s "More details" is a field of plain text of several lines in .pages.yml, optional, with words on how to write it', details?.type === 'text' && details?.label === 'More details' && !details?.required && /empty line/.test(details?.description ?? '') && /\]\(/.test(details?.description ?? ''), JSON.stringify(details ?? null));
         const files = (config.content ?? []).filter(c => c.type === 'file').map(c => c.path).sort();
         check('5. the three text pages are editable: the home page\'s intro, About and Collaborations', JSON.stringify(files) === JSON.stringify(['content/site/collaborations.md', 'content/site/index.md', 'content/site/info.md']), files.join(', '));
         // The two pages of text with one picture: an entry each, with the same fields under the names the data layer reads
@@ -3922,6 +3920,8 @@ try {
             }
             check('5. the About and the Collaborations page are each an entry in .pages.yml with the same fields, named as the data layer reads them: the title (fixed), the text, the picture (in the page\'s own folder under images/, every kind of file the media library takes), its description for people who can\'t see it, its caption and the footnote, none of them required; every key of the two content files is one of them', wrong.length === 0 && new Set(shapes).size === 1, wrong.join(' | ') || (new Set(shapes).size === 1 ? '' : 'the two entries differ in more than their folder'));
         }
+        const details = fields.get('details');
+        check('5. a project\'s "More details" is a field of plain text of several lines in .pages.yml, optional, with words on how to write it', details?.type === 'text' && details?.label === 'More details' && !details?.required && /empty line/.test(details?.description ?? '') && /\]\(/.test(details?.description ?? ''), JSON.stringify(details ?? null));
     }
 } finally {
     await browser.close();
