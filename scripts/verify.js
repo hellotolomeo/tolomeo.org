@@ -34,6 +34,18 @@
  *      alike; clear of a header whose title wraps. An information taller than
  *      the window can be read to its end; a project with no photos does not
  *      scroll for it. The 404 page keeps its layout.
+ *      About and Collaborations, the pages of text with one picture (/info/ and
+ *      /collaborations/): each prints its content file's words and no others,
+ *      under the project pages' header, its title not a link; the picture is
+ *      the one the content names, with the description the content gives it,
+ *      whole, without a border, with the shadow, its proportions from a
+ *      generated rule and its `sizes` right to the pixel. From 900px the
+ *      picture is the left half, as large as fits it and the window less the
+ *      header less 76px, the text the right half with the footnote under it;
+ *      below 900px the text, the picture and its caption, then the footnote.
+ *      Nothing touches the document on load; a click on the picture does
+ *      nothing and a double click opens it; with JavaScript off the page is
+ *      the same. Both are editable in the CMS, field for field.
  *   4. 390px: no horizontal scroll on any route; on a touch screen a project
  *      page scrolls freely.
  *   5. CMS: every front-matter key in content/ is a field in .pages.yml, and every
@@ -217,6 +229,230 @@ const slideSizesPx = (sizes, vw, vh) => {
 };
 // How long zoom.js holds a click on a photo back, to see whether a second follows (client/zoom.js, WAIT).
 const ZOOM_WAIT = 260;
+
+// --- The pages of text with one picture, About (/info/) and Collaborations (the redesign of 26 Nov 2026):
+// shared/pages/sheet.html, client/sheet.css, and the header they share with the project pages (pageOf above).
+// (Imports of their own, so that the imports the other checks share stay as they are.)
+import { markdownInline } from '../server/markdown.js';
+import { sheet as shapeSheet, figuresCss } from '../server/content.js';
+import siteConfig from '../site.config.js';
+
+// The pages, by content file (content/site/<name>.md), which is also the address (/<name>/) and the folder of
+// the page's picture (images/<name>/); `title` is what the page is called when its own title is left empty.
+const SHEET_PAGES = [{ name: 'info', title: 'About' }, { name: 'collaborations', title: 'Collaborations' }];
+// Their content files, as typed.
+const sheetFronts = SHEET_PAGES.map(s => ({ ...s, ...matter(readFileSync(join(root, 'content/site', `${s.name}.md`), 'utf8'), {}) }));
+// What such a page prints, worked out from its content file: its title; its text as the site's renderer
+// prints it; its picture's path under images/ ('' when the content names none, or one that is not there: the
+// CMS writes the public path, and a bare file name is looked for in the page's own folder); the picture's
+// description; its caption (a picture's, so none without one); its footnotes, a paragraph each, as typed and
+// as their words.
+const sheetWants = (s) => {
+    const typed = decodeURIComponent(text(s.data.image)).replace(/\\/g, '/');
+    let image = typed && !typed.includes('/') ? `${s.name}/${typed}` : typed.replace(/^\/?images\//, '').replace(/^\/+/, '');
+    if (image && !existsSync(join(root, 'images', image))) image = '';
+    const typedNotes = text(s.data.note).split(/\n\s*\n/).map(t => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    return { title: text(s.data.title) || s.title, body: markdown(s.content), image, alt: text(s.data.alt), caption: image ? markdownInline(text(s.data.caption)) : '', typedNotes, notes: typedNotes.map(t => words(t)) };
+};
+// What such a page is held to at a window `vw` wide. From 900px the picture is the left half of the page and
+// the text the right, the footnote under the text; below 900px the text comes first, then the picture with
+// its caption, then the footnote.
+const sheetOf = (vw) => (vw >= WIDE ? {
+    wide: true,
+    side: 34, // the page's side padding
+    between: 17, // between the two halves
+    column: 292, // the text and the footnote are at most this wide
+    first: 4, // from the header to the text's first line
+    apart: 7, // between two paragraphs
+    under: 12, // from the picture to its caption
+    note: 29, // from the text, which ends with a paragraph's 7px, to the footnote
+    hang: 0.8, // the lines of a footnote after its first start this many em further in
+    end: 60, // under the lowest thing on the page
+    text: '12.5px / 15.2px / 300',
+    caption: '11.5px / 13.5px / 300',
+} : {
+    wide: false,
+    side: 24,
+    first: 30,
+    apart: 15,
+    picture: 28, // from the text to the picture
+    under: 14,
+    note: 34, // from the picture, or its caption, to the footnote
+    hang: 1.1,
+    end: 96,
+    text: '16.5px / 20px / 300',
+    caption: '14.5px / 17.5px / 300',
+});
+// From 900px the picture leaves this much of the window's height free, besides the header: it is as large as
+// fits its half of the page and the window less the header less this, and its room is never less tall than SHEET_LEAST.
+const SHEET_KEEP = 76;
+const SHEET_LEAST = 160;
+// A caption is at most this wide, at every width.
+const SHEET_CAPTION = 420;
+// The room the picture has in a window of vw × vh, and the width it is shown at with proportions a : 1.
+const sheetRoom = (vw, vh) => {
+    const d = sheetOf(vw);
+    return d.wide ? { width: (vw - 2 * d.side - d.between) / 2, height: Math.max(SHEET_LEAST, vh - pageOf(vw).head - SHEET_KEEP) } : { width: vw - 2 * d.side, height: Infinity };
+};
+const sheetWidth = (a, vw, vh) => { const room = sheetRoom(vw, vh); return Math.min(room.width, room.height * a); };
+// Such a page as it lies in the window: the header, the text and its paragraphs, the picture's box and its
+// image, the caption, the footnote and its lines.
+const sheetLie = (page) => page.evaluate(() => {
+    const box = (el) => { if (!el || !el.getClientRects().length) return null; const b = el.getBoundingClientRect(); return { top: b.top, bottom: b.bottom, left: b.left, right: b.right, width: b.width, height: b.height }; };
+    const type = (el) => { const s = getComputedStyle(el); return [s.fontSize, s.lineHeight, s.fontWeight].join(' / '); };
+    // The lines of a piece of text as the browser laid them out, from the text itself: each { top, left, right }.
+    const linesOf = (el) => {
+        const rects = [];
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+            if (!n.data.trim()) continue;
+            const range = document.createRange();
+            range.selectNodeContents(n);
+            rects.push(...[...range.getClientRects()].filter(r => r.width > 0 && r.height > 0));
+        }
+        const lines = [];
+        for (const r of rects.sort((a, b) => a.top - b.top || a.left - b.left)) {
+            const line = lines.find(l => Math.abs(l.top - r.top) < r.height / 2);
+            if (line) { line.left = Math.min(line.left, r.left); line.right = Math.max(line.right, r.right); } else lines.push({ top: r.top, left: r.left, right: r.right });
+        }
+        return lines;
+    };
+    const para = (p) => ({ ...box(p), type: type(p), step: parseFloat(getComputedStyle(p).lineHeight), lines: linesOf(p) });
+    const head = document.querySelector('.project-head');
+    const h1 = head?.querySelector('h1');
+    const back = document.querySelector('.back');
+    const link = back?.querySelector('a');
+    const main = document.querySelector('main.sheet');
+    const textEl = main.querySelector(':scope > .text');
+    const figure = main.querySelector(':scope > figure');
+    const picture = figure?.querySelector('picture');
+    const img = picture?.querySelector('img');
+    const caption = figure?.querySelector('figcaption');
+    const note = main.querySelector(':scope > .note');
+    const vw = document.documentElement.clientWidth;
+    const at = document.elementFromPoint(vw / 2, 10);
+    const ps = picture ? getComputedStyle(picture) : null;
+    return {
+        y: scrollY,
+        vw,
+        vh: innerHeight,
+        wide: document.documentElement.scrollWidth,
+        tall: document.documentElement.scrollHeight,
+        ground: getComputedStyle(document.body).backgroundColor,
+        head: head ? { ...box(head), position: getComputedStyle(head).position, ground: getComputedStyle(head).backgroundColor, image: getComputedStyle(head).backgroundImage, onTop: Boolean(at) && head.contains(at) } : null,
+        title: h1 ? { ...box(h1), type: type(h1), text: h1.textContent.trim(), link: Boolean(h1.querySelector('a')), lines: linesOf(h1) } : null,
+        back: link ? { ...box(back), type: type(link), word: link.textContent, href: link.getAttribute('href'), colour: getComputedStyle(link).color, lean: getComputedStyle(link).transform } : null,
+        main: box(main),
+        order: [...main.children].map(el => el.className || el.localName),
+        text: box(textEl),
+        paras: textEl ? [...textEl.querySelectorAll(':scope > p')].map(para) : [],
+        figure: box(figure),
+        id: figure?.id ?? '',
+        a: figure ? Number(getComputedStyle(figure).getPropertyValue('--a')) || null : null,
+        picture: picture ? {
+            ...box(picture),
+            border: ['Top', 'Right', 'Bottom', 'Left'].map(k => ps[`border${k}Width`]).join(' '),
+            padding: ['Top', 'Right', 'Bottom', 'Left'].map(k => ps[`padding${k}`]).join(' '),
+            shadow: ps.boxShadow,
+            clip: ps.overflow,
+            cursor: ps.cursor,
+            touch: ps.touchAction,
+            zoom: picture.hasAttribute('data-zoom'),
+        } : null,
+        img: img ? {
+            ...box(img),
+            fit: getComputedStyle(img).objectFit,
+            alt: img.getAttribute('alt'),
+            loaded: img.complete && img.naturalWidth > 0,
+            attrs: [Number(img.getAttribute('width')), Number(img.getAttribute('height'))],
+            current: decodeURIComponent(img.currentSrc).split('/').pop(),
+            sizes: [img.getAttribute('sizes'), picture.querySelector('source')?.getAttribute('sizes') ?? null],
+            // The files the browser chooses from (the WebP ones where it takes those): [width, file name].
+            files: (picture.querySelector('source')?.getAttribute('srcset') || img.getAttribute('srcset') || '').split(',').map(c => c.trim().split(/\s+/)).filter(c => c.length === 2).map(([url, w]) => [parseFloat(w), decodeURIComponent(url).split('/').pop()]),
+        } : null,
+        caption: caption ? { ...box(caption), type: type(caption), colour: getComputedStyle(caption).color, align: getComputedStyle(caption).textAlign, text: caption.textContent.replace(/\s+/g, ' ').trim(), lines: linesOf(caption) } : null,
+        // The caption colour as the stylesheet names it (--caption, a hex colour), as the browser gives a colour back.
+        captionInk: getComputedStyle(document.documentElement).getPropertyValue('--caption').trim().replace(/^#(..)(..)(..)$/, (_, r, g, b) => `rgb(${parseInt(r, 16)}, ${parseInt(g, 16)}, ${parseInt(b, 16)})`),
+        note: note ? { ...box(note), paras: [...note.querySelectorAll(':scope > p')].map(p => ({ ...para(p), pad: parseFloat(getComputedStyle(p).paddingLeft), indent: parseFloat(getComputedStyle(p).textIndent), size: parseFloat(getComputedStyle(p).fontSize) })) } : null,
+    };
+});
+// What of such a page is not as the design has it in its window, or '' (the page at its top).
+const sheetOff = (m) => {
+    const d = sheetOf(m.vw);
+    const h = pageOf(m.vw);
+    const off = [];
+    const near = (a, b, by = 0.5) => Math.abs(a - b) <= by;
+    const centre = m.vw / 2;
+    // The header: the project pages', its title not a link.
+    if (!m.head || !near(m.head.top, 0) || !near(m.head.height, h.head) || m.head.position !== 'sticky' || m.head.ground !== m.ground || m.head.image !== 'none' || !m.head.onTop) off.push(`the header: ${JSON.stringify(m.head)}`);
+    if (!m.title || m.title.link || m.title.type !== h.title || m.title.lines.length !== 1 || !near((m.title.lines[0].left + m.title.lines[0].right) / 2, centre, 1) || !near(m.title.top, h.wide ? 39 : 50)) off.push(`the title: ${JSON.stringify(m.title)}`);
+    if (!m.back || m.back.word !== 'back' || m.back.href !== '/' || m.back.type !== h.back || m.back.colour !== 'rgb(128, 114, 121)' || !/^matrix\(1, 0, 0\.105\d*, 1, 0, 0\)$/.test(m.back.lean) || !near(m.back.left, d.side) || !near(m.back.top, h.wide ? 39 : 50)) off.push(`back: ${JSON.stringify(m.back)}`);
+    // The text: its place, its type, its paragraphs each whole lines and the same distance apart.
+    const room = sheetRoom(m.vw, m.vh);
+    const column = d.wide ? Math.min(d.column, room.width) : m.vw - 2 * d.side;
+    const left = d.wide ? centre + d.between / 2 : d.side;
+    if (m.text) {
+        if (!near(m.text.left, left) || !near(m.text.width, column)) off.push(`the text from ${m.text.left}, ${m.text.width} wide, not from ${left}, ${column} wide`);
+        if (!m.paras.length || !near(m.paras[0].top, h.head + d.first)) off.push(`the text's first line at ${m.paras[0]?.top}, not ${h.head + d.first}`);
+        m.paras.forEach((p, i) => {
+            if (p.type !== d.text) off.push(`paragraph ${i + 1} in ${p.type}`);
+            if (!near(p.height / p.step, Math.round(p.height / p.step), 0.02) || p.lines.length !== Math.round(p.height / p.step)) off.push(`paragraph ${i + 1} is ${p.height} tall with ${p.lines.length} lines of ${p.step}`);
+            if (i > 0 && !near(p.top - m.paras[i - 1].bottom, d.apart, 0.1)) off.push(`paragraph ${i + 1} is ${p.top - m.paras[i - 1].bottom} under the one before, not ${d.apart}`);
+            if (!near(p.left, left) || p.right > left + column + 0.5) off.push(`paragraph ${i + 1} from ${p.left} to ${p.right}`);
+        });
+    }
+    const last = m.paras.at(-1);
+    // The picture: whole, as large as fits its room, the side that limits it on its limit; no border, the shadow.
+    if (m.figure) {
+        const want = sheetWidth(m.a ?? 1.5, m.vw, m.vh);
+        const p = m.picture;
+        if (!p || !m.img) off.push('a figure without a picture');
+        else {
+            if (!near(p.width, want, EXACT) || !near(p.height, want / (m.a ?? 1.5), EXACT)) off.push(`the picture is ${p.width} × ${p.height}, not ${want} × ${want / (m.a ?? 1.5)}`);
+            if (!(near(p.width, room.width, EXACT) || near(p.height, room.height, EXACT))) off.push(`neither side of the picture is on its limit (${p.width} × ${p.height} in ${room.width} × ${room.height})`);
+            if (p.width > room.width + EXACT || p.height > room.height + EXACT) off.push(`the picture is larger than its room (${p.width} × ${p.height} in ${room.width} × ${room.height})`);
+            if (d.wide ? !near(p.right, centre - d.between / 2, EXACT) || !near(p.top, h.head, EXACT) : !near(p.left, d.side, EXACT) || !near(p.right, m.vw - d.side, EXACT)) off.push(`the picture from ${p.left} to ${p.right}, its top at ${p.top}`);
+            if (!d.wide && last && !near(p.top - last.bottom, d.picture, 0.1)) off.push(`the picture is ${p.top - last.bottom} under the text, not ${d.picture}`);
+            if (p.border !== '0px 0px 0px 0px' || p.padding !== '0px 0px 0px 0px' || p.shadow !== SHADOW || p.clip !== 'visible') off.push(`the picture's box: border ${p.border}, padding ${p.padding}, shadow ${p.shadow}, overflow ${p.clip}`);
+            if (!near(m.figure.left, p.left, EXACT) || !near(m.figure.width, p.width, EXACT) || !near(m.figure.top, p.top, EXACT)) off.push(`the figure is not its picture's width (${m.figure.left}, ${m.figure.width})`);
+            // The image is stretched over the whole box, which has the picture's proportions: nothing is cut off, nothing shows beside it.
+            // (That the files themselves have those proportions, within the half pixel a resized file is rounded by, is checked from dist/.)
+            if (['left', 'top', 'width', 'height'].some(k => !near(m.img[k], p[k], 0.02)) || m.img.fit !== (m.img.attrs[0] ? 'fill' : 'contain')) off.push(`the image does not cover its box (${m.img.fit}; ${m.img.width} × ${m.img.height} in ${p.width} × ${p.height})`);
+            if (m.a !== null && Math.abs(m.a - Math.round((m.img.attrs[0] / m.img.attrs[1]) * 10000) / 10000) > 1e-9) off.push(`--a is ${m.a}, the image ${m.img.attrs.join(' × ')}`);
+            if (!p.zoom || p.touch !== 'manipulation') off.push(`the picture is not marked to open (data-zoom: ${p.zoom}, touch-action: ${p.touch})`);
+        }
+        const c = m.caption;
+        if (c && p) {
+            if (!near(c.top - p.bottom, d.under, 0.1)) off.push(`the caption is ${c.top - p.bottom} under the picture, not ${d.under}`);
+            if (c.type !== d.caption || c.colour !== m.captionInk || c.align !== 'center') off.push(`the caption in ${c.type}, ${c.colour}, ${c.align}`);
+            if (c.width > SHEET_CAPTION + 0.01 || c.left < m.figure.left - 0.5 || c.right > m.figure.right + 0.5 || !near((c.left + c.right) / 2, (p.left + p.right) / 2)) off.push(`the caption from ${c.left} to ${c.right} under a picture from ${p.left} to ${p.right}`);
+            if (!near(c.width, Math.min(SHEET_CAPTION, p.width), 0.1)) off.push(`the caption is ${c.width} wide, not ${Math.min(SHEET_CAPTION, p.width)}`);
+            if (c.lines.some(l => l.left < c.left - 1 || l.right > c.right + 1)) off.push('a line of the caption reaches outside its box');
+        }
+        if (d.wide && m.text && m.figure.right > m.text.left - d.between + 0.5) off.push(`the picture reaches to ${m.figure.right}, the text starts at ${m.text.left}`);
+    }
+    // The footnote: under the text from 900px, after the picture and its caption below; its first line at the edge, the others hung.
+    if (m.note) {
+        const above = d.wide ? (last ? last.bottom + d.apart : null) : (m.caption ?? m.picture ?? last)?.bottom ?? null;
+        if (above !== null && !near(m.note.top - above, d.note, 0.1)) off.push(`the footnote is ${m.note.top - above} under ${d.wide ? 'the text' : m.caption ? 'the caption' : m.picture ? 'the picture' : 'the text'}, not ${d.note}`);
+        if (!near(m.note.left, left) || !near(m.note.width, column)) off.push(`the footnote from ${m.note.left}, ${m.note.width} wide, not from ${left}, ${column} wide`);
+        m.note.paras.forEach((p, i) => {
+            if (p.type !== d.text) off.push(`footnote ${i + 1} in ${p.type}`);
+            if (!near(p.pad, d.hang * p.size, 0.01) || !near(p.indent, -p.pad, 0.01)) off.push(`footnote ${i + 1} hangs by ${p.pad} and ${p.indent}, not ${d.hang * p.size}`);
+            if (!p.lines.length || !near(p.lines[0].left, m.note.left) || p.lines.slice(1).some(l => !near(l.left, m.note.left + p.pad)) || p.lines.some(l => l.right > m.note.right + 0.5)) off.push(`footnote ${i + 1}: its lines start at ${p.lines.map(l => Math.round(l.left * 100) / 100).slice(0, 3).join(', ')} in a box from ${m.note.left}`);
+            if (i > 0 && !near(p.top - m.note.paras[i - 1].bottom, d.apart, 0.1)) off.push(`footnote ${i + 1} is ${p.top - m.note.paras[i - 1].bottom} under the one before`);
+        });
+    }
+    // The order on the page, and its end: the page's bottom padding under the lowest thing on it.
+    const tops = [m.text, d.wide ? null : m.figure, d.wide ? null : m.caption, m.note].filter(Boolean).map(b => b.top);
+    if (tops.some((t, i) => i > 0 && t < tops[i - 1])) off.push(`the parts are not one under the other (${tops.join(', ')})`);
+    if (d.wide && m.note && m.figure && m.note.left < m.figure.right) off.push('the footnote is under the picture, not under the text');
+    const lowest = Math.max(...[m.figure?.bottom, m.note?.bottom, m.text ? m.text.bottom + (!d.wide && !m.note && !m.figure ? d.apart : 0) : null].filter(v => typeof v === 'number'), h.head);
+    if (!near(m.main.bottom - lowest, d.end, 0.1)) off.push(`the page ends ${m.main.bottom - lowest} under its lowest part, not ${d.end}`);
+    if (Math.abs(m.tall - Math.max(m.vh, m.main.bottom + m.y)) > 1) off.push(`the page is ${m.tall} tall, its content ends at ${m.main.bottom + m.y}`);
+    if (m.wide > m.vw) off.push(`the page is ${m.wide}px wide`);
+    return off.join('; ');
+};
 
 // --- what the site should contain, from content/ directly
 
@@ -406,7 +642,7 @@ const server = createServer((req, res) => {
 await new Promise(r => server.listen(0, '127.0.0.1', r));
 const base = `http://127.0.0.1:${server.address().port}`;
 
-const routes = ['/', '/projects/', '/info/', '/404.html', ...published.map(p => `/projects/${p.data.slug}/`)];
+const routes = ['/', '/projects/', '/info/', '/collaborations/', '/404.html', ...published.map(p => `/projects/${p.data.slug}/`)];
 // The Index's order: the projects as the home page's list has them, sub-items in their place.
 const listed = [...(await (await fetch(`${base}/`)).text()).matchAll(/id="row-([^"]+)"/g)].map(m => m[1]);
 // The project pages the slideshow checks use: the one whose first set has the most photos, one with a single photo, one with captions.
@@ -736,9 +972,155 @@ try {
             if (!withDetails.length) check('3. a project\'s details on its page: ok (no project in content has details; the check was skipped)', true);
             else check(`3. a project's details are in its facts, after the years, each block a group of lines and nothing in them but lines, links, bold and slanted words (${withDetails.map(p => p.data.slug).join(', ')})`, placed.length === 0, placed.join(', '));
         }
-        const info = await (await fetch(`${base}/info/`)).text();
-        const infoWords = opening(matter(readFileSync(join(root, 'content/site/info.md'), 'utf8'), {}).content);
-        check('1. info HTML has its body', Boolean(infoWords) && textOf(info).includes(infoWords), infoWords);
+        // The pages of text with one picture, About and Collaborations: each answers at its address with its own
+        // words and no others. The tab title and the header's title are the page's; the text is every paragraph
+        // of its content file, as the site's renderer prints it; the picture is the one the content names, with
+        // the description the content gives it (none is written for it anywhere else: an empty one stays empty);
+        // the caption and the footnote are there only if the content has them; the description for search
+        // engines is the site's, as on the home page.
+        {
+            const home = await (await fetch(`${base}/`)).text();
+            const about = home.match(/<meta name="description" content="([^"]*)">/)?.[1] ?? '';
+            const wrong = [];
+            const loads = [];
+            const files = [];
+            const rules = [];
+            let pictured = 0;
+            for (const s of sheetFronts) {
+                const res = await fetch(`${base}/${s.name}/`);
+                const body = await res.text();
+                const want = sheetWants(s);
+                const main = body.match(/<main class="sheet">([\s\S]*?)<\/main>/)?.[1] ?? '';
+                const part = (re) => main.match(re)?.[1] ?? null;
+                const off = [];
+                if (res.status !== 200) off.push(`answers ${res.status}`);
+                if (!body.includes(`<title>Tolomeo — ${html(want.title)}</title>`)) off.push(`tab title ${body.match(/<title>[^<]*<\/title>/)?.[0]}`);
+                if (!/<header class="project-head">\s*<p class="back"><a href="\/">back<\/a><\/p>\s*<h1>([^<]*)<\/h1>\s*<\/header>/.test(body) || body.match(/<h1>([^<]*)<\/h1>/)?.[1] !== html(want.title)) off.push(`the header is not back and the title "${want.title}", unlinked`);
+                if (!about || body.match(/<meta name="description" content="([^"]*)">/)?.[1] !== about) off.push(`its description is not the site's ("${about}")`);
+                if (body.match(/<link rel="canonical" href="([^"]*)">/)?.[1] !== `${siteConfig.SITE_URL}/${s.name}/`) off.push(`canonical ${body.match(/<link rel="canonical" href="([^"]*)">/)?.[1]}`);
+                // The text: the content's paragraphs, each one typed, in the renderer's HTML.
+                const typed = s.content.split(/\n\s*\n/).map(t => t.trim()).filter(Boolean).length;
+                const printed = part(/<div class="text">\s*([\s\S]*?)\s*<\/div>/);
+                if ((printed ?? '') !== want.body || (printed?.match(/<p>/g)?.length ?? 0) !== typed || Boolean(printed) !== Boolean(typed)) off.push(`the text is ${printed?.match(/<p>/g)?.length ?? 0} paragraphs for ${typed} typed, or not the renderer's`);
+                // The picture, its description, its caption.
+                const img = main.match(/<img\b[^>]*>/)?.[0] ?? '';
+                const attr = (tag, name) => tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null;
+                if (Boolean(img) !== Boolean(want.image)) off.push(want.image ? 'no picture' : 'a picture the content does not have');
+                if (img) {
+                    pictured++;
+                    const src = decodeURIComponent(attr(img, 'src') ?? '');
+                    if (!src.startsWith(`/images/${want.image.replace(/\.[^.]+$/, '')}.`)) off.push(`the picture is ${src}, the content's ${want.image}`);
+                    if (attr(img, 'alt') !== html(want.alt)) off.push(`the picture's description is "${attr(img, 'alt')}", the content's "${want.alt}"`);
+                    if (!/<figure id="figure-[a-z]+">\s*<picture data-zoom>/.test(main)) off.push('the picture is not in a figure with an id, marked data-zoom');
+                    const source = main.match(/<source\b[^>]*>/)?.[0] ?? '';
+                    // Its proportions: the original's own size is in `width` and `height`, and client/figures.css has them as --a, by the figure's id.
+                    const meta = await sharp(join(root, 'images', want.image)).metadata();
+                    const [w, h] = (meta.orientation ?? 1) >= 5 ? [meta.height, meta.width] : [meta.width, meta.height];
+                    // Every file the HTML offers is there, as wide as the HTML says, and has the original's proportions: its height is the
+                    // nearest whole number of pixels, so the stretch over the picture's box (object-fit: fill) is half a pixel of the file at most.
+                    for (const [url, said] of [[attr(img, 'src'), ''], ...[attr(img, 'srcset'), attr(source, 'srcset')].flatMap(set => (set ?? '').split(',').map(c => c.trim().split(/\s+/)).filter(c => c[0]))]) {
+                        const file = join(dist, decodeURIComponent(url));
+                        if (!existsSync(file)) { files.push(`${s.name}: ${url} is not in dist/`); continue; }
+                        const built = await sharp(file).metadata();
+                        if ((said && `${built.width}w` !== said) || Math.abs(built.height - (built.width * h) / w) > 0.5) files.push(`${s.name}: ${url} is ${built.width} × ${built.height}${said ? `, offered as ${said}` : ''}; the original is ${w} × ${h}`);
+                    }
+                    if (Number(attr(img, 'width')) !== w || Number(attr(img, 'height')) !== h) rules.push(`${s.name}: width and height ${attr(img, 'width')} × ${attr(img, 'height')}, the original is ${w} × ${h}`);
+                    const rule = `#figure-${s.name}{--a:${Math.round((w / h) * 10000) / 10000}}`;
+                    if (!readFileSync(join(dist, 'client/figures.css'), 'utf8').split('\n').includes(rule)) rules.push(`${s.name}: client/figures.css lacks ${rule}`);
+                }
+                const caption = part(/<figcaption>([\s\S]*?)<\/figcaption>/);
+                if ((caption ?? '') !== want.caption) off.push(`the caption is "${textOf(caption ?? '')}", not "${textOf(want.caption)}"`);
+                // The footnote: one paragraph for each one typed, with the words typed, the mark each starts with included.
+                const notes = [...(part(/<div class="note">([\s\S]*?)<\/div>/) ?? '').matchAll(/<p>([\s\S]*?)<\/p>/g)].map(m => textOf(m[1]).trim());
+                if (notes.join(' | ') !== want.notes.map(html).join(' | ') || notes.some((n, i) => !n.startsWith(html(want.typedNotes[i][0])))) off.push(`the footnote is "${notes.join(' | ').slice(0, 60)}", not "${want.notes.join(' | ').slice(0, 60)}"`);
+                // And nothing else: the page's words are the title, the word back, the text, the caption and the footnote.
+                const all = textOf(body.match(/<body>([\s\S]*?)<\/body>/)?.[1] ?? '').trim();
+                const said = ['back', html(want.title), textOf(want.body).trim(), textOf(want.caption).trim(), want.notes.map(html).join(' ')].filter(Boolean).join(' ');
+                if (all !== said) off.push(`the page says more, or less, than its content: "${all.slice(0, 80)}…"`);
+                if (/\sstyle="/.test(body)) off.push('an inline style');
+                if (off.length) wrong.push(`/${s.name}/: ${off.join('; ')}`);
+                // What it loads: the site's stylesheet and its own, never the project pages'; client/zoom.js if it has a picture, and no other script.
+                const sheets = [...body.matchAll(/<link rel="stylesheet" href="([^"]*)">/g)].map(m => m[1]);
+                const scripts = [...body.matchAll(/<script[^>]*\ssrc="([^"]*)"/g)].map(m => m[1]);
+                const wantScripts = want.image ? ['/client/zoom.js'] : [];
+                if (!sheets.includes('/client/site.css') || !sheets.includes('/client/sheet.css') || sheets.includes('/client/figures.css') !== Boolean(want.image) || sheets.some(href => /project|slides/.test(href)) || scripts.join() !== wantScripts.join() || (want.image && !/<script type="module" src="\/client\/zoom\.js"><\/script>/.test(body)) || /<script(?![^>]*\ssrc=)/.test(body)) loads.push(`/${s.name}/: stylesheets ${sheets.join(', ')}; scripts ${scripts.join(', ') || 'none'}`);
+            }
+            check(`1+3. the About and Collaborations pages answer with their own words and no others: the tab title and the header's title (not a link), every paragraph of the text, the picture the content names with the description the content gives it and no other, the caption and the footnote where the content has them; their description for search engines is the home page's, and each names its own address as the canonical one (${sheetFronts.map(s => `/${s.name}/`).join(', ')})`, wrong.length === 0, wrong.join(' | '));
+            check('3. the About and Collaborations pages load the site\'s stylesheet and client/sheet.css, not the project pages\' stylesheets; with a picture also client/figures.css and client/zoom.js, as a module, and no other script', loads.length === 0, loads.join(' | '));
+            check(`3. the picture of the About and of the Collaborations page: every file its HTML offers is in dist/, as wide as the HTML says and in the original's proportions to within half a pixel; its width and height are the original's, and client/figures.css gives its proportions by the figure's id, never an inline style (${pictured} pictures)`, files.length === 0 && rules.length === 0, [...files, ...rules].slice(0, 4).join(' | '));
+            const css = readFileSync(join(dist, 'client/figures.css'), 'utf8');
+            check('3. client/figures.css holds one rule for each page of text that has a picture and nothing else', css.split('\n').filter(Boolean).length === pictured && css.split('\n').filter(Boolean).every(line => /^#figure-[a-z]+\{--a:\d+(\.\d+)?\}$/.test(line)), JSON.stringify(css));
+        }
+        // The data layer on made-up pages (sheet() and figuresCss() in server/content.js): every field is defaulted,
+        // because the CMS drops an empty one; the mark a footnote starts with stays (read as a block of Markdown, "* By …"
+        // would be a list item and lose it), and so does a lone asterisk in the text; an empty line starts a second
+        // footnote; a caption is the picture's and is not printed without one; the picture may be named by its public
+        // path, its path under images/, or its bare file name in the page's own folder; one that is not there is left
+        // out, with a warning; one whose size the build could not read gets no proportions.
+        {
+            const known = { src: '/images/x/a.jpg', type: 'raster', width: 900, height: 600, variants: [{ width: 600, jpg: '/images/x/a.1.600.jpg', webp: '/images/x/a.1.600.webp' }, { width: 900, jpg: '/images/x/a.1.900.jpg', webp: '/images/x/a.1.900.webp' }] };
+            const images = new Map([['x/a.jpg', known], ['x/b c.jpg', known], ['x/drawing.svg', { src: '/images/x/drawing.svg', type: 'copy', width: null, height: null, variants: [] }]]);
+            const warned = [];
+            const made = (data, content = '') => shapeSheet({ name: 'x', title: 'A page' }, { data, content }, { images, warn: w => warned.push(w) });
+            const off = [];
+            const same = (name, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want)) off.push(`${name}: ${JSON.stringify(got)}`); };
+            same('nothing filled in', made({}), { name: 'x', href: '/x/', title: 'A page', body: '', id: 'figure-x', picture: null, caption: '', note: '' });
+            same('nothing filled in, said by null', made({ title: null, image: null, alt: null, caption: null, note: null }, undefined), { name: 'x', href: '/x/', title: 'A page', body: '', id: 'figure-x', picture: null, caption: '', note: '' });
+            same('its own title', made({ title: 'Its own' }).title, 'Its own');
+            same('a lone asterisk in the text stays', made({}, 'a decolonial* foundation\n\nSecond.').body, '<p>a decolonial* foundation</p>\n<p>Second.</p>');
+            same('a footnote keeps its mark', made({ note: '* By ‘this’, I mean that.' }).note, '<p>* By ‘this’, I mean that.</p>');
+            same('two footnotes, the first on two lines', made({ note: '* One note\non two lines.\n\n** A second.' }).note, '<p>* One note on two lines.</p>\n<p>** A second.</p>');
+            same('Windows line ends, lines of spaces', made({ note: '* One\r\n \r\n\r\n† Two' }).note, '<p>* One</p>\n<p>† Two</p>');
+            same('a footnote takes a link and slanted words', made({ note: '* See [this](https://example.org/) and *That*' }).note, '<p>* See <a href="https://example.org/">this</a> and <em><span>That</span></em></p>');
+            same('raw HTML in a footnote is escaped', made({ note: '* <b>x</b>' }).note, '<p>* &lt;b&gt;x&lt;/b&gt;</p>');
+            same('a caption without a picture is not printed', made({ caption: 'A caption' }).caption, '');
+            const full = made({ image: '/images/x/a.jpg', alt: 'What it shows', caption: 'A *Title*' });
+            same('a picture', full.picture, { src: '/images/x/a.1.900.jpg', srcset: '/images/x/a.1.600.jpg 600w, /images/x/a.1.900.jpg 900w', webp: '/images/x/a.1.600.webp 600w, /images/x/a.1.900.webp 900w', sizes: '(max-width: 899px) calc(100vw - 48px), min(calc(50vw - 42.5px), calc(max(160px, 100vh - 147px) * 1.5))', width: 900, height: 600, alt: 'What it shows' });
+            same('its caption', full.caption, 'A <em><span>Title</span></em>');
+            same('no description written', made({ image: '/images/x/a.jpg' }).picture?.alt, '');
+            for (const spelled of ['images/x/a.jpg', 'x/a.jpg', 'a.jpg', '/images/x/b%20c.jpg', 'b c.jpg']) same(`the picture named ${spelled}`, made({ image: spelled }).picture?.width, 900);
+            const before = warned.length;
+            same('a picture that is not there', made({ image: '/images/x/gone.jpg', caption: 'A caption' }), { name: 'x', href: '/x/', title: 'A page', body: '', id: 'figure-x', picture: null, caption: '', note: '' });
+            if (warned.length !== before + 1 || before !== 0) off.push(`${warned.length - before} warnings for a picture that is not there, ${before} before it`);
+            const drawn = made({ image: 'drawing.svg' });
+            same('a picture whose size is not known', drawn.picture, { src: '/images/x/drawing.svg', srcset: '', webp: '', sizes: drawn.picture?.sizes, width: '', height: '', alt: '' });
+            same('the generated rules', figuresCss([full, made({}), drawn]), '#figure-x{--a:1.5}\n');
+            same('no rule without a picture', figuresCss([made({})]), '');
+            check('3. a page of text with a picture, in the data layer: every field is defaulted; a footnote keeps the mark it starts with and a lone asterisk in the text stays; an empty line starts a second footnote; a caption needs a picture; the picture may be named by its public path, its path under images/ or its bare file name in the page\'s folder, is left out with a warning if it is not there, and gets no proportions if its size is not known (made-up pages)', off.length === 0, off.slice(0, 3).join(' | '));
+        }
+        // The page template with each field emptied in turn (the content need not have such a page).
+        {
+            const site = createEnvironment(nunjucks, { templates: [root], components: join(root, 'components') });
+            const picture = { src: '/images/x/a.900.jpg', srcset: '/images/x/a.600.jpg 600w, /images/x/a.900.jpg 900w', webp: '/images/x/a.600.webp 600w, /images/x/a.900.webp 900w', sizes: '100vw', width: 900, height: 600, alt: 'What it shows' };
+            const full = { name: 'x', href: '/x/', title: 'A title', body: '<p>Words.</p>', id: 'figure-x', picture, caption: 'A caption', note: '<p>* A note</p>' };
+            const render = (over) => site.render('shared/pages/sheet.html', { pageTitle: full.title, sheet: { ...full, ...over }, description: 'About the site', canonical: 'https://example.org/x/' });
+            const wrong = [];
+            const expect = (name, over, has = {}) => {
+                const page = render(over);
+                const parts = { text: true, figure: true, picture: true, source: true, caption: true, note: true, zoom: true, rules: true, ...has };
+                const found = {
+                    text: /<div class="text">/.test(page), figure: /<figure id="figure-x">/.test(page), picture: /<picture data-zoom>/.test(page), source: /<source\b/.test(page), caption: /<figcaption>/.test(page),
+                    note: /<div class="note">/.test(page), zoom: /<script type="module" src="\/client\/zoom\.js">/.test(page), rules: /href="\/client\/figures\.css"/.test(page),
+                };
+                for (const [part, there] of Object.entries(parts)) if (found[part] !== there) wrong.push(`${name}: ${part} ${there ? 'missing' : 'printed'}`);
+                if (/<(div|figure|figcaption|p|picture)[^>]*>\s*<\/\1>/.test(page)) wrong.push(`${name}: an empty element`);
+                if (!/<h1>A title<\/h1>/.test(page) || !page.includes('<title>Tolomeo — A title</title>')) wrong.push(`${name}: the title`);
+                return page;
+            };
+            expect('everything filled in', {});
+            expect('no text', { body: '' }, { text: false });
+            expect('no caption', { caption: '' }, { caption: false });
+            expect('no footnote', { note: '' }, { note: false });
+            expect('no picture', { picture: null, caption: '' }, { figure: false, picture: false, source: false, caption: false, zoom: false, rules: false });
+            expect('a caption and no picture', { picture: null }, { figure: false, picture: false, source: false, caption: false, zoom: false, rules: false });
+            expect('the text alone', { picture: null, caption: '', note: '' }, { figure: false, picture: false, source: false, caption: false, note: false, zoom: false, rules: false });
+            const bare = expect('no description of the picture', { picture: { ...picture, alt: '' } });
+            if (!/\salt=""/.test(bare)) wrong.push('no description of the picture: alt is not empty');
+            if (!/\salt="What it shows"/.test(render({}))) wrong.push('a description of the picture is not its alt');
+            const one = expect('a picture with one file, its size not known', { picture: { src: '/images/x/a.svg', srcset: '', webp: '', sizes: '100vw', width: '', height: '', alt: '' } }, { source: false });
+            if (/\ssrcset=|\ssizes=/.test(one.slice(one.indexOf('<main'))) || !/\swidth=""/.test(one)) wrong.push('a picture with one file: srcset or sizes printed, or a width');
+            check('3. a page of text leaves out what is empty: no box for a missing text, picture, caption or footnote, no script and no generated stylesheet without a picture, an empty description of the picture where none is written (the page template, each field emptied in turn)', wrong.length === 0, wrong.slice(0, 4).join('; '));
+        }
         const hidden = fronts.find(f => f.data.published !== true);
         if (hidden) {
             const gone = await fetch(`${base}/projects/${hidden.data.slug}/`);
@@ -1813,6 +2195,205 @@ try {
                     if (m.wide > width || m.tall > height) wrong.push(`${width}px: the page is ${m.wide} × ${m.tall}`);
                 }
                 check('the 404 page keeps its layout: back 42px down and 16px in (37px from 720px), in the tag colour, Light, leaning backwards, a link to the home page; the page\'s words 55px under it; nothing to scroll', wrong.length === 0, wrong.join('; '));
+            }
+            // 3. The pages of text with one picture, About and Collaborations (client/sheet.css), on a page of their
+            // own that watches the document from the moment the parser is done: before the module script runs.
+            {
+                const sheetPage = await browser.newPage({ viewport: { width: 1366, height: 710 }, deviceScaleFactor: 1 });
+                const said = [];
+                sheetPage.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') said.push(`${sheetPage.url()} ${m.type()}: ${m.text()}`); });
+                sheetPage.on('pageerror', e => said.push(`${sheetPage.url()} pageerror: ${e.message}`));
+                await sheetPage.addInitScript(() => {
+                    const records = [];
+                    let watch = null;
+                    document.addEventListener('readystatechange', () => {
+                        if (document.readyState !== 'interactive' || watch) return;
+                        watch = new MutationObserver(r => records.push(...r));
+                        watch.observe(document.documentElement, { subtree: true, childList: true, attributes: true, characterData: true });
+                    });
+                    window.__changed = () => { if (!watch) return ['the document was not watched']; records.push(...watch.takeRecords()); return records.splice(0).map(m => `${m.type} ${m.target.nodeName}${m.attributeName ? ` [${m.attributeName}]` : ''}`); };
+                });
+                // A page of text, loaded and at rest: its fonts in, its picture there.
+                const settled = async (pg, s) => {
+                    await pg.goto(`${base}/${s.name}/`);
+                    await pg.evaluate(() => document.fonts.ready.then(() => true));
+                    await pg.waitForFunction(() => { const img = document.querySelector('main.sheet img'); return !img || (img.complete && img.naturalWidth > 0); }, null, { timeout: 10000 }).catch(() => {});
+                    return sheetLie(pg);
+                };
+                // On the watched page. (A picture that was open had the whole screen: the window is one again a moment after it closes, and cannot be resized before.)
+                const go = async (s, width, height) => {
+                    for (let i = 0; i < 20; i++) {
+                        if (await sheetPage.setViewportSize({ width, height }).then(() => true, () => false)) break;
+                        await sheetPage.waitForTimeout(100);
+                    }
+                    return settled(sheetPage, s);
+                };
+                // In a browser of its own, which has no file of the picture yet: the one it takes is the one `sizes` asks for
+                // (a browser that already holds a larger file of the same picture shows that one instead).
+                const fresh = async (s, width, height) => {
+                    const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
+                    const pg = await context.newPage();
+                    pg.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') said.push(`${pg.url()} ${m.type()}: ${m.text()}`); });
+                    pg.on('pageerror', e => said.push(`${pg.url()} pageerror: ${e.message}`));
+                    const m = await settled(pg, s);
+                    await context.close();
+                    return m;
+                };
+                // The layout, in both: from 900px the picture is the left half, right-aligned to the page's centre, as
+                // large as fits the half and the window less the header less 76px; the text the right half, at most
+                // 292px wide, the footnote under it. Below 900px the text, then the picture the page wide less 24px
+                // either side, its caption, then the footnote. The picture is whole, without a border, with the shadow.
+                const sizes = [[320, 640], [390, 844], [899, 700], [900, 600], [1024, 768], [1366, 710], [1920, 1080], [900, 500], [1000, 280]];
+                const wrong = [];
+                const promised = [];
+                const taken = [];
+                const tally = { pictures: 0, byWidth: 0, byHeight: 0, least: 0, captions: 0, notes: 0, scroll: [] };
+                for (const s of sheetFronts) {
+                    const want = sheetWants(s);
+                    for (const [width, height] of sizes) {
+                        const m = await fresh(s, width, height);
+                        const off = sheetOff(m);
+                        if (off) wrong.push(`/${s.name}/ at ${width} × ${height}: ${off}`);
+                        if (Boolean(m.figure) !== Boolean(want.image) || Boolean(m.caption) !== Boolean(want.caption) || (m.note?.paras.length ?? 0) !== want.notes.length || m.title?.text !== want.title) wrong.push(`/${s.name}/ at ${width} × ${height}: not the parts its content has (${m.order.join(', ')})`);
+                        if (m.picture) {
+                            const room = sheetRoom(width, height);
+                            tally.pictures++;
+                            if (Math.abs(m.picture.width - room.width) <= EXACT) tally.byWidth++; else tally.byHeight++;
+                            if (width >= WIDE && height - pageOf(width).head - SHEET_KEEP < SHEET_LEAST) tally.least++;
+                            // From 900px the picture is never taller than the window less the header less 76px (where that is at least 160px).
+                            if (width >= WIDE && height - pageOf(width).head - SHEET_KEEP >= SHEET_LEAST && m.picture.height > height - pageOf(width).head - SHEET_KEEP + EXACT) wrong.push(`/${s.name}/ at ${width} × ${height}: the picture is ${m.picture.height} tall`);
+                            // `sizes` gives the width the picture has, to the pixel, and the browser takes the smallest file that is at least that wide.
+                            const px = slideSizesPx(m.img.sizes[0] ?? '', width, height);
+                            if (m.img.files.length && (!(Math.abs(px - m.picture.width) <= 1) || (m.img.sizes[1] !== null && m.img.sizes[1] !== m.img.sizes[0]))) promised.push(`/${s.name}/ at ${width} × ${height}: sizes gives ${Number.isNaN(px) ? 'nothing this check can read' : `${Math.round(px * 100) / 100}px`}, the picture is ${Math.round(m.picture.width * 100) / 100}px wide (${m.img.sizes.join(' | ')})`);
+                            const fit = m.img.files.filter(([w]) => w >= m.picture.width - 0.01).sort((a, b) => a[0] - b[0])[0] ?? [...m.img.files].sort((a, b) => b[0] - a[0])[0];
+                            if (m.img.files.length && (!m.img.loaded || m.img.current !== fit[1])) taken.push(`/${s.name}/ at ${width} × ${height}: the browser took ${m.img.current || 'no file'} for a picture ${Math.round(m.picture.width)}px wide, not ${fit[1]}`);
+                        }
+                        if (m.caption) tally.captions++;
+                        if (m.note) tally.notes++;
+                        if (width === 1366) tally.scroll.push(`/${s.name}/ ${m.tall - m.vh}px`);
+                    }
+                }
+                check(`3. the About and Collaborations pages in both layouts (${sizes.map(([w, h]) => `${w} × ${h}`).join(', ')}): the header ${pageOf(390).head}px, ${pageOf(1366).head}px from 900px, its title centred, Bold and not a link; below 900px the text from ${pageOf(390).head + sheetOf(390).first}px, 24px from either edge, paragraphs ${sheetOf(390).apart}px apart, the picture ${sheetOf(390).picture}px under it and the page wide less 24px either side, its caption ${sheetOf(390).under}px under it, the footnote ${sheetOf(390).note}px after that; from 900px the picture directly under the header, right-aligned to the centre less 8.5px, as large as fits its half and the window less the header less ${SHEET_KEEP}px, the text from the centre plus 8.5px and at most ${sheetOf(1366).column}px wide, its first line at ${pageOf(1366).head + sheetOf(1366).first}px, paragraphs ${sheetOf(1366).apart}px apart, the footnote ${sheetOf(1366).note}px under the text in the same column; a caption centred under its picture, at most ${SHEET_CAPTION}px wide; a footnote's first line at the column's edge and the others hung ${sheetOf(390).hang}em (${sheetOf(1366).hang}em from 900px); the picture whole, in its file's proportions, without a border, with the shadow (${tally.pictures} pictures measured: ${tally.byWidth} limited by their width, ${tally.byHeight} by the window's height, ${tally.least} of those in a window so short that the least room of ${SHEET_LEAST}px holds; ${tally.captions} captions, ${tally.notes} footnotes; at 1366 × 710 the pages scroll by ${tally.scroll.join(' and ')})`,
+                    wrong.length === 0 && tally.pictures > 0, wrong.slice(0, 4).join(' | '));
+                check(`3. the picture's sizes attribute on the About and Collaborations pages gives the width it is shown at, to the pixel, in both layouts, the same on its <source> (${tally.pictures} measured)`, promised.length === 0, promised.slice(0, 4).join(' | '));
+                check('3. on the About and Collaborations pages the browser takes the smallest file that is at least as wide as the picture (so it reads their sizes attribute as written), at every window size above', taken.length === 0, taken.slice(0, 4).join(' | '));
+
+                // Nothing touches the document when a page loads, nor when its picture is clicked once: a single click
+                // does nothing here. A double click opens the picture to the full window; Escape closes it and leaves nothing behind.
+                {
+                    const changed = [];
+                    const opened = [];
+                    for (const s of sheetFronts.filter(f => sheetWants(f).image)) {
+                        const m = await go(s, 1366, 710);
+                        await sheetPage.waitForTimeout(250);
+                        const onLoad = await sheetPage.evaluate(() => window.__changed());
+                        const scripts = await sheetPage.evaluate(() => [...document.scripts].map(sc => sc.src.split('/').pop()).join());
+                        await sheetPage.click('main.sheet picture');
+                        await sheetPage.waitForTimeout(ZOOM_WAIT + 250);
+                        const once = await sheetPage.evaluate(() => ({ changes: window.__changed(), open: document.querySelectorAll('.zoom').length, y: scrollY, path: location.pathname + location.search + location.hash }));
+                        if (onLoad.length || once.changes.length || once.open || once.y !== 0 || once.path !== `/${s.name}/` || scripts !== 'zoom.js') changed.push(`/${s.name}/: ${onLoad.length} changes on load (${onLoad.slice(0, 3).join(', ')}), ${once.changes.length} after one click, ${once.open} open, at ${once.y}, ${once.path}; scripts ${scripts}`);
+                        if (m.picture.cursor !== 'zoom-in') changed.push(`/${s.name}/: the cursor over the picture is ${m.picture.cursor}`);
+                        // A double click, as the mouse sends it; two clicks that a busy machine sends more than the wait apart are two single clicks, and it is tried again.
+                        for (let i = 0; i < 3; i++) {
+                            await sheetPage.dblclick('main.sheet picture');
+                            if (await sheetPage.waitForSelector('.zoom', { timeout: 2 * ZOOM_WAIT + 400 }).then(() => true, () => false)) break;
+                        }
+                        await sheetPage.waitForFunction(() => { const img = document.querySelector('.zoom img'); return Boolean(img) && img.complete && img.naturalWidth > 0; }, null, { timeout: 5000 }).catch(() => {});
+                        const z = await sheetPage.evaluate(() => {
+                            const box = document.querySelector('.zoom');
+                            const big = box?.querySelector('img');
+                            const r = big?.getBoundingClientRect();
+                            const shown = document.querySelector('main.sheet img');
+                            return {
+                                open: document.querySelectorAll('.zoom').length, role: box?.getAttribute('role') ?? '', modal: box?.getAttribute('aria-modal') ?? '', label: box?.getAttribute('aria-label') ?? '', alt: big?.getAttribute('alt'), shown: shown.getAttribute('alt'),
+                                fills: Boolean(r) && r.left === 0 && r.top === 0 && r.width === innerWidth && r.height === innerHeight, fit: big ? getComputedStyle(big).objectFit : '', loaded: Boolean(big) && big.complete && big.naturalWidth > 0,
+                                same: Boolean(big) && Math.abs(big.naturalWidth / big.naturalHeight - shown.naturalWidth / shown.naturalHeight) < 0.01, onTop: Boolean(box) && document.elementFromPoint(innerWidth / 2, innerHeight / 2)?.closest('.zoom') === box && document.elementFromPoint(20, 20)?.closest('.zoom') === box,
+                                focus: document.activeElement === box, selected: String(getSelection()), parent: box?.parentElement?.localName ?? '',
+                            };
+                        });
+                        await sheetPage.keyboard.press('ArrowDown');
+                        await sheetPage.keyboard.press('Tab');
+                        const behind = await sheetPage.evaluate(() => ({ y: scrollY, focus: document.activeElement?.classList.contains('zoom') ?? false }));
+                        await sheetPage.keyboard.press('Escape');
+                        await sheetPage.waitForFunction(() => !document.querySelector('.zoom') && !document.fullscreenElement, null, { timeout: 5000 }).catch(() => {});
+                        await sheetPage.waitForTimeout(150);
+                        await sheetPage.evaluate(() => window.__changed());
+                        const after = await sheetPage.evaluate(async () => {
+                            const sent = new DOMParser().parseFromString(await (await fetch(location.pathname)).text(), 'text/html');
+                            return { open: document.querySelectorAll('.zoom').length, asSent: sent.body.innerHTML === document.body.innerHTML && sent.head.innerHTML === document.head.innerHTML, y: scrollY };
+                        });
+                        // The dialog is named after the picture: its description, or the word of client/zoom.js for a picture that has none.
+                        if (z.open !== 1 || z.role !== 'dialog' || z.modal !== 'true' || z.label !== (z.shown || 'Image') || z.alt !== z.shown || !z.fills || z.fit !== 'contain' || !z.loaded || !z.same || !z.onTop || !z.focus || z.selected !== '' || z.parent !== 'body' || behind.y !== 0 || !behind.focus || after.open !== 0 || !after.asSent || after.y !== 0) opened.push(`/${s.name}/: ${JSON.stringify({ ...z, behind, after })}`);
+                    }
+                    check('3. nothing changes the document of the About or the Collaborations page when it loads (watched from the end of parsing, before its one script, client/zoom.js, runs), and a single click on the picture does nothing: no change, nothing opened, the page where it was; the cursor over the picture says it can be enlarged', changed.length === 0, changed.join(' | '));
+                    check('3. a double click on the picture of the About or the Collaborations page opens it to the full window: whole, over everything, a dialog with keyboard focus named after the picture\'s description (or "Image" where none is written); the keys do not move the page behind it; Escape closes it, and the document is the server\'s HTML again', opened.length === 0 && sheetFronts.some(f => sheetWants(f).image), opened.join(' | ').slice(0, 900));
+                }
+
+                // The header stays at the top of the window while the page scrolls under it, and what is behind it is
+                // brought out when it gets keyboard focus: html { scroll-padding-top } in client/sheet.css is the header's
+                // height in both layouts, so a link of the text that lies behind the header comes clear of it when
+                // focused (tried wherever the page scrolls far enough to put its first link there), while focus on
+                // "back", which is in the header, moves nothing.
+                {
+                    const stuck = [];
+                    let tried = 0;
+                    for (const s of sheetFronts) {
+                        for (const [width, height] of [[390, 500], [1000, 300]]) {
+                            await go(s, width, height);
+                            const m = await sheetPage.evaluate(async () => {
+                                const head = document.querySelector('.project-head');
+                                const link = document.querySelector('main.sheet .text a');
+                                const settle = async () => { let last = NaN; for (let i = 0, same = 0; i < 60 && same < 3; i++) { await new Promise(r => setTimeout(r, 50)); same = scrollY === last ? same + 1 : 0; last = scrollY; } };
+                                const max = document.documentElement.scrollHeight - innerHeight;
+                                // The link's line 30px under the top of the window: behind the header, if the page scrolls that far.
+                                window.scrollTo({ top: link ? Math.min(max, link.getBoundingClientRect().top + scrollY - 30) : max, behavior: 'instant' });
+                                const down = { y: scrollY, head: head.getBoundingClientRect().top, bottom: head.getBoundingClientRect().bottom, onTop: head.contains(document.elementFromPoint(innerWidth / 2, 10)), link: link ? link.getBoundingClientRect().top : null };
+                                document.querySelector('.back a').focus();
+                                await settle();
+                                const back = scrollY;
+                                if (link) { link.focus(); await settle(); }
+                                return { max, down, back, link: link ? link.getBoundingClientRect().top : null, bottom: head.getBoundingClientRect().bottom, padding: getComputedStyle(document.documentElement).scrollPaddingTop };
+                            });
+                            if (m.padding !== `${pageOf(width).head}px` || Math.abs(m.bottom - pageOf(width).head) > 0.5) stuck.push(`/${s.name}/ at ${width} × ${height}: scroll-padding-top is ${m.padding} under a header ${m.bottom}px tall`);
+                            if (m.max > 0 && (m.down.head !== 0 || !m.down.onTop || m.back !== m.down.y)) stuck.push(`/${s.name}/ at ${width} × ${height}: ${m.down.y}px down the header is at ${m.down.head}; focus on back leaves the page at ${m.back}`);
+                            if (m.down.link !== null && m.down.link < m.down.bottom) {
+                                tried++;
+                                if (m.link < m.bottom - 0.5) stuck.push(`/${s.name}/ at ${width} × ${height}: a focused link of the text is at ${m.link}, behind a header that ends at ${m.bottom}`);
+                            }
+                        }
+                    }
+                    const linked = sheetFronts.some(f => /<a\b/.test(sheetWants(f).body));
+                    check(`3. on the About and Collaborations pages the header stays at the top of the window while the page scrolls under it, and the page keeps what gets keyboard focus clear of it (scroll-padding-top is the header's height): a link of the text that is behind the header comes out from under it when focused, and focus on "back" moves nothing (390 × 500 and 1000 × 300; a link was behind the header in ${tried} of the ${2 * sheetFronts.length} cases)`, stuck.length === 0 && (tried > 0 || !linked), stuck.join(' | '));
+                }
+
+                // The type, in both layouts and between 720 and 900px, where the body's own type is already the small one:
+                // every piece of text that shows is one of the sizes its place has, and nothing is Bold but the title and **bold** in content.
+                {
+                    const offType = [];
+                    let pieces = 0;
+                    for (const s of sheetFronts) {
+                        for (const [width, height] of [[390, 844], [800, 700], [1366, 710]]) {
+                            await go(s, width, height);
+                            const h = pageOf(width);
+                            const d = sheetOf(width);
+                            const bare = (t) => t.replace(/ \/ \d+$/, '');
+                            const found = await sheetPage.evaluate(() => [...document.querySelectorAll('body *')].filter(el => el.getClientRects().length && [...el.childNodes].some(n => n.nodeType === 3 && n.data.trim()) && !el.closest('.visually-hidden')).map((el) => {
+                                const st = getComputedStyle(el);
+                                const kind = el.closest('figcaption') ? 'caption' : el.closest('.project-head h1') ? 'title' : el.closest('.back') ? 'back' : 'text';
+                                const weight = el.closest('strong, .project-head h1') ? '700' : '300';
+                                return `${kind} ${st.fontSize} / ${st.lineHeight}${st.fontWeight === weight ? '' : ` in weight ${st.fontWeight}`}`;
+                            }));
+                            const allowed = [`title ${bare(h.title)}`, `back ${bare(h.back)}`, `text ${bare(d.text)}`, `caption ${bare(d.caption)}`];
+                            const off = [...new Set(found)].filter(t => !allowed.includes(t));
+                            pieces += found.length;
+                            if (off.length) offType.push(`/${s.name}/ at ${width}px: ${off.slice(0, 3).join(', ')}`);
+                        }
+                    }
+                    const [n, w] = [sheetOf(390), sheetOf(1366)];
+                    check(`3. the type on the About and Collaborations pages: below 900px the title ${pageOf(390).title.replace(' / 700', '')} Bold, back the same Light, the text and the footnote ${n.text.replace(' / 300', '')}, a caption ${n.caption.replace(' / 300', '')}; from 900px ${pageOf(1366).title.replace(' / 700', '')}, ${w.text.replace(' / 300', '')} and ${w.caption.replace(' / 300', '')}; all Light but the title and bold in content (at 390, 800 and 1366px: ${pieces} pieces of text)`, offType.length === 0 && pieces > 0, offType.slice(0, 4).join(' | '));
+                }
+                check('3. no console errors or warnings on the About and Collaborations pages through all of this', said.length === 0, said.slice(0, 4).join(' | '));
+                await sheetPage.close();
             }
             await page.setViewportSize({ width: 1366, height: 710 });
         }
@@ -3052,9 +3633,9 @@ try {
             captions += look.captions;
             if (look.wrong.length) boxes.push(`${path}: ${look.wrong.length} of ${look.count}, ${look.wrong[0]}`);
         }
-        // (The project pages and the 404 page have had their own type since 26 Nov 2026, and a check of their own for it with the
-        // project pages' other checks: they are not judged by the one below.)
-        for (let i = type.length - 1; i >= 0; i--) if (/^\/(projects\/[^/]+\/|404\.html):/.test(type[i])) type.splice(i, 1);
+        // (The project pages, the About and Collaborations pages and the 404 page have had their own type since 26 Nov 2026, and
+        // checks of their own for it with the project pages' other checks: they are not judged by the one below.)
+        for (let i = type.length - 1; i >= 0; i--) if (/^\/(projects\/[^/]+\/|404\.html|info\/|collaborations\/):/.test(type[i])) type.splice(i, 1);
         check('4. no horizontal scroll at 390px on any route', wide.length === 0, wide.join(', '));
         check(`the type on every route is 13px on a 16px line, Light (a project's type, role and client on an 18.73px line); a caption is 11px / 13.2px and nothing else (${captions} captions on screen)`, type.length === 0 && captions > 0, type.slice(0, 4).join(' | ') || (captions ? '' : 'no caption on screen on any route'));
         check(`no picture on any route has a border, every one has the shadow and is stretched over its whole box (object-fit: fill): the ${pictures} thumbnails and project photos`, pictures > 0 && boxes.length === 0, boxes.slice(0, 4).join(' | '));
@@ -3144,6 +3725,23 @@ try {
                 snaps[`${p === single ? 'single' : firstSet(p).length > 1 ? 'stacked' : 'other'} ${width}`] = at.snap;
             }
         }
+        // The pages of text with one picture need no script: with JavaScript off each is whole in both layouts, as it is
+        // with JavaScript on (the same measures), its picture loaded; only the cursor over the picture no longer says it
+        // can be enlarged, since nothing would answer the double click.
+        const sheetsPlain = [];
+        for (const s of sheetFronts) {
+            for (const [width, height] of [[390, 844], [1366, 710]]) {
+                await page.setViewportSize({ width, height });
+                await page.goto(`${base}/${s.name}/`);
+                await page.waitForFunction(() => { const img = document.querySelector('main.sheet img'); return !img || (img.complete && img.naturalWidth > 0); }, null, { timeout: 10000 }).catch(() => {});
+                const m = await sheetLie(page);
+                const off = sheetOff(m);
+                if (off) sheetsPlain.push(`/${s.name}/ at ${width} × ${height}: ${off}`);
+                if (m.img && !m.img.loaded) sheetsPlain.push(`/${s.name}/ at ${width} × ${height}: the picture did not load`);
+                if (m.picture && m.picture.cursor === 'zoom-in') sheetsPlain.push(`/${s.name}/ at ${width} × ${height}: the cursor promises a larger picture`);
+            }
+        }
+        check('3. with JavaScript off the About and Collaborations pages are whole in both layouts (390 × 844 and 1366 × 710): the same measures as with it, the picture loaded, and no cursor over the picture that promises to enlarge it', sheetsPlain.length === 0, sheetsPlain.slice(0, 4).join(' | '));
         check('no console errors with JavaScript off', errs.length === 0, errs.slice(0, 5).join(' | '));
         check('1. with JavaScript off the index shows every row', rowsShown === published.length);
         if (many) check('1. with JavaScript off a project page shows every photo', photosShown === photos(many).length, `${photosShown}/${photos(many).length}`);
@@ -3250,6 +3848,30 @@ try {
             const closed = await page.evaluate(() => document.querySelectorAll('.zoom').length);
             check('3. on a touch screen a double tap on a photo opens it (the photo takes no double-tap zoom of the browser\'s: touch-action manipulation), and a tap closes it', tapped.open === 1 && tapped.index === 0 && tapped.touch === 'manipulation' && closed === 0, JSON.stringify({ ...tapped, closed }));
         }
+        // The same on a page of text with one picture: two taps on the picture open it, one more closes it, and a single tap does nothing.
+        {
+            const s = sheetFronts.find(f => sheetWants(f).image);
+            if (s) {
+                await page.goto(`${base}/${s.name}/`);
+                await page.waitForFunction(() => { const img = document.querySelector('main.sheet img'); return img.complete && img.naturalWidth > 0; });
+                const spot = async () => page.evaluate(() => { const el = document.querySelector('main.sheet picture'); el.scrollIntoView({ block: 'center', behavior: 'instant' }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+                const one = await spot();
+                await page.touchscreen.tap(one.x, one.y);
+                await page.waitForTimeout(ZOOM_WAIT + 250);
+                const once = await page.evaluate(() => ({ open: document.querySelectorAll('.zoom').length, path: location.pathname }));
+                let tapped = { open: 0, tries: 0 };
+                for (let i = 0; i < 4 && !tapped.open; i++) {
+                    const box = await spot();
+                    await page.touchscreen.tap(box.x, box.y);
+                    await page.touchscreen.tap(box.x, box.y);
+                    await page.waitForTimeout(ZOOM_WAIT + 250);
+                    tapped = await page.evaluate(n => ({ open: document.querySelectorAll('.zoom').length, tries: n, touch: getComputedStyle(document.querySelector('main.sheet picture')).touchAction }), i + 1);
+                }
+                if (tapped.open) { await page.touchscreen.tap(195, 420); await page.waitForTimeout(150); }
+                const closed = await page.evaluate(() => document.querySelectorAll('.zoom').length);
+                check(`3. on a touch screen a single tap on the picture of a page of text does nothing, a double tap opens it (touch-action manipulation: no double-tap zoom of the browser's), and a tap closes it (/${s.name}/)`, once.open === 0 && once.path === `/${s.name}/` && tapped.open === 1 && tapped.touch === 'manipulation' && closed === 0, JSON.stringify({ once, ...tapped, closed }));
+            }
+        }
         await context.close();
     }
 
@@ -3272,7 +3894,34 @@ try {
         const details = fields.get('details');
         check('5. a project\'s "More details" is a field of plain text of several lines in .pages.yml, optional, with words on how to write it', details?.type === 'text' && details?.label === 'More details' && !details?.required && /empty line/.test(details?.description ?? '') && /\]\(/.test(details?.description ?? ''), JSON.stringify(details ?? null));
         const files = (config.content ?? []).filter(c => c.type === 'file').map(c => c.path).sort();
-        check('5. the two text pages are editable', JSON.stringify(files) === JSON.stringify(['content/site/index.md', 'content/site/info.md']), files.join(', '));
+        check('5. the three text pages are editable: the home page\'s intro, About and Collaborations', JSON.stringify(files) === JSON.stringify(['content/site/collaborations.md', 'content/site/index.md', 'content/site/info.md']), files.join(', '));
+        // The two pages of text with one picture: an entry each, with the same fields under the names the data layer reads
+        // (title, fixed; the text; the picture, its description, its caption; the footnote), and every key of the
+        // page's content file is one of them. Neither can be created, renamed or deleted: the site needs both files.
+        {
+            const media = (config.media?.extensions ?? []).join();
+            const wrong = [];
+            const shapes = [];
+            for (const s of sheetFronts) {
+                const entry = (config.content ?? []).find(c => c.path === `content/site/${s.name}.md`);
+                const fields = new Map((entry?.fields ?? []).map(f => [f.name, f]));
+                const f = (name) => fields.get(name) ?? {};
+                const off = [];
+                if (!entry || entry.type !== 'file' || entry.format !== 'yaml-frontmatter' || entry.operations?.create !== false || entry.operations?.rename !== false || entry.operations?.delete !== false) off.push('not a single file that stays where it is');
+                if ([...fields.keys()].join() !== 'title,body,image,alt,caption,note') off.push(`fields ${[...fields.keys()].join(', ')}`);
+                if (f('title').type !== 'string' || f('title').readonly !== true) off.push('the title can be changed');
+                if (f('body').type !== 'rich-text' || f('body').options?.format !== 'markdown') off.push('the text is not Markdown');
+                if (f('image').type !== 'image' || f('image').options?.path !== `images/${s.name}` || (f('image').options?.extensions ?? []).join() !== media) off.push(`the picture: ${JSON.stringify(f('image').options ?? null)}`);
+                if (f('alt').type !== 'string' || !/can't see/.test(f('alt').description ?? '') || f('alt').required) off.push('the picture\'s description');
+                if (f('caption').type !== 'string' || f('caption').required) off.push('the caption');
+                if (f('note').type !== 'text' || f('note').required) off.push('the footnote is not plain text of several lines');
+                const unknown = Object.keys(s.data).filter(k => !fields.has(k));
+                if (unknown.length) off.push(`keys of the content file that are no field: ${unknown.join(', ')}`);
+                if (off.length) wrong.push(`${s.name}: ${off.join('; ')}`);
+                shapes.push(JSON.stringify((entry?.fields ?? []).map(({ name, label, type, readonly, description, options }) => ({ name, label, type, readonly, description: String(description ?? '').replaceAll(`images/${s.name}`, 'images/…'), options: { ...options, path: undefined } }))));
+            }
+            check('5. the About and the Collaborations page are each an entry in .pages.yml with the same fields, named as the data layer reads them: the title (fixed), the text, the picture (in the page\'s own folder under images/, every kind of file the media library takes), its description for people who can\'t see it, its caption and the footnote, none of them required; every key of the two content files is one of them', wrong.length === 0 && new Set(shapes).size === 1, wrong.join(' | ') || (new Set(shapes).size === 1 ? '' : 'the two entries differ in more than their folder'));
+        }
     }
 } finally {
     await browser.close();
