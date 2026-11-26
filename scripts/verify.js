@@ -97,7 +97,9 @@
  *      from where the title starts (a sub-project's, 20px in, included). From
  *      720px up the titles are not
  *      displayed and the cells keep their fixed proportion.
- *   + the type: 13px on a 16px line, Light, on every route (captions 11px / 13.2px);
+ *   + the type on every route is its kind of page's own and nothing else (the home page's, a project
+ *     page's, a page of text's, the 404 page's): at 390px on every route, and at the other widths in
+ *     each kind's own checks;
  *   + no picture's box has a border, every one has the shadow and its picture is stretched
  *     over all of it (object-fit: fill), on every route; a thumbnail's and a photo's `sizes`
  *     attribute gives the width it is shown at;
@@ -133,8 +135,6 @@ const check = (name, ok, detail = '') => {
 // The shadow around every picture, as the browser gives it back (--frame-shadow in client/site.css).
 // It is all that is left of the frame: since 19 Nov 2026 no picture has a border.
 const SHADOW = 'rgba(100, 40, 95, 0.55) 1px 2px 6px 0px';
-// The body type: 13px on a 16px line, Light (font-size / line-height / font-weight).
-const BODY = '13px / 16px / 300';
 // How far the limiting side of a picture may be from its limit: layout works in 64ths of a pixel,
 // and the side that follows from the proportions is rounded once more (0.04px at most, measured).
 const EXACT = 0.1;
@@ -531,8 +531,13 @@ const sheetOff = (m) => {
     const tops = [m.text, d.wide ? null : m.figure, d.wide ? null : m.caption, m.note].filter(Boolean).map(b => b.top);
     if (tops.some((t, i) => i > 0 && t < tops[i - 1])) off.push(`the parts are not one under the other (${tops.join(', ')})`);
     if (d.wide && m.note && m.figure && m.note.left < m.figure.right) off.push('the footnote is under the picture, not under the text');
-    const lowest = Math.max(...[m.figure?.bottom, m.note?.bottom, m.text ? m.text.bottom + (!d.wide && !m.note && !m.figure ? d.apart : 0) : null].filter(v => typeof v === 'number'), h.head);
-    if (!near(m.main.bottom - lowest, d.end, 0.1)) off.push(`the page ends ${m.main.bottom - lowest} under its lowest part, not ${d.end}`);
+    // From 900px a caption does not count for that padding: it stands in the room the picture keeps free under itself (76px of
+    // the window's height), so the page ends 60px under the text and its footnote, or where the caption ends, whichever is
+    // lower. (With the 60px under the caption as well, as the design had it, the Collaborations page scrolled by 23px with
+    // everything on it in the window.) A picture without a caption has the 60px under it, as it always had.
+    const written = Math.max(...[m.note?.bottom, m.text ? m.text.bottom + (!d.wide && !m.note && !m.figure ? d.apart : 0) : null].filter(v => typeof v === 'number'), h.head);
+    const end = d.wide && m.figure && m.caption ? Math.max(m.figure.bottom, written + d.end) : Math.max(written, m.figure?.bottom ?? 0) + d.end;
+    if (!near(m.main.bottom, end, 0.1)) off.push(`the page ends at ${m.main.bottom}, not at ${end}: ${d.end}px under its lowest part${d.wide && m.caption ? ', for which a caption does not count' : ''}`);
     if (Math.abs(m.tall - Math.max(m.vh, m.main.bottom + m.y)) > 1) off.push(`the page is ${m.tall} tall, its content ends at ${m.main.bottom + m.y}`);
     if (m.wide > m.vw) off.push(`the page is ${m.wide}px wide`);
     return off.join('; ');
@@ -854,8 +859,11 @@ const infoOff = (at) => {
 // tall as the row (its drawing still beside the caption's middle), and beside a photo that reaches into
 // that corner (within 59px of the half's left edge) it is 52.5px at most: its drawing is then no lower
 // than beside a caption of three lines, however long the caption.
-// A set is as tall as its photo and that row, and at least the window less the header below 900px; from
-// 900px it ends 20px under the row (the last of several sets 52px more, on a page with "previous").
+// A set is as tall as its photo and that row, and at least the window less the header below 900px. From
+// 900px a set that is alone on its page ends where the row ends, so that nothing under the row makes the
+// page longer than what is on it (the design's 20px under the row made a page scroll by 2px with all of it
+// in the window); one of several sets ends 20px under its row, which is what parts it from the next (the
+// last of them 52px more, on a page with "previous").
 // Returns what is off, or ''.
 const offDesign = (set, at) => {
     const d = pageOf(at.vw);
@@ -905,7 +913,7 @@ const offDesign = (set, at) => {
         if (!near(g.width, 12.4, 0.05) || !near(g.height, 14.3, 0.05) || (arrow === set.prev ? !near(g.left, arrow.left, 0.05) : !near(g.right, arrow.right, 0.05)) || !near(g.top + g.height / 2, arrow.top + arrow.height / 2, 0.05)) off.push(`${name} chevron's drawing ${g.width}×${g.height} at ${g.left - arrow.left}, ${g.top - arrow.top} in its column`);
         if (arrow.colour !== 'rgb(153, 86, 122)') off.push(`${name} chevron ${arrow.colour}`);
     }
-    const height = d.wide ? frame.height + tall + 20 + (set.last && at.prev ? 52 : 0) : Math.max(at.vh - d.head, frame.height + tall);
+    const height = d.wide ? frame.height + tall + (at.sets.length === 1 ? 0 : 20) + (set.last && at.prev ? 52 : 0) : Math.max(at.vh - d.head, frame.height + tall);
     if (!near(set.height, height)) off.push(`set ${set.height} tall, not ${height}`);
     return off.join('; ');
 };
@@ -995,6 +1003,72 @@ try {
         check('1. the home page\'s tab title is the name alone', index.includes('<title>Tolomeo</title>'));
         const unpublished = fronts.filter(f => f.data.published !== true && index.includes(`id="row-${f.data.slug}"`));
         check('1. unpublished projects are absent', unpublished.length === 0, unpublished.map(f => f.data.slug).join(', '));
+
+        // Every address on this site that a page of the build points at is there. The pages its links lead to: the intro's,
+        // the text pages', a project's description and details are typed in the CMS, a site address by hand (/collaborations/),
+        // and a mistyped one is seen by nobody until a visitor follows it: the build does not know it, and every other check
+        // starts from the list of pages, not from what links to them. Its stylesheets, scripts, fonts and icons. Every file of
+        // every picture: `src` and each entry of a `srcset`, in the HTML and in the lists of projects and photos a component
+        // carries as JSON (with the links in their captions). What the stylesheets themselves fetch (`url(…)`). And a link
+        // to a place in the same page (#project-info) has that place in the page. Read from dist/ as built; addresses
+        // elsewhere (https:, mailto:) are not followed.
+        {
+            const walk = (dir, rel = '') => readdirSync(dir, { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(join(dir, e.name), `${rel}${e.name}/`) : [`${rel}${e.name}`]));
+            const built = walk(dist);
+            const unescaped = (t) => t.replace(/&(amp|lt|gt|quot|#39|#x27);/g, (_, e) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", '#x27': "'" }[e]));
+            const lost = [];
+            const tally = { pages: 0, sheets: 0, pointed: 0, places: 0 };
+            // `address` as written in `from` (a file of dist/): is the file it names in dist/?
+            const follow = (from, address, what) => {
+                const ref = String(address).trim();
+                if (!ref || ref.startsWith('#') || ref.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(ref)) return;
+                tally.pointed++;
+                let path = '';
+                try { path = decodeURIComponent(new URL(ref, `http://site/${from}`).pathname); } catch { path = ''; }
+                if (path.endsWith('/')) path += 'index.html';
+                const file = path ? normalize(join(dist, path)) : '';
+                if (!file.startsWith(dist + sep) || !existsSync(file) || !statSync(file).isFile()) lost.push(`${from}: ${what} ${ref}`);
+            };
+            const candidates = (from, srcset, what) => { for (const part of String(srcset).split(',')) if (part.trim()) follow(from, part.trim().split(/\s+/)[0], what); };
+            // What a component carries: every `src` and `href`, every entry of a `srcset` (`webp` is one too), and the links inside any HTML it holds (a caption).
+            const carried = (from, value, key = '') => {
+                if (Array.isArray(value)) value.forEach(v => carried(from, v, key));
+                else if (value && typeof value === 'object') for (const [k, v] of Object.entries(value)) carried(from, v, k);
+                else if (typeof value === 'string') {
+                    if (key === 'src' || key === 'href') follow(from, value, `a component's ${key}`);
+                    else if (key === 'srcset' || key === 'webp') candidates(from, value, `a component's ${key}`);
+                    for (const m of value.matchAll(/\b(?:href|src)="([^"]*)"/g)) follow(from, unescaped(m[1]), 'a link in a component\'s text');
+                }
+            };
+            // The pages are the routes' files (dist/ also holds the components' templates, which are no pages); the stylesheets, every one in dist/.
+            const pageFiles = routes.map(r => (r.endsWith('/') ? `${r}index.html` : r).replace(/^\//, ''));
+            for (const file of [...pageFiles, ...built.filter(f => f.endsWith('.css'))]) {
+                if (!existsSync(join(dist, file))) { lost.push(`${file}: the page itself is not in the build`); continue; }
+                const body = readFileSync(join(dist, file), 'utf8');
+                if (file.endsWith('.html')) {
+                    tally.pages++;
+                    for (const m of body.matchAll(/<(a|link|script|img|source)\b([^>]*)>/g)) {
+                        const attr = (name) => { const v = m[2].match(new RegExp(`(?:^|\\s)${name}="([^"]*)"`)); return v ? unescaped(v[1]) : null; };
+                        if (attr('href') !== null && attr('rel') !== 'canonical') {
+                            if (attr('href').startsWith('#')) {
+                                tally.places++;
+                                if (!new RegExp(`\\sid="${attr('href').slice(1).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`).test(body)) lost.push(`${file}: a link to ${attr('href')}, which is not in the page`);
+                            } else follow(file, attr('href'), m[1] === 'a' ? 'a link to' : 'a file');
+                        }
+                        if (attr('src') !== null) follow(file, attr('src'), 'a file');
+                        if (attr('srcset') !== null) candidates(file, attr('srcset'), 'a picture file');
+                    }
+                    for (const m of body.matchAll(/\s(?:projects|images)="([^"]*)"/g)) {
+                        try { carried(file, JSON.parse(unescaped(m[1]))); } catch { lost.push(`${file}: a component's list that does not read as JSON`); }
+                    }
+                } else if (file.endsWith('.css')) {
+                    tally.sheets++;
+                    for (const m of body.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/g)) follow(file, m[1], 'a file');
+                }
+            }
+            check(`1. every address on this site that a built page points at is a file of the build: the pages its links lead to, its stylesheets, scripts, fonts and icons, every file of every picture, in the HTML and in what the components carry, and what the stylesheets fetch (${tally.pointed} addresses in ${tally.pages} pages and ${tally.sheets} stylesheets); a link to a place in its own page has that place (${tally.places})`,
+                lost.length === 0 && tally.pointed > 0 && tally.pages === routes.length, [...new Set(lost)].slice(0, 5).join(' | '));
+        }
         let pageMisses = [];
         let photoMisses = [];
         const infoMisses = [];
@@ -1370,16 +1444,23 @@ try {
         } else {
             check(`2. removing a focused row: ok (no row has "${tagA}" as its only active tag; the check was skipped)`, true);
         }
+        // Back after two tags were turned off, one after the other: the filter that was there before the second click, in the
+        // same page (the address changes and the list follows; nothing is loaded again). Each step waits for the page, not for a
+        // fixed 100ms: the filter in the address is applied by the script, and with the script 300ms late (measured with the
+        // component's files served slowly) the clicks found no active tag, turned nothing off, and Back then left for the page
+        // before: the check failed, or passed without having tried what it names.
         await page.goto(`${base}/?filter=${both}`);
-        await page.waitForTimeout(100);
-        await page.evaluate(async (tags) => {
+        await page.waitForFunction(() => document.querySelector('project-index .tag.on') !== null, null, { timeout: 10000 }).catch(() => {});
+        const off = await page.evaluate(async (tags) => {
+            window.__stayed = true;
             for (const t of tags) document.querySelector(`project-index .tag.on[data-tag="${CSS.escape(t)}"]`)?.click();
             await new Promise(r => setTimeout(r, 50));
+            return { url: location.search, rows: document.querySelectorAll('project-index .row').length };
         }, [tagA, tagB]);
         await page.goBack();
-        await page.waitForTimeout(100);
-        const back = await page.evaluate(() => ({ url: location.search, rows: document.querySelectorAll('project-index .row').length }));
-        check('2. back restores the previous filter', back.url !== '' && back.rows < published.length, JSON.stringify(back));
+        await page.waitForFunction(() => location.search !== '' && document.querySelector('project-index .tag.on') !== null, null, { timeout: 10000 }).catch(() => {});
+        const back = await page.evaluate(() => ({ url: location.search, rows: document.querySelectorAll('project-index .row').length, stayed: window.__stayed === true }));
+        check('2. back restores the previous filter', off.url === '' && off.rows === published.length && back.url === `?filter=${encodeURIComponent(tagB)}` && back.rows === tagged(tagB).length && back.stayed, `with both tags off: ${JSON.stringify(off)}; after Back: ${JSON.stringify(back)}; wanted ?filter=${encodeURIComponent(tagB)} with ${tagged(tagB).length} rows, in the same page`);
         await page.goto(`${base}/`);
         const reset = await page.evaluate(() => document.querySelectorAll('project-index .row').length);
         check('2. / with no query shows everything', reset === published.length);
@@ -1399,15 +1480,19 @@ try {
             check('pointing at a thumbnail highlights its row and touches nothing else', hover.on.length === 1 && hover.on[0] === slug && hover.muts.every(m => m === 'attributes LI [class]'), `${hover.on.join(',')} ${hover.muts.slice(0, 5).join('; ')}`);
         }
 
-        // the project page's Back link brings the filter back
+        // the project page's Back link brings the filter back. The filter is the script's to apply, on the way out (it is
+        // remembered when a project is opened, so it must be on by then) and on the way back: both are waited for, where a
+        // fixed 100ms each had run out before a script 300ms late.
         await page.goto(`${base}/?filter=${encodeURIComponent(tagA)}`);
-        await page.waitForTimeout(100);
+        await page.waitForFunction(() => document.querySelector('project-index .tag.on') !== null, null, { timeout: 10000 }).catch(() => {});
+        const leaving = await page.evaluate(() => document.querySelectorAll('project-index .row').length);
         await page.click('project-index .row .title');
         await page.waitForURL(/\/projects\/.+\//);
         await page.click('.back a');
         await page.waitForFunction(() => document.querySelector('project-index')?.rendered);
-        await page.waitForTimeout(100);
-        check('2. the project page\'s Back link keeps the filter', await page.evaluate(q => location.search === q, `?filter=${encodeURIComponent(tagA)}`));
+        await page.waitForFunction(q => location.search === q && document.querySelector('project-index .tag.on') !== null, `?filter=${encodeURIComponent(tagA)}`, { timeout: 10000 }).catch(() => {});
+        const returned = await page.evaluate(() => ({ url: location.search, rows: document.querySelectorAll('project-index .row').length }));
+        check('2. the project page\'s Back link keeps the filter', leaving === tagged(tagA).length && returned.url === `?filter=${encodeURIComponent(tagA)}` && returned.rows === tagged(tagA).length, `${leaving} rows when the project was opened; back on the home page: ${JSON.stringify(returned)}; wanted ${tagged(tagA).length} rows`);
 
         // 3. a project from the grid
         await page.goto(`${base}/`);
@@ -1562,6 +1647,52 @@ try {
                 if (after.open !== 0 || after.index !== opened.index || after.y !== opened.y) closes.push(`${how === ' ' ? 'the space bar' : how}: ${JSON.stringify({ open: after.open, index: after.index, y: after.y })}`);
             }
             check('3. Escape, Enter, the space bar and a click each close the open photo, and the page behind is as it was: the same photo, the same place', closes.length === 0, closes.join('; '));
+            // A double click on an open photo (as a double tap enlarges and a double tap goes back): its first click closes the
+            // photo, and its second lands on the page that was behind it: on the photo, or on a link where the pointer is over
+            // one (the header's "back"). That second click is not for the page: the set stays on its photo, no link is followed.
+            // Sent as the mouse sends it. Two clicks that a busy machine sends more than the wait apart are a click that closes
+            // and a click of its own, which rightly moves the set on or follows the link: such a try does not count and is made
+            // again (the time between the two is read in the page; a page that was left cannot say, and is tried again too).
+            {
+                const here = `/projects/${many.data.slug}/`;
+                const twice = async (target) => {
+                    let last = 'not tried';
+                    for (let i = 0; i < 4; i++) {
+                        if (new URL(page.url()).pathname !== here) { await page.goto(base + here); await slidesReady(page); }
+                        if (!(await state()).open) await dbl();
+                        const was = await state();
+                        const spot = await page.evaluate((sel) => {
+                            window.__clicks = [];
+                            if (!window.__timing) { window.__timing = true; document.addEventListener('click', () => window.__clicks.push(performance.now()), true); }
+                            const r = document.querySelector(sel).getBoundingClientRect();
+                            return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+                        }, target);
+                        await page.mouse.dblclick(spot.x, spot.y);
+                        await page.waitForTimeout(ZOOM_WAIT + 250);
+                        const left = new URL(page.url()).pathname !== here;
+                        const after = left ? null : await state();
+                        const gap = left ? NaN : await page.evaluate(() => (window.__clicks.length >= 2 ? window.__clicks[1] - window.__clicks[0] : NaN));
+                        last = left ? `the page was left for ${new URL(page.url()).pathname}` : `${after.open} open, photo ${after.index + 1} after photo ${was.index + 1}, the clicks ${Math.round(gap)} ms apart`;
+                        if (!left && gap < ZOOM_WAIT - 20) return { ok: was.open === 1 && after.open === 0 && after.index === was.index && after.y === was.y, last };
+                    }
+                    return { ok: false, last };
+                };
+                // Over the photo last: the page is then as the checks after this one expect it, the pointer on the photo that was open.
+                const onLink = await twice('.project-head .back a');
+                const onPhoto = await twice(`${top} .current .frame`);
+                check('3. a double click on an open photo closes it and does nothing more: the click that follows the closing one lands on the page behind, and moves no photo on and follows no link (tried over the photo, and where the header\'s "back" is behind the open photo)',
+                    onPhoto.ok && onLink.ok, `over the photo: ${onPhoto.last}; over "back": ${onLink.last}`);
+                // As the checks after this one expect the page: this project's, its first photo, a photo just closed by a click.
+                // (It is that already unless the check above failed.)
+                if (!onPhoto.ok || !onLink.ok) {
+                    await page.goto(base + here);
+                    await slidesReady(page);
+                    await dbl();
+                    await page.mouse.click(683, 355);
+                    await page.waitForTimeout(ZOOM_WAIT + 150);
+                    await page.evaluate(() => document.querySelector('project-slides').setState({ index: 0 }));
+                }
+            }
             await page.keyboard.press('ArrowRight');
             const moved = await state();
             await page.keyboard.press('Tab');
@@ -1667,7 +1798,8 @@ try {
                 const d = pageOf(width);
                 const wrong = [];
                 const corners = [];
-                const tally = { photos: 0, upright: 0, lying: 0, alone: 0, bare: 0, long: 0, cleared: 0, wrapped: 0, widest: null, narrowest: null };
+                const idle = [];
+                const tally = { photos: 0, upright: 0, lying: 0, alone: 0, bare: 0, long: 0, cleared: 0, wrapped: 0, widest: null, narrowest: null, lone: 0, still: 0 };
                 for (const p of published) {
                     const counts = setsOf(p).map(set => set.length);
                     if (!counts.length) continue;
@@ -1691,6 +1823,15 @@ try {
                             const off = [set.current === i ? '' : `photo ${set.current + 1} shows`, offDesign(set, at), overlapping(set, at)].filter(Boolean).join('; ');
                             if (off) wrong.push(`${p.data.slug}, set ${n + 1}, photo ${i + 1}: ${off}`);
                             if (d.wide) for (const what of await covered()) corners.push(`${p.data.slug}, set ${n + 1} under the header, photo ${i + 1}: ${what}`);
+                            // From 900px, a page with one set: it is as long as the row under the photo (the caption with the 8px under it, the
+                            // chevrons) or the information makes it, and no longer. How far it scrolls is read from the page and held to that.
+                            if (d.wide && counts.length === 1) {
+                                const row = Math.max(set.frame.bottom, set.caption ? set.caption.bottom + 8 : 0, set.prev?.bottom ?? 0, set.next?.bottom ?? 0);
+                                const reach = Math.max(0, Math.max(row, at.info.bottom) + at.y - at.vh);
+                                tally.lone++;
+                                if (at.max === 0) tally.still++;
+                                if (Math.abs(at.max - reach) > 1) idle.push(`${p.data.slug}, photo ${i + 1}: the page scrolls by ${at.max}px, where the row under the photo ends at ${Math.round(row * 100) / 100}px and the information at ${Math.round(at.info.bottom * 100) / 100}px in a window ${at.vh}px tall`);
+                            }
                             tally.photos++;
                             if (set.a < 1) tally.upright++; else tally.lying++;
                             if (set.count === 1) tally.alone++;
@@ -1712,7 +1853,7 @@ try {
                         }
                     }
                 }
-                return { wrong, corners, tally };
+                return { wrong, corners, idle, tally };
             };
             const told = (t) => `${t.photos} photos: ${t.upright} taller than wide, ${t.lying} wider, ${t.alone} alone in their set, ${t.bare} without a caption, ${t.long} with a caption of four lines or more; the widest, ${t.widest.a} : 1, limited by its ${t.widest.by}, the narrowest, ${t.narrowest.a} : 1, by its ${t.narrowest.by}`;
 
@@ -1823,10 +1964,12 @@ try {
                     at.sets.length === 1 && off === '' && near(at.sets[0].top, 71) && at.y === 0, off || `${at.sets.length} set, its top at ${at.sets[0].top}, the page at ${at.y}`);
             }
             for (const [width, height] of [[1366, 710], [900, 600]]) {
-                const { wrong, corners, tally } = await sweep(width, height);
+                const { wrong, corners, idle, tally } = await sweep(width, height);
                 check(`3. at ${width} × ${height} every photo of every project is as large as fits its half of the page and the window under the header, the side that limits it exactly on its limit, right-aligned to the centre, without a border, the shadow around it, its picture over the whole box, its caption and its chevrons in the row under it and nothing over anything else; its sizes attribute gives its width to the pixel (${told(tally)}; ${tally.cleared} kept clear of "previous": ${CLEAR}px from the half's left edge or ${LOWER}px less tall)`,
                     wrong.length === 0 && tally.photos === published.reduce((n, p) => n + photos(p).length, 0), wrong.slice(0, 3).join(' | '));
                 check(`3. at ${width} × ${height} "previous" and "next", fixed in the window's lower corners, lie over no caption, no line of the information and no chevron: with each set directly under the header, for every photo of it, and at the end of the page, on every project page`, corners.length === 0, corners.slice(0, 4).join(' | '));
+                check(`3. at ${width} × ${height} a project page with one set of photos is only as long as the row under its photo, or its information, makes it: nothing under that row adds to the page, so a page whose photo, caption, chevrons and information are all in the window has nothing to scroll (how far the page scrolls, read for each of the ${tally.lone} photos on such pages; with ${tally.still} of them it does not scroll at all)`,
+                    idle.length === 0 && tally.lone > 0, idle.slice(0, 4).join(' | '));
             }
             await page.setViewportSize({ width: 1366, height: 710 });
 
@@ -2343,6 +2486,80 @@ try {
                 }
                 check('the 404 page keeps its layout: back 42px down and 16px in (37px from 720px), in the tag colour, Light, leaning backwards, a link to the home page; the page\'s words 55px under it; nothing to scroll', wrong.length === 0, wrong.join('; '));
             }
+            // The font files a page fetches ahead (<link rel="preload"> in shared/pages/base.html) are the ones its text is drawn
+            // with, no more and no fewer: a face nothing on the page uses is 115 kB fetched for nothing (the 404 page, whose
+            // words are all Light since 26 Nov 2026, preloaded Bold), and one that is used and not preloaded comes late. Read in
+            // the page: the files the stylesheet's @font-face rules name (the two faces that take the apostrophe from a system
+            // font name none), and which of those faces the browser has loaded once the page's fonts are ready.
+            {
+                const kinds = [['/', 'the home page'], [`/projects/${(many ?? published[0]).data.slug}/`, 'a project page'], ...(single ? [[`/projects/${single.data.slug}/`, 'a project page with one photo']] : []), ...SHEET_PAGES.map(sh => [`/${sh.name}/`, sh.title]), ['/404.html', 'the 404 page']];
+                const wrong = [];
+                const told = new Map();
+                for (const [width, height] of [[390, 844], [1366, 710]]) {
+                    await page.setViewportSize({ width, height });
+                    for (const [path, name] of kinds) {
+                        await page.goto(base + path);
+                        const f = await page.evaluate(async () => {
+                            await document.fonts.ready;
+                            const file = {};
+                            for (const sheet of document.styleSheets) {
+                                for (const rule of sheet.cssRules) {
+                                    if (!(rule instanceof CSSFontFaceRule)) continue;
+                                    const url = rule.style.getPropertyValue('src').match(/url\(["']?([^"')]+\.woff2)["']?\)/);
+                                    if (url) file[`${rule.style.getPropertyValue('font-family').replace(/["']/g, '')} ${rule.style.getPropertyValue('font-weight')}`] = new URL(url[1], sheet.href).pathname;
+                                }
+                            }
+                            const name = (face) => `${face.family.replace(/["']/g, '')} ${face.weight}`;
+                            return {
+                                ahead: [...document.querySelectorAll('link[rel="preload"][as="font"]')].map(l => new URL(l.href).pathname).sort(),
+                                // A face with a file of its own covers every character; the apostrophe's two cover three.
+                                used: [...new Set([...document.fonts].filter(face => face.status === 'loaded' && face.unicodeRange === 'U+0-10FFFF' && file[name(face)]).map(face => file[name(face)]))].sort(),
+                                files: Object.keys(file).length,
+                            };
+                        });
+                        told.set(name, f.ahead.map(a => a.split('/').pop().replace(/^FluxischElse-|\.woff2$/g, '')).join(' and ') || 'none');
+                        if (f.files < 2 || f.ahead.join() !== f.used.join()) wrong.push(`${path} at ${width}px preloads ${f.ahead.join(', ') || 'nothing'} and draws its text with ${f.used.join(', ') || 'nothing'}`);
+                    }
+                }
+                check(`a page fetches ahead exactly the font files its text is drawn with, at 390 and 1366px (${[...told].map(([name, files]) => `${name}: ${files}`).join('; ')})`, wrong.length === 0 && told.size === kinds.length, wrong.slice(0, 4).join(' | '));
+            }
+            // "back" is a word 28 to 37px wide and 15 to 20px tall: little to aim a finger at. The link answers 12px beyond the
+            // word on either side and over a height of 44px, by an unseen box of its own (`.back a::before` in client/site.css), as
+            // a chevron does below 900px; the word, its place and its focus ring are what they were. Asked of the page, point by
+            // point: which element is there. The link leans (6°), and its box with it: the points are taken with room for that.
+            {
+                const kinds = [[`/projects/${(many ?? published[0]).data.slug}/`, 'a project page'], ...SHEET_PAGES.slice(0, 1).map(sh => [`/${sh.name}/`, sh.title]), ['/404.html', 'the 404 page']];
+                const small = [];
+                let asked = 0;
+                for (const [width, height] of [[390, 844], [1366, 710]]) {
+                    await page.setViewportSize({ width, height });
+                    for (const [path, name] of kinds) {
+                        await page.goto(base + path);
+                        await page.evaluate(() => document.fonts.ready.then(() => true));
+                        const m = await page.evaluate(() => {
+                            const a = document.querySelector('.back a');
+                            const b = a.getBoundingClientRect();
+                            const mine = (x, y) => { const el = document.elementFromPoint(x, y); return Boolean(el) && (el === a || a.contains(el)); };
+                            const [cx, cy] = [b.left + b.width / 2, b.top + b.height / 2];
+                            const area = { left: b.left - 12, right: b.right + 12, top: cy - 22, bottom: cy + 22 };
+                            const others = [...document.querySelectorAll('a, button')].filter(el => el !== a && el.getClientRects().length).map(el => el.getBoundingClientRect());
+                            const head = document.querySelector('.project-head');
+                            return {
+                                word: `${Math.round(b.width * 10) / 10} × ${Math.round(b.height * 10) / 10}`,
+                                // Inside the area on every side, and outside it on every side.
+                                answers: [[b.left - 9, cy], [b.right + 9, cy], [cx, cy - 20], [cx, cy + 20], [cx, cy]].every(([x, y]) => mine(x, y)),
+                                beyond: [[b.left - 16, cy], [b.right + 16, cy], [cx, cy - 25], [cx, cy + 25]].some(([x, y]) => mine(x, y)),
+                                over: others.filter(o => o.left < area.right && area.left < o.right && o.top < area.bottom && area.top < o.bottom).length,
+                                under: head ? area.bottom <= head.getBoundingClientRect().bottom : true,
+                                wide: document.documentElement.scrollWidth,
+                            };
+                        });
+                        asked++;
+                        if (!m.answers || m.beyond || m.over || !m.under || m.wide > width) small.push(`${name} at ${width}px: "back" (${m.word}) ${m.answers ? 'answers' : 'does not answer'} 9px beside the word and 20px above and below its middle${m.beyond ? ', and still does 16px beside it or 25px above or below' : ''}${m.over ? `; its area lies over ${m.over} other link or button` : ''}${m.under ? '' : '; its area reaches below the header'}${m.wide > width ? `; the page is ${m.wide}px wide` : ''}`);
+                    }
+                }
+                check(`"back" can be aimed at: the link answers 12px beyond the word on either side and over 44px of height, on no other link or button and inside the header, on a project page, a page of text and the 404 page at 390 and 1366px (${asked} places)`, small.length === 0 && asked === 2 * kinds.length, small.slice(0, 4).join(' | '));
+            }
             // 3. A project page with one photo snaps without a script, from the first moment (below 900px, with a mouse).
             // Its set must be a block there even before its own stylesheet (components/project-slides.css) has
             // arrived: laid out without it, a custom element is an inline box, which is no place to snap to; the
@@ -2401,6 +2618,64 @@ try {
                 else if (!snaps) check('3. a one-photo page whose set\'s stylesheet arrives late: ok (this browser has no mouse, so the page does not snap; the check was skipped)', true);
                 else check(`3. a project page with one photo stays at its top when its set's stylesheet arrives late and the page is laid out before it is there: the set is a block already, a place to snap to, so the page does not scroll to the information by itself (390 × 844; ${lone.map(p => p.data.slug).join(', ')}; laid out while it snapped and the stylesheet was still on its way in ${early} of ${lone.length} loads)`, wrong.length === 0 && early === lone.length, wrong.join(' | ') || (early === lone.length ? '' : 'the page was not laid out before the stylesheet came in every load: the check tried nothing there'));
             }
+            // 3. From 900px, until the slideshow's script has run. The photos of a set are then one under the other (as with
+            // JavaScript off), and from 900px a slide is only as tall as its photo and the row under it: so the second photo
+            // stood in the first window, under the first, and vanished when the script arrived (on 15 of the 21 pages with
+            // several photos at 1366 × 710, measured: for half a second on a fast connection, for seconds on a slow one).
+            // While a set of several photos waits for its script, its first slide is therefore as tall as the window under
+            // the header, as it is below 900px (components/project-slides.css, where scripting is enabled): nothing of a
+            // photo the script will hide is in the window, and the first photo is exactly where the script shows it. The
+            // script is held back here until the page has been measured without it; a load in which it was there already
+            // tried nothing and fails the check. (With JavaScript off no script is waited for and the photos follow each
+            // other directly: that state has its own check further down.)
+            {
+                const waiting = published.filter(scripted);
+                const flashed = [];
+                let held = 0;
+                for (const [width, height] of [[1366, 710], [900, 600]]) {
+                    const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
+                    const early = await context.newPage();
+                    let let_in = false;
+                    let wake = () => {};
+                    await early.route('**/client/project.js', async (route) => {
+                        if (!let_in) await new Promise(r => { wake = r; });
+                        await route.continue();
+                    });
+                    // Every photo that shows, set by set: its place in its set and its box.
+                    const look = () => early.evaluate(() => {
+                        const sets = [...document.querySelectorAll('project-slides')];
+                        return {
+                            defined: sets.filter(set => set.matches(':defined')).length,
+                            y: scrollY,
+                            vh: innerHeight,
+                            photos: sets.flatMap((set, n) => [...set.querySelectorAll('.slide')].map((sl, i) => ({ sl, i })).filter(({ sl }) => sl.getClientRects().length).map(({ sl, i }) => { const r = sl.querySelector('.frame').getBoundingClientRect(); return { n, i, top: r.top, bottom: r.bottom, left: r.left, width: r.width, height: r.height }; })),
+                        };
+                    });
+                    for (const p of waiting) {
+                        let_in = false;
+                        await early.goto(`${base}/projects/${p.data.slug}/`, { waitUntil: 'commit' });
+                        // The page as it is before its script: parsed, every stylesheet there.
+                        await early.waitForFunction(() => document.readyState !== 'loading' && Boolean(document.querySelector('#project-info')) && [...document.querySelectorAll('link[rel=stylesheet]')].every(l => l.sheet), null, { timeout: 15000 });
+                        const before = await look();
+                        let_in = true;
+                        wake();
+                        await slidesReady(early);
+                        const after = await look();
+                        const where = `${p.data.slug} at ${width} × ${height}`;
+                        if (before.defined === 0) held++;
+                        const first = (m) => m.photos.find(f => f.n === 0 && f.i === 0);
+                        const [was, is] = [first(before), first(after)];
+                        const early2 = before.photos.filter(f => f.i > 0 && f.top < before.vh && f.bottom > 0);
+                        if (early2.length) flashed.push(`${where}: before the script ${early2.map(f => `photo ${f.i + 1} of set ${f.n + 1} shows from ${Math.round(f.top)}px down`).slice(0, 2).join(', ')}`);
+                        if (!was || !is || ['top', 'left', 'width', 'height'].some(k => Math.abs(was[k] - is[k]) > 0.5) || before.y !== 0 || after.y !== 0) flashed.push(`${where}: the first photo is at ${was?.left}, ${was?.top} (${was?.width} × ${was?.height}) before the script and at ${is?.left}, ${is?.top} (${is?.width} × ${is?.height}) after it; the page at ${before.y}, then ${after.y}`);
+                        if (after.photos.some(f => f.i > 0)) flashed.push(`${where}: with the script there a later photo of a set still shows`);
+                    }
+                    await context.close();
+                }
+                if (!waiting.length) check('3. from 900px until the slideshow\'s script has run: ok (no project in content has a set of several photos; the check was skipped)', true);
+                else check(`3. from 900px, until the slideshow's script has run, nothing of a photo that the script will hide is in the window, and the first photo is where the script shows it: the page opens on one photo and stays on it (1366 × 710 and 900 × 600; the ${waiting.length} pages with a set of several photos; measured before the script in ${held} of ${2 * waiting.length} loads)`,
+                    flashed.length === 0 && held === 2 * waiting.length, flashed.slice(0, 4).join(' | ') || (held === 2 * waiting.length ? '' : 'the script was there before the page could be measured without it: the check tried nothing in some loads'));
+            }
             // 3. The pages of text with one picture, About and Collaborations (client/sheet.css), on a page of their
             // own that watches the document from the moment the parser is done: before the module script runs.
             {
@@ -2453,6 +2728,8 @@ try {
                 const promised = [];
                 const taken = [];
                 const tally = { pictures: 0, byWidth: 0, byHeight: 0, least: 0, captions: 0, notes: 0, scroll: [] };
+                const idle = [];
+                const fitted = { all: 0, captioned: 0 };
                 for (const s of sheetFronts) {
                     const want = sheetWants(s);
                     for (const [width, height] of sizes) {
@@ -2476,10 +2753,22 @@ try {
                         if (m.caption) tally.captions++;
                         if (m.note) tally.notes++;
                         if (width === 1366) tally.scroll.push(`/${s.name}/ ${m.tall - m.vh}px`);
+                        // From 900px: is everything on the page in the window, the text and its footnote with the page's 60px under them?
+                        // Then there is nothing to scroll to. (Read from the page: the picture's box, the caption's, the text's and the footnote's.)
+                        if (width >= WIDE) {
+                            const text = Math.max(m.text?.bottom ?? 0, m.note?.bottom ?? 0);
+                            if (Math.max(m.picture?.bottom ?? 0, m.caption?.bottom ?? 0, text + sheetOf(width).end) <= m.vh) {
+                                fitted.all++;
+                                if (m.caption) fitted.captioned++;
+                                if (m.tall > m.vh) idle.push(`/${s.name}/ at ${width} × ${height}: the page scrolls by ${m.tall - m.vh}px; its picture ends at ${Math.round(m.picture?.bottom ?? 0)}px, its caption at ${Math.round(m.caption?.bottom ?? 0)}px, its text at ${Math.round(text)}px`);
+                            }
+                        }
                     }
                 }
                 check(`3. the About and Collaborations pages in both layouts (${sizes.map(([w, h]) => `${w} × ${h}`).join(', ')}): the header ${pageOf(390).head}px, ${pageOf(1366).head}px from 900px, its title centred, Bold and not a link; below 900px the text from ${pageOf(390).head + sheetOf(390).first}px, 24px from either edge, paragraphs ${sheetOf(390).apart}px apart, the picture ${sheetOf(390).picture}px under it and the page wide less 24px either side, its caption ${sheetOf(390).under}px under it, the footnote ${sheetOf(390).note}px after that; from 900px the picture directly under the header, right-aligned to the centre less 8.5px, as large as fits its half and the window less the header less ${SHEET_KEEP}px, the text from the centre plus 8.5px and at most ${sheetOf(1366).column}px wide, its first line at ${pageOf(1366).head + sheetOf(1366).first}px, paragraphs ${sheetOf(1366).apart}px apart, the footnote ${sheetOf(1366).note}px under the text in the same column; a caption centred under its picture, at most ${SHEET_CAPTION}px wide; a footnote's first line at the column's edge and the others hung ${sheetOf(390).hang}em (${sheetOf(1366).hang}em from 900px); the picture whole, in its file's proportions, without a border, with the shadow (${tally.pictures} pictures measured: ${tally.byWidth} limited by their width, ${tally.byHeight} by the window's height, ${tally.least} of those in a window so short that the least room of ${SHEET_LEAST}px holds; ${tally.captions} captions, ${tally.notes} footnotes; at 1366 × 710 the pages scroll by ${tally.scroll.join(' and ')})`,
                     wrong.length === 0 && tally.pictures > 0, wrong.slice(0, 4).join(' | '));
+                check(`3. from 900px a caption under the picture does not make a page of text longer than what is on it: it stands in the room the picture keeps free under itself, so a page whose picture, caption, text and footnote are all in the window, the text with its ${sheetOf(1366).end}px under it, has nothing to scroll (${fitted.all} such pages and window sizes above, ${fitted.captioned} of them with a caption)`,
+                    idle.length === 0 && (fitted.captioned > 0 || !sheetFronts.some(f => sheetWants(f).caption)), idle.slice(0, 4).join(' | ') || (fitted.captioned > 0 || !sheetFronts.some(f => sheetWants(f).caption) ? '' : 'no page with a caption fitted its window: the check tried nothing'));
                 check(`3. the picture's sizes attribute on the About and Collaborations pages gives the width it is shown at, to the pixel, in both layouts, the same on its <source> (${tally.pictures} measured)`, promised.length === 0, promised.slice(0, 4).join(' | '));
                 check('3. on the About and Collaborations pages the browser takes the smallest file that is at least as wide as the picture (so it reads their sizes attribute as written), at every window size above', taken.length === 0, taken.slice(0, 4).join(' | '));
 
@@ -2488,6 +2777,7 @@ try {
                 {
                     const changed = [];
                     const opened = [];
+                    const named = [];
                     for (const s of sheetFronts.filter(f => sheetWants(f).image)) {
                         const m = await go(s, 1366, 710);
                         await sheetPage.waitForTimeout(250);
@@ -2510,7 +2800,8 @@ try {
                             const r = big?.getBoundingClientRect();
                             const shown = document.querySelector('main.sheet img');
                             return {
-                                open: document.querySelectorAll('.zoom').length, role: box?.getAttribute('role') ?? '', modal: box?.getAttribute('aria-modal') ?? '', label: box?.getAttribute('aria-label') ?? '', alt: big?.getAttribute('alt'), shown: shown.getAttribute('alt'),
+                                open: document.querySelectorAll('.zoom').length, role: box?.getAttribute('role') ?? '', modal: box?.getAttribute('aria-modal') ?? '', label: box?.getAttribute('aria-label') ?? null, alt: big?.getAttribute('alt'), shown: shown.getAttribute('alt'),
+                                caption: document.querySelector('main.sheet figcaption')?.textContent.replace(/\s+/g, ' ').trim() ?? '',
                                 fills: Boolean(r) && r.left === 0 && r.top === 0 && r.width === innerWidth && r.height === innerHeight, fit: big ? getComputedStyle(big).objectFit : '', loaded: Boolean(big) && big.complete && big.naturalWidth > 0,
                                 same: Boolean(big) && Math.abs(big.naturalWidth / big.naturalHeight - shown.naturalWidth / shown.naturalHeight) < 0.01, onTop: Boolean(box) && document.elementFromPoint(innerWidth / 2, innerHeight / 2)?.closest('.zoom') === box && document.elementFromPoint(20, 20)?.closest('.zoom') === box,
                                 focus: document.activeElement === box, selected: String(getSelection()), parent: box?.parentElement?.localName ?? '',
@@ -2527,11 +2818,14 @@ try {
                             const sent = new DOMParser().parseFromString(await (await fetch(location.pathname)).text(), 'text/html');
                             return { open: document.querySelectorAll('.zoom').length, asSent: sent.body.innerHTML === document.body.innerHTML && sent.head.innerHTML === document.head.innerHTML, y: scrollY };
                         });
-                        // The dialog is named after the picture: its description, or the word of client/zoom.js for a picture that has none.
-                        if (z.open !== 1 || z.role !== 'dialog' || z.modal !== 'true' || z.label !== (z.shown || 'Image') || z.alt !== z.shown || !z.fills || z.fit !== 'contain' || !z.loaded || !z.same || !z.onTop || !z.focus || z.selected !== '' || z.parent !== 'body' || behind.y !== 0 || !behind.focus || after.open !== 0 || !after.asSent || after.y !== 0) opened.push(`/${s.name}/: ${JSON.stringify({ ...z, behind, after })}`);
+                        // The dialog is named in the owner's words: the picture's description, or else the caption under it (as the page
+                        // prints it, which the checks of the page's words hold to the content). A picture with neither has no name:
+                        // client/zoom.js makes none up (until 26 Nov 2026 it said "Image", a word nobody gave).
+                        named.push(z.shown ? 'its description' : z.caption ? 'its caption' : 'nothing');
+                        if (z.open !== 1 || z.role !== 'dialog' || z.modal !== 'true' || z.label !== (z.shown || z.caption || null) || z.alt !== z.shown || !z.fills || z.fit !== 'contain' || !z.loaded || !z.same || !z.onTop || !z.focus || z.selected !== '' || z.parent !== 'body' || behind.y !== 0 || !behind.focus || after.open !== 0 || !after.asSent || after.y !== 0) opened.push(`/${s.name}/: ${JSON.stringify({ ...z, behind, after })}`);
                     }
                     check('3. nothing changes the document of the About or the Collaborations page when it loads (watched from the end of parsing, before its one script, client/zoom.js, runs), and a single click on the picture does nothing: no change, nothing opened, the page where it was; the cursor over the picture says it can be enlarged', changed.length === 0, changed.join(' | '));
-                    check('3. a double click on the picture of the About or the Collaborations page opens it to the full window: whole, over everything, a dialog with keyboard focus named after the picture\'s description (or "Image" where none is written); the keys do not move the page behind it; Escape closes it, and the document is the server\'s HTML again', opened.length === 0 && sheetFronts.some(f => sheetWants(f).image), opened.join(' | ').slice(0, 900));
+                    check(`3. a double click on the picture of the About or the Collaborations page opens it to the full window: whole, over everything, a dialog with keyboard focus, named by the picture\'s description, by its caption where none is written, and not named where there is neither: no word but the owner\'s (today by ${named.join(' and ')}); the keys do not move the page behind it; Escape closes it, and the document is the server\'s HTML again`, opened.length === 0 && sheetFronts.some(f => sheetWants(f).image), opened.join(' | ').slice(0, 900));
                 }
 
                 // The header stays at the top of the window while the page scrolls under it, and what is behind it is
@@ -4177,6 +4471,19 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
         const homeType = [];
         let pictures = 0;
         let captions = 0;
+        let judged = 0;
+        // The sizes of text (font-size / line-height) a page of each kind may show at 390px, a caption's apart, from the measures
+        // each kind is held to in its own checks: a project page (pageOf: the title and "back", the description and the two
+        // words, the facts on their 1.42 line), a page of text (the same header, sheetOf), the 404 page (the body's own type).
+        // The home page's two routes have their own branch below. Nothing for a route of any other kind.
+        const typeAt390 = (path) => {
+            const bare = (t) => t.replace(/ \/ \d+$/, '');
+            const h = pageOf(390);
+            if (/^\/projects\/[^/]+\/$/.test(path)) return { text: [h.title, h.back, h.text, h.facts].map(bare), caption: [bare(h.caption)] };
+            if (SHEET_PAGES.some(sh => path === `/${sh.name}/`)) return { text: [h.title, h.back, sheetOf(390).text].map(bare), caption: [bare(sheetOf(390).caption)] };
+            if (path === '/404.html') return { text: [bare(plainType(390))], caption: [] };
+            return null;
+        };
         for (const path of routes) {
             await page.goto(base + path);
             await page.waitForTimeout(30);
@@ -4187,12 +4494,12 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                 const all = [...document.querySelectorAll('picture, project-index .box, project-slides .frame')];
                 return {
                     body: set(document.body),
-                    // Text that is not the body's size: a photo's caption, and a caption is no other size than its own
-                    // (one that followed the body to 13px / 16px is as wrong as body text that is not).
-                    other: [...new Set([...document.querySelectorAll('body *')].filter(el => el.getClientRects().length && [...el.childNodes].some(n => n.nodeType === 3 && n.data.trim()) && !el.closest('.visually-hidden'))
-                        .map(el => `${el.matches('.caption, .caption *') ? 'caption' : el.localName} ${getComputedStyle(el).fontSize} / ${getComputedStyle(el).lineHeight}`))]
-                        .filter(t => (t.startsWith('caption ') ? t !== 'caption 11px / 13.2px' : !/ 13px \/ (16|18\.73)px$/.test(t))),
-                    captions: [...document.querySelectorAll('.caption')].filter(el => el.getClientRects().length && el.textContent.trim()).length,
+                    // Every size of text that shows, a caption's apart (a photo's, or the one under the picture of a page of
+                    // text): a caption is no other size than its own, and one that followed the text's size is as wrong as
+                    // text that is not its own.
+                    sizes: [...new Set([...document.querySelectorAll('body *')].filter(el => el.getClientRects().length && [...el.childNodes].some(n => n.nodeType === 3 && n.data.trim()) && !el.closest('.visually-hidden'))
+                        .map(el => `${el.matches('.caption, .caption *, figcaption, figcaption *') ? 'caption' : 'text'} ${getComputedStyle(el).fontSize} / ${getComputedStyle(el).lineHeight}`))],
+                    captions: [...document.querySelectorAll('.caption, figcaption')].filter(el => el.getClientRects().length && el.textContent.trim()).length,
                     count: new Set(all).size,
                     wrong: [...new Set(all)].map((el) => {
                         const s = getComputedStyle(el);
@@ -4216,17 +4523,30 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                     .map(el => `${el.closest('.site-head') ? 'intro' : el.localName} ${getComputedStyle(el).fontSize} / ${getComputedStyle(el).lineHeight}`))]);
                 const strange = sizes.filter(t => (t.startsWith('intro ') ? t !== `intro ${HOME_INTRO.narrow.split(' / ').slice(0, 2).join(' / ')}` : !t.endsWith(` ${HOME_BODY.narrow.split(' / ').slice(0, 2).join(' / ')}`)));
                 if (look.body !== HOME_BODY.narrow || strange.length || (homeIntro.length > 0 && !sizes.some(t => t.startsWith('intro ')))) homeType.push(`${path}: body ${look.body}${strange.length ? `; ${strange.slice(0, 3).join(', ')}` : ''}`);
-            } else if (look.body !== BODY || look.other.length) type.push(`${path}: body ${look.body}${look.other.length ? `; ${look.other.slice(0, 3).join(', ')}` : ''}`);
+            } else {
+                // Every other route: its kind of page has its own sizes (typeAt390 below), and a route of a kind that has none is reported.
+                const own = typeAt390(path);
+                const strange = own ? look.sizes.filter((t) => { const [kind, ...size] = t.split(' '); return !own[kind].includes(size.join(' ')); }) : [];
+                if (own) judged++;
+                if (!own) type.push(`${path}: a kind of page this check knows no type for`);
+                else if (look.body !== plainType(390) || strange.length) type.push(`${path}: body ${look.body}${strange.length ? `; ${strange.slice(0, 3).join(', ')}` : ''}`);
+            }
             pictures += look.count;
             captions += look.captions;
             if (look.wrong.length) boxes.push(`${path}: ${look.wrong.length} of ${look.count}, ${look.wrong[0]}`);
         }
-        // (The project pages, the About and Collaborations pages and the 404 page have had their own type since 26 Nov 2026, and
-        // checks of their own for it with the project pages' other checks: they are not judged by the one below.)
-        for (let i = type.length - 1; i >= 0; i--) if (/^\/(projects\/[^/]+\/|404\.html|info\/|collaborations\/):/.test(type[i])) type.splice(i, 1);
+        // (Until the redesign of 26 Nov 2026 one type held on every route, 13px on a 16px line, and one check said so. Each kind
+        // of page has had its own sizes since, and that check, with every route taken out of it one track at a time, judged
+        // none and still reported "ok" for the old sizes. It now holds every route to its own kind's sizes; the checks of each
+        // kind say which element has which, at every width.)
         check('4. no horizontal scroll at 390px on any route', wide.length === 0, wide.join(', '));
         check('the type on the home page at 390px is 14.5px on an 18px line, Light, the intro like the rest, and nothing is any other size (/ and /projects/)', homeType.length === 0, homeType.join(' | '));
-        check(`the type on every route is 13px on a 16px line, Light (a project's type, role and client on an 18.73px line); a caption is 11px / 13.2px and nothing else (${captions} captions on screen)`, type.length === 0 && captions > 0, type.slice(0, 4).join(' | ') || (captions ? '' : 'no caption on screen on any route'));
+        {
+            const [h, t] = [pageOf(390), sheetOf(390)];
+            const bare = (v) => v.replace(/ \/ \d+$/, '');
+            check(`the type on every other route at 390px is its kind of page's own and nothing else: on a project page ${bare(h.text)} (the facts on a ${h.facts.split(' / ')[1]} line) and captions ${bare(h.caption)}; on a page of text ${bare(t.text)} and captions ${bare(t.caption)}; on the 404 page ${bare(plainType(390))} (${judged} routes, ${captions} captions on screen)`,
+                type.length === 0 && captions > 0 && judged === routes.length - HOME_ROUTES.length, type.slice(0, 4).join(' | ') || (!captions ? 'no caption on screen on any route' : judged === routes.length - HOME_ROUTES.length ? '' : `${judged} of ${routes.length - HOME_ROUTES.length} routes were judged`));
+        }
         check(`no picture on any route has a border, every one has the shadow and is stretched over its whole box (object-fit: fill): the ${pictures} thumbnails and project photos`, pictures > 0 && boxes.length === 0, boxes.slice(0, 4).join(' | '));
 
         // 6. the intro (the redesign of 26 Nov 2026; Fluxisch Else Light by the owner's word of that day). In
@@ -4482,6 +4802,49 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                 snaps[`${p === single ? 'single' : firstSet(p).length > 1 ? 'stacked' : 'other'} ${width}`] = at.snap;
             }
         }
+        // From 900px, where the words "previous" and "next" are fixed in the window's lower corners: with the photos one under the
+        // other the left column is long, and at the end of the page its last photo, or the caption under it, lay under "previous"
+        // (on 7 of the 29 pages at 900 × 600 and 3 at 1366 × 710, measured). While its photos are one under the other, the last set
+        // of a page with that word therefore ends 52px later (client/project.css), as the last of several sets always does: the
+        // row under the last photo then ends 72px above the window's lower edge, above the word. Every project page, at its end.
+        const cornered = [];
+        let ended = 0;
+        for (const [width, height] of [[1366, 710], [900, 600]]) {
+            await page.setViewportSize({ width, height });
+            for (const p of published.filter(q => photos(q).length)) {
+                await page.goto(`${base}/projects/${p.data.slug}/`);
+                const m = await page.evaluate(() => {
+                    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' });
+                    const hit = (a, b, air) => a.left < b.right + air && b.left < a.right + air && a.top < b.bottom + air && b.top < a.bottom + air;
+                    const textRects = (el) => {
+                        const out = [];
+                        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+                        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+                            if (!n.data.trim()) continue;
+                            const range = document.createRange();
+                            range.selectNodeContents(n);
+                            out.push(...[...range.getClientRects()].filter(r => r.width > 0 && r.height > 0));
+                        }
+                        return out;
+                    };
+                    const found = [];
+                    let fixed = 0;
+                    for (const a of document.querySelectorAll('#project-info .neighbours a')) {
+                        if (getComputedStyle(a).position !== 'fixed') continue;
+                        fixed++;
+                        const name = a.textContent.trim();
+                        const box = a.getBoundingClientRect();
+                        const word = a.querySelector('span').getBoundingClientRect();
+                        if ([...document.querySelectorAll('project-slides .frame')].some(f => f.getClientRects().length && hit(box, f.getBoundingClientRect(), 0))) found.push(`"${name}" on a photo`);
+                        if ([...document.querySelectorAll('project-slides .caption')].some(c => c.getClientRects().length && textRects(c).some(r => hit(word, r, 2)))) found.push(`"${name}" over a caption`);
+                    }
+                    return { found, fixed, end: Math.abs(scrollY - (document.documentElement.scrollHeight - innerHeight)) <= 1, script: matchMedia('(scripting: enabled)').matches };
+                });
+                if (m.end && m.fixed && !m.script) ended++;
+                if (m.found.length || !m.end) cornered.push(`${p.data.slug} at ${width} × ${height}: ${m.found.join(', ') || 'the page is not at its end'}`);
+            }
+        }
+        check(`3. with JavaScript off, from 900px, "previous" and "next" lie on no photo and over no caption at the end of a project page, where its photos, one under the other, come to rest (1366 × 710 and 900 × 600, every project page with a photo: ${ended} ends)`, cornered.length === 0 && ended > 0, cornered.slice(0, 4).join(' | '));
         // The pages of text with one picture need no script: with JavaScript off each is whole in both layouts, as it is
         // with JavaScript on (the same measures), its picture loaded; only the cursor over the picture no longer says it
         // can be enlarged, since nothing would answer the double click.
@@ -4604,6 +4967,37 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
             if (tapped.open) { await page.touchscreen.tap(195, 420); await page.waitForTimeout(150); }
             const closed = await page.evaluate(() => document.querySelectorAll('.zoom').length);
             check('3. on a touch screen a double tap on a photo opens it (the photo takes no double-tap zoom of the browser\'s: touch-action manipulation), and a tap closes it', tapped.open === 1 && tapped.index === 0 && tapped.touch === 'manipulation' && closed === 0, JSON.stringify({ ...tapped, closed }));
+        }
+        // A double tap on the open photo, the usual way back from an enlarged picture: the first tap closes it and the second lands
+        // on the photo behind, which stays the photo it was (a single tap there would move the set on). On a page whose first set
+        // has photos to move to. Taps this machine sent more than the wait apart are a tap that closes and a tap of its own: such
+        // a try does not count and is made again.
+        if (many && firstSet(many).length > 1) {
+            await page.goto(`${base}/projects/${many.data.slug}/`);
+            await slidesReady(page);
+            await page.waitForFunction(() => { const img = document.querySelector('project-slides .slide.current img'); return img.complete && img.naturalWidth > 0; });
+            let again = { counted: false, last: 'not tried' };
+            for (let i = 0; i < 5 && !again.counted; i++) {
+                await page.evaluate(() => { scrollTo({ top: 0, behavior: 'instant' }); document.querySelector('project-slides').setState({ index: 0 }); });
+                const box = await page.evaluate(() => { const r = document.querySelector('project-slides .slide.current .frame').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+                if (!await page.evaluate(() => document.querySelectorAll('.zoom').length)) {
+                    await page.touchscreen.tap(box.x, box.y);
+                    await page.touchscreen.tap(box.x, box.y);
+                    await page.waitForTimeout(ZOOM_WAIT + 250);
+                }
+                const was = await page.evaluate(() => {
+                    window.__taps = [];
+                    if (!window.__timing) { window.__timing = true; document.addEventListener('click', () => window.__taps.push(performance.now()), true); }
+                    return { open: document.querySelectorAll('.zoom').length, index: document.querySelector('project-slides').state.index };
+                });
+                if (!was.open) { again.last = 'the photo did not open'; continue; }
+                await page.touchscreen.tap(box.x, box.y);
+                await page.touchscreen.tap(box.x, box.y);
+                await page.waitForTimeout(ZOOM_WAIT + 250);
+                const after = await page.evaluate(() => ({ open: document.querySelectorAll('.zoom').length, index: document.querySelector('project-slides').state.index, gap: window.__taps.length >= 2 ? window.__taps[1] - window.__taps[0] : NaN }));
+                again = { counted: after.gap < ZOOM_WAIT - 20, ok: after.open === 0 && after.index === was.index, last: `${after.open} open, photo ${after.index + 1} after photo ${was.index + 1}, the taps ${Math.round(after.gap)} ms apart` };
+            }
+            check(`3. on a touch screen a double tap on an open photo closes it and leaves the set on the photo it showed (${many.data.slug})`, again.counted && again.ok, again.last);
         }
         // The same on a page of text with one picture: two taps on the picture open it, one more closes it, and a single tap does nothing.
         {

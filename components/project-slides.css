@@ -187,3 +187,9 @@ project-slides:not(:defined) .slide:not(:first-child) {
     text-wrap: balance;
   }
 }
+
+@media (min-width: 900px) and (scripting: enabled) {
+  project-slides:not(:defined) .slide:first-child:not(:only-child) {
+    min-height: var(--fill);
+  }
+}

@@ -19,19 +19,69 @@ No terminal, no scripts.
 
 1. Go to **app.pagescms.org**.
 2. Sign in with **GitHub**, or with the **email invite** you were sent (it sends you a code).
-3. Open **tolomeo.org**. On the left you see **Projects**, **Home page intro**, **Info page**
-   and **Media** (all the photos).
+3. Open **tolomeo.org**. On the left you see **Projects**, **Home page intro**, **About page**,
+   **Collaborations page** and **Media** (all the photos and pictures).
 
-## Edit the intro or the Info page
+## Edit the home page intro
 
-- **Home page intro**: the line at the top of the home page. Your name is written
-  `[Tolomeo](/info/)`: that makes it bold and a link to the Info page. Change the words
-  around it freely; keep the square and round brackets as they are.
-- **Info page**: the text of the Info page. Write normal paragraphs. To add a link, select
-  the words and use the link button.
-- Paragraphs, links, **bold** and *italic* show on the site. Italic shows as slanted text
-  (the font has no italic of its own). Headings, lists and so on are turned into plain
-  paragraphs.
+**Home page intro** has two fields.
+
+- **Intro**: the text at the top of the home page. Every line you type is one part of it.
+  On a phone each line is a block of its own, centred; on a computer the lines run on as one
+  paragraph across the page. Press Enter to start a new line; empty lines are ignored.
+- A link is written `[the words to click](the address)`, with no space between `]` and `(`.
+  - A page of this site: the address starts and ends with a slash. `[Tolomeo](/info/)` makes
+    your name a link to the About page; `[read this](/collaborations/)` leads to the
+    Collaborations page.
+  - Another site: the whole address, starting with `https://`, for example
+    `[publishing house](https://landlinepress.nl)`.
+  - Change the words freely; keep the square and round brackets as they are. Links in the
+    intro are underlined (your name is no longer bold).
+  - A mistyped address does not stop the site from updating: the link then leads to the
+    "nothing here" page. Click a new link once, after the site has updated.
+- The Collaborations page is reached only from its link in the intro. If you take that link
+  out, nothing on the site leads to the page any more.
+- **Description for search engines**: one or two plain sentences that search engines and link
+  previews show for the home page, the About page and the Collaborations page. Plain text, no
+  links. Leave it empty to use the words of the intro.
+
+Press **Save** when you're done.
+
+## Edit the About and Collaborations pages
+
+**About page** (it used to be called Info page; its address is still `tolomeo.org/info/`) and
+**Collaborations page** (`tolomeo.org/collaborations/`) work the same way: a text with one
+picture. On a computer the picture is on the left and the text on the right; on a phone the
+text comes first, then the picture. Each has these fields:
+
+- **Title**: fixed by the design; it can't be changed here.
+- **Text**: write normal paragraphs. To add a link, select the words and use the link button.
+  Paragraphs, links, **bold** and *italic* show on the site. Italic shows as slanted text (the
+  font has no italic of its own). Headings, lists and so on are turned into plain paragraphs.
+- **Picture**: the one picture on the page. It is shown whole, with a soft shadow around it
+  and no frame. To change it, upload the new picture in **Media**, in the folder `info` (for
+  the About page) or `collaborations`, then press **Select** here and pick it. Photos straight
+  from a phone, HEIC files and large files are fine, as for projects. Empty = the page is the
+  text alone.
+- **Description of the picture**: say what is in the picture, in a sentence, for people who
+  can't see it. **Both descriptions are empty now, and they are yours to write**: nobody
+  wrote one for you. Until you do, a screen reader passes over the picture; when a visitor
+  opens the picture large, it is announced by its caption if it has one, and otherwise by
+  nothing.
+- **Caption**: optional. One line shown under the picture. Put asterisks around words to slant
+  them, like a book title: `as told in *Memory of Fire*`. A caption shows only if the page
+  has a picture.
+- **Footnote**: optional. A note to the text: under the text on a computer, after the picture
+  on a phone. Start it with the mark you put in the text, for example an asterisk and a
+  space: `* By ‘rigorous decolonial foundation’, I mean …`. Its second and later lines are set
+  a little further in, so the mark stands out. An empty line starts a second footnote. A link
+  in a footnote is written `[the words](https://the.address)`.
+
+A single asterisk used as a footnote mark, right after a word in the text (`decolonial*`) or
+at the start of the footnote, is printed as an asterisk.
+
+A visitor can double-click the picture (on a phone: tap it twice) to see it as large as the
+screen allows; a click, a tap or the Esc key closes it again.
 
 Press **Save** when you're done.
 
@@ -54,24 +104,33 @@ Press **Save** when you're done.
      own page they are shown as `type:`.
    - **Role**: what you did, one per line (**Add an item** for another). Shown as `role:`.
    - **Client**: shown as `for:`.
+   - **More details**: optional. Extra lines for the project's page, shown under type, role,
+     for and the years: stockists, edition details, where to order. Every line you type is a
+     line on the page. Leave an empty line to start a new group; the page shows an empty line
+     there too. A link is written `[the words](https://the.address)`, bold is written
+     `**like this**`, slanted `*like this*`. A dash or an asterisk at the start of a line is
+     dropped (the page prints plain lines, not bullets). Leave the field empty and nothing is
+     shown.
    - **Description**: paragraphs, links, bold and italic. Leave it empty if there is
-     nothing to say; the right-hand side of the project's text then stays empty.
+     nothing to say; its place on the page then stays empty.
 3. Press **Save**.
 
-**What the project's page shows.** The title is at the top of the page, and only there
-(clicking it jumps down to the text). After the photos comes the project's text, in two
-columns that meet in the middle of the page:
+**What the project's page shows.** The title is at the top of the page, and only there. The
+word *back* at the top left returns to the home page.
 
-- on the left: `type:` (the tags), `role:`, `for:` (the client) and, one line lower, the
-  years;
-- on the right: the description.
+- **On a computer** (a window at least 900 pixels wide) the page is two halves. On the left
+  are the photos, one at a time, each with its caption under it. On the right is the text,
+  which stays in place: the description, and beside it `type:` (the tags), `role:`, `for:`
+  (the client), one line lower the years, and under them your More details.
+- **On a phone** it is one column: first the photo with its caption, filling the screen, then
+  type, role, for, the years and More details, then the description. Tapping the title jumps
+  down to the text.
 
-A field you leave empty is left out, with its label. Beside the text are two arrows: the
-left one opens the project before this one, the right one the project after it, in the
-order of the list on the home page (the **Order** numbers, sub-projects in their place;
-drafts are skipped). The first project has no left arrow and the last one no right arrow.
-On a phone it is one column: type, role, for and years, then the description, then the two
-arrows.
+A field you leave empty is left out, with its label. The words *previous* and *next* open the
+project before this one and the project after it, in the order of the list on the home page
+(the **Order** numbers, sub-projects in their place; drafts are skipped). On a computer they
+stand in the bottom corners of the window; on a phone they come after the description. The
+first project has no *previous* and the last one no *next*.
 
 **Drafts.** Turn **Published** off to keep a project hidden while you work on it. It is
 then not on the home page and has no page of its own. Turn it on when it's ready.
@@ -86,8 +145,8 @@ then not on the home page and has no page of its own. Turn it on when it's ready
 
 **Sub-projects.** Set **Part of (parent project)** to the main project, and give it an
 order like `2.1`. It then shows under its main project in the list on the home page, set
-apart from it: its title a little further in (about five spaces) and in the light font
-instead of the bold one, with no date in front of it. Its years are still shown on its own
+apart from it: its title a little further in and in the light font instead of the bold
+one, with no date in front of it. Its years are still shown on its own
 page, so do fill them in. Leave **Part of** empty for a main project.
 
 ## Add photos
@@ -126,17 +185,24 @@ Photos live in **Media**, in one folder per project: `images/projects/<slug>`.
    asterisks around words to slant them, like a book title: `Printed for *Not My Sister*`.
    Leave it empty for no caption.
 5. Optional: **Set** splits the photos into groups. Photos with the same number are shown
-   together, one at a time with the arrows. The page shows set 1 first; scrolling down
-   brings set 2, then set 3, and after the last set the project's text. Leave it at 1 (or
-   empty) if the project has one group of photos. To start a second group, type 2 in **Set** on
-   each photo that belongs to it (3 for a third, and so on). A photo you add starts in
-   set 1, wherever it sits in the list: change its **Set** if it belongs to another group.
-   A set has no title on the page; only the photos' captions show.
+   together, one at a time with the arrows. On a computer the sets stand one under the
+   other in the left half of the page, set 1 first, and scrolling moves through them while
+   the text stays in place on the right. On a phone the page shows set 1 first; scrolling
+   down brings set 2, then set 3, and after the last set the project's text. Leave it at 1
+   (or empty) if the project has one group of photos. To start a second group, type 2 in
+   **Set** on each photo that belongs to it (3 for a third, and so on). A photo you add
+   starts in set 1, wherever it sits in the list: change its **Set** if it belongs to
+   another group. A set has no title on the page; only the photos' captions show.
 6. **Drag** the handle on the left of an item to change the order. The project page shows
    the photos one at a time, in this order: the first one first, the rest with the arrows.
    With sets, the photos of a set keep this order among themselves; which set comes first
    is decided by the set numbers, not by the order of the list.
 7. Press **Save**.
+
+**How a visitor looks at the photos.** One photo shows at a time. The arrows under the
+photo (at either end of the caption), a click on the photo, or the left and right arrow keys
+go to the next one. A double click on a photo (on a phone: two quick taps) opens it as large
+as the screen allows; a click, a tap or the Esc key closes it again.
 
 ## Set a thumbnail
 
@@ -209,8 +275,9 @@ They show as links on the project page, under the project's text.
 
 - **Slugs after publishing.** Changing one breaks links and separates the project from its
   photo folder.
-- **Folder names in `images/projects`.** Don't rename or move them; the projects point at
-  them.
+- **Folder names in `images/projects`**, and the folders `images/info` and
+  `images/collaborations`. Don't rename or move them; the projects and the two pages point
+  at them.
 - **The file `.pages.yml`**, except for adding a tag as described above.
-- Anything outside **Projects**, **Home page intro**, **Info page** and **Media**. If you
-  see something you don't recognise, leave it and ask.
+- Anything outside **Projects**, **Home page intro**, **About page**, **Collaborations
+  page** and **Media**. If you see something you don't recognise, leave it and ask.

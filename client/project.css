@@ -144,7 +144,16 @@ html {
     margin-top: 0;
   }
 
+  .sets > project-slides:only-child:defined .slide,
+  .sets > project-slides:only-child .slide:only-child {
+    padding-bottom: 0;
+  }
+
   .has-previous > project-slides + project-slides:last-child {
+    padding-bottom: 52px;
+  }
+
+  .has-previous > project-slides:last-child:not(:defined):has(.slide + .slide) {
     padding-bottom: 52px;
   }
 

@@ -31,13 +31,15 @@ hash in `dist/images/`, so a rebuild only resizes new photos), and the files the
 ```bash
 npm run verify
 ```
-After a build: Playwright checks for the acceptance points (HTML before JavaScript, tag filtering,
-project URLs and their photo sets (one slideshow each, the header that stays, the snapping), the
-project information (two columns at the design's measures, where it comes to rest, the arrows to the
-neighbouring projects), 390px width, the CMS fields, the Index's proportions at 1366px, its list's
-three one-line columns from 720px up (text too long for a column is cut with a fade and slides while
-its row is pointed at), its one-column layout below 720px, zero DOM mutations on first render, no
-console errors).
+After a build: Playwright checks for the acceptance points and the design's measures (HTML before
+JavaScript, tag filtering, every address a built page points at, project URLs and their photo sets
+(one slideshow each, the header that stays; from 900px the photos in the left half and the project's
+information in place on the right, nothing snapping, the words "previous" and "next" in the window's
+corners; below 900px one column that snaps from set to set and then to the information), the double
+click that opens a picture, the About and Collaborations pages, 390px width, the CMS fields, the home
+page (its intro, the index that fills the window from 720px, the list's three one-line columns, where
+text too long for a column is cut with a fade and slides while its row is pointed at, the one-column
+layout below 720px), zero DOM mutations on first render, no console errors). About 3 minutes.
 Needs Chromium for Playwright (`npx playwright install chromium`, or set `CHROMIUM_PATH`).
 
 ```bash
@@ -57,19 +59,22 @@ first would put the kit's photos and texts back and drop the photo sets).
 ## How it fits together
 
 ```
-content/            Markdown + YAML front matter: projects/, site/index.md, site/info.md
+content/            Markdown + YAML front matter: projects/, site/index.md (the home page's intro),
+                    site/info.md (the About page), site/collaborations.md
 images/projects/    photos, one folder per project (the CMS writes full /images/… paths)
+images/info/, images/collaborations/   the picture of the About and of the Collaborations page
 public/             files copied to the site root as they are (the favicons)
 fonts/              Fluxisch Else Light and Bold (.woff2, .otf as fallback)
 site.config.js      the BRIEF §9 assumptions, one constant each
 build.js            content + images → dist/          server.js   the dev server
 server/             build-time only: content.js (data layer), markdown.js, images.js, routes.js,
                     zeldman/ (the vendored Node adapter)
-shared/pages/       page templates (index, project, info, 404)
+shared/pages/       page templates (index, project, sheet: About and Collaborations, 404)
 components/         project-index (the home page: grid + list + filter),
                     project-slides (one set of a project page's photos, one at a time)
-client/             browser only: main.js and project.js (page entries), template-env.js,
-                    lib/ (BaseComponent), site.css, project.css
+client/             browser only: main.js and project.js (page entries), zoom.js (a double click
+                    opens a picture), template-env.js, lib/ (BaseComponent), site.css, project.css,
+                    sheet.css; the build adds covers.css, slides.css and figures.css (proportions)
 lib/                vendor/ (nunjucks, idiomorph), filters.js, zeldman/ (upstream docs + UPSTREAM hash)
 scripts/            prepare-images, normalize-images (CI), verify; import-site-data,
                     import-covers and import-projects (superseded: don't run)
@@ -83,8 +88,13 @@ JSON; a tag click is one `setState()` that removes only the rows and cells that 
 project page there is one `<project-slides>` per set of photos (`images[].set`), one under the
 other, each carrying its photos; every one is in the HTML, and the chevrons, a click on the photo
 or the arrow keys change which one shows in the set on screen. The header stays at the top of the
-window, and with a mouse or trackpad the page snaps from set to set, then to the information: plain
-HTML in two columns, with a link to the project before and the project after in the Index's order.
+window. From 900px wide the sets are the left half of the page and the project's information (plain
+HTML: description, type, role, client, years, more details) stays in place on the right; below
+900px the information comes after the sets, and with a mouse or trackpad the page snaps from set to
+set, then to it. The words "previous" and "next" link to the project before and the project after
+in the Index's order. The About and Collaborations pages are one template: a text with one picture.
+`client/zoom.js` opens a photo or picture to the full window on a double click; it is the one
+script outside the components, and it touches nothing until then.
 
 ## Deploying
 

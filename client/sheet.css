@@ -90,6 +90,10 @@ html {
     margin: 0;
   }
 
+  .sheet figure:has(figcaption) {
+    margin-bottom: -60px;
+  }
+
   .sheet .text {
     grid-area: 1 / 2;
     max-width: 292px;
