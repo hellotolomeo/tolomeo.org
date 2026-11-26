@@ -1,6 +1,6 @@
 # tolomeo.org — build brief (v2, 7 Nov 2026)
 
-> **Redesign, 11 Nov 2026** (and again 26 Nov 2026: the last note of this block). The look and
+> **Redesign, 11 Nov 2026** (and again 26 Nov 2026: the last two notes of this block). The look and
 > the page layouts described here (§3, §5, the cover styles and thumbnail tuner in §6,
 > `HOVER_SWAP` and `FRAME_JITTER` in §9) were replaced: light ground, no lines, one framed
 > thumbnail style, no hover photo, a one-photo-at-a-time project page with captions. The current values are in `CLAUDE.md`, "Design". The stack, the content model
