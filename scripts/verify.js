@@ -2472,6 +2472,64 @@ try {
                 else if (!snaps) check('3. a one-photo page whose set\'s stylesheet arrives late: ok (this browser has no mouse, so the page does not snap; the check was skipped)', true);
                 else check(`3. a project page with one photo stays at its top when its set's stylesheet arrives late and the page is laid out before it is there: the set is a block already, a place to snap to, so the page does not scroll to the information by itself (390 × 844; ${lone.map(p => p.data.slug).join(', ')}; laid out while it snapped and the stylesheet was still on its way in ${early} of ${lone.length} loads)`, wrong.length === 0 && early === lone.length, wrong.join(' | ') || (early === lone.length ? '' : 'the page was not laid out before the stylesheet came in every load: the check tried nothing there'));
             }
+            // 3. From 900px, until the slideshow's script has run. The photos of a set are then one under the other (as with
+            // JavaScript off), and from 900px a slide is only as tall as its photo and the row under it: so the second photo
+            // stood in the first window, under the first, and vanished when the script arrived (on 15 of the 21 pages with
+            // several photos at 1366 × 710, measured: for half a second on a fast connection, for seconds on a slow one).
+            // While a set of several photos waits for its script, its first slide is therefore as tall as the window under
+            // the header, as it is below 900px (components/project-slides.css, where scripting is enabled): nothing of a
+            // photo the script will hide is in the window, and the first photo is exactly where the script shows it. The
+            // script is held back here until the page has been measured without it; a load in which it was there already
+            // tried nothing and fails the check. (With JavaScript off no script is waited for and the photos follow each
+            // other directly: that state has its own check further down.)
+            {
+                const waiting = published.filter(scripted);
+                const flashed = [];
+                let held = 0;
+                for (const [width, height] of [[1366, 710], [900, 600]]) {
+                    const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
+                    const early = await context.newPage();
+                    let let_in = false;
+                    let wake = () => {};
+                    await early.route('**/client/project.js', async (route) => {
+                        if (!let_in) await new Promise(r => { wake = r; });
+                        await route.continue();
+                    });
+                    // Every photo that shows, set by set: its place in its set and its box.
+                    const look = () => early.evaluate(() => {
+                        const sets = [...document.querySelectorAll('project-slides')];
+                        return {
+                            defined: sets.filter(set => set.matches(':defined')).length,
+                            y: scrollY,
+                            vh: innerHeight,
+                            photos: sets.flatMap((set, n) => [...set.querySelectorAll('.slide')].map((sl, i) => ({ sl, i })).filter(({ sl }) => sl.getClientRects().length).map(({ sl, i }) => { const r = sl.querySelector('.frame').getBoundingClientRect(); return { n, i, top: r.top, bottom: r.bottom, left: r.left, width: r.width, height: r.height }; })),
+                        };
+                    });
+                    for (const p of waiting) {
+                        let_in = false;
+                        await early.goto(`${base}/projects/${p.data.slug}/`, { waitUntil: 'commit' });
+                        // The page as it is before its script: parsed, every stylesheet there.
+                        await early.waitForFunction(() => document.readyState !== 'loading' && Boolean(document.querySelector('#project-info')) && [...document.querySelectorAll('link[rel=stylesheet]')].every(l => l.sheet), null, { timeout: 15000 });
+                        const before = await look();
+                        let_in = true;
+                        wake();
+                        await slidesReady(early);
+                        const after = await look();
+                        const where = `${p.data.slug} at ${width} × ${height}`;
+                        if (before.defined === 0) held++;
+                        const first = (m) => m.photos.find(f => f.n === 0 && f.i === 0);
+                        const [was, is] = [first(before), first(after)];
+                        const early2 = before.photos.filter(f => f.i > 0 && f.top < before.vh && f.bottom > 0);
+                        if (early2.length) flashed.push(`${where}: before the script ${early2.map(f => `photo ${f.i + 1} of set ${f.n + 1} shows from ${Math.round(f.top)}px down`).slice(0, 2).join(', ')}`);
+                        if (!was || !is || ['top', 'left', 'width', 'height'].some(k => Math.abs(was[k] - is[k]) > 0.5) || before.y !== 0 || after.y !== 0) flashed.push(`${where}: the first photo is at ${was?.left}, ${was?.top} (${was?.width} × ${was?.height}) before the script and at ${is?.left}, ${is?.top} (${is?.width} × ${is?.height}) after it; the page at ${before.y}, then ${after.y}`);
+                        if (after.photos.some(f => f.i > 0)) flashed.push(`${where}: with the script there a later photo of a set still shows`);
+                    }
+                    await context.close();
+                }
+                if (!waiting.length) check('3. from 900px until the slideshow\'s script has run: ok (no project in content has a set of several photos; the check was skipped)', true);
+                else check(`3. from 900px, until the slideshow's script has run, nothing of a photo that the script will hide is in the window, and the first photo is where the script shows it: the page opens on one photo and stays on it (1366 × 710 and 900 × 600; the ${waiting.length} pages with a set of several photos; measured before the script in ${held} of ${2 * waiting.length} loads)`,
+                    flashed.length === 0 && held === 2 * waiting.length, flashed.slice(0, 4).join(' | ') || 'the script was there before the page could be measured without it: the check tried nothing in some loads');
+            }
             // 3. The pages of text with one picture, About and Collaborations (client/sheet.css), on a page of their
             // own that watches the document from the moment the parser is done: before the module script runs.
             {
