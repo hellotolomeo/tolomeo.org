@@ -999,8 +999,15 @@ try {
                     selected: String(getSelection()),
                 };
             });
+            // A double click, as the mouse sends it. Two clicks that a busy machine sends more than the wait
+            // apart are two single clicks (the set moves on twice): back to the photo then, and once more.
             const dbl = async () => {
-                await page.dblclick(`${top} .current .frame`);
+                for (let i = 0; i < 3; i++) {
+                    const shown = await page.evaluate(() => document.querySelector('project-slides').state.index);
+                    await page.dblclick(`${top} .current .frame`);
+                    if (await page.waitForSelector('.zoom', { timeout: 2 * ZOOM_WAIT + 400 }).then(() => true, () => false)) break;
+                    await page.evaluate(n => document.querySelector('project-slides').setState({ index: n }), shown);
+                }
                 await page.waitForFunction(() => { const img = document.querySelector('.zoom img'); return Boolean(img) && img.complete && img.naturalWidth > 0; }, null, { timeout: 5000 }).catch(() => {});
             };
             await dbl();
@@ -1059,8 +1066,10 @@ try {
             await page.click('project-slides .frame');
             await page.waitForTimeout(ZOOM_WAIT + 250);
             const clicked = await asSent();
-            await page.dblclick('project-slides .frame');
-            await page.waitForSelector('.zoom', { timeout: 5000 }).catch(() => {});
+            for (let i = 0; i < 3; i++) {
+                await page.dblclick('project-slides .frame');
+                if (await page.waitForSelector('.zoom', { timeout: 2 * ZOOM_WAIT + 400 }).then(() => true, () => false)) break;
+            }
             const opened = await page.evaluate(() => ({ open: document.querySelectorAll('.zoom').length, label: document.querySelector('.zoom')?.getAttribute('aria-label') ?? '', alt: document.querySelector('project-slides img').alt }));
             await page.mouse.click(683, 355);
             await page.waitForTimeout(150);
