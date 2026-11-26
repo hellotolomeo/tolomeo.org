@@ -26,7 +26,8 @@
  *      content has had no such project since 26 Nov 2026, and may have one
  *      again any day, so both run on a made-up project page on every run, and
  *      on a project of the content as well when it has one. The made-up page
- *      (`madePage`: three sets of 3, 1 and 3 photos, a project before it and
+ *      (`madePage`: four sets of 3, 3, 3 and 1 photos, so that the set tried
+ *      has a set that can move on either side of it; a project before it and
  *      one after) is the site's own work: loadContent(), routes() and the
  *      templates, as in build.js, from a content folder in the system's
  *      temporary directory that is removed as soon as it is read, its photos
@@ -813,8 +814,14 @@ import { tmpdir } from 'node:os';
 import { loadContent } from '../server/content.js';
 import { routes as siteRoutes } from '../server/routes.js';
 
-// The photos in each set of the made-up page: a set of one between two sets of several.
-const MADE_SETS = [3, 1, 3];
+// The photos in each set of the made-up page: three sets of several, then a set of one. The chevron is
+// tried on the first later set of several, which is the second: it has a set that can move before it
+// and one after it, so a chevron that also moved a neighbouring set would show. The two quick clicks
+// go to the first two sets of several, which are neighbours, for the same reason. (With 3, 1 and 3,
+// as it first was, the set tried was the last and its one neighbour a set of one photo, which cannot
+// move, and the two clicks went to sets that are not neighbours: a click that also moved the set
+// after its own, or the set before, passed every check.) The set of one is last, as in Chapter Symbols.
+const MADE_SETS = [3, 3, 3, 1];
 // The made-up project as the checks read a project of the content ({ data, content }: its front
 // matter and text, so setsOf(), photos() and stem() read it as they read the owner's), and with it
 // what its site is served from (`held`: path → text), what the data layer made of it (`project`,
