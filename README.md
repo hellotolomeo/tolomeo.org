@@ -39,7 +39,11 @@ corners; below 900px one column that snaps from set to set and then to the infor
 click that opens a picture, the About and Collaborations pages, 390px width, the CMS fields, the home
 page (its intro, the index that fills the window from 720px, the list's three one-line columns, where
 text too long for a column is cut with a fade and slides while its row is pointed at, the one-column
-layout below 720px), zero DOM mutations on first render, no console errors). About 3 minutes.
+layout below 720px), zero DOM mutations on first render, no console errors). About 3½ minutes.
+Two behaviours of a page with several photo sets (a later set's chevron; a click on one set's photo
+and at once on another's) are checked on a made-up project page, because the content need not have
+such a project: the script makes it with the site's own data layer and templates and serves it from
+memory on a second local port. Nothing of it is written to `content/`, `images/` or `dist/`.
 Needs Chromium for Playwright (`npx playwright install chromium`, or set `CHROMIUM_PATH`).
 
 ```bash
