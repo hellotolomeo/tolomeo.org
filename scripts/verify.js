@@ -2375,12 +2375,18 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                         return Math.abs(r.width - quarter) > 0.5 || Math.abs(r.width / r.height - 341.2 / 197.12) > 0.005;
                     }).length,
                     pair: cells.length < 2 || Math.abs(cells[0].getBoundingClientRect().top - cells[1].getBoundingClientRect().top) < 0.5,
+                    sized: cells.filter(c => c.querySelector('.box')).map(c => ({ name: c.dataset.slug, width: c.querySelector('.box').getBoundingClientRect().width, sizes: [c.querySelector('img').getAttribute('sizes'), c.querySelector('source')?.getAttribute('sizes') ?? null] })),
+                    vw: innerWidth,
+                    vh: innerHeight,
                 };
             }, { edge: HOME_EDGE, gap: HOME_GAP });
-            for (const [width, height] of [[1366, 710], [720, 800]]) {
+            for (const [width, height] of [[1920, 1080], [1366, 710], [720, 800]]) {
                 await open(width, height);
-                const m = await fixed();
+                const { sized, vw, vh, ...m } = await fixed();
                 check(`7. at ${width}×${height} the titles under the thumbnails are not displayed and take no space: a cell is a quarter of what the two columns have (${homeCell(width)}px) at 341.2 : 197.12, two to a row`, m.names === published.length && m.shown === 0 && m.off === 0 && m.pair, JSON.stringify(m));
+                // The same attribute serves every width: also at the narrowest and at a wide side-by-side window.
+                const off = sizesOff(sized, vw, vh);
+                check(`7. at ${width}×${height} every thumbnail's sizes attribute gives the width it is shown at, to the pixel (${sized.length} thumbnails)`, sized.length > 0 && off.length === 0, off.slice(0, 3).join(' | '));
             }
 
             // Below 720px: what is wrong with each cell, by slug, and the list's frame under the grid.
