@@ -235,8 +235,9 @@ function lean(p) {
 // of the index and the 29px between its two columns, (100vw - 69px) / 4, and the thumbnail as large
 // as fits 88% of that width and 49.9733% of it in height (86.5% of a 341.2 : 197.12 cell). Below
 // 720px, where the grid is one column, a cell is the page wide and the thumbnail as large as fits
-// that width less 124px and 132% of it in height.
-function coverSizes(c) {
+// that width less 124px and 132% of it in height. (Exported for scripts/verify.js, which also
+// checks it for proportions no cover has today.)
+export function coverSizes(c) {
     const a = aspect(c) ?? 1.5;
     return `(max-width: 719.98px) min(calc(100vw - 124px), calc(132vw * ${a})), min(calc(22vw - 15.18px), calc((12.4933vw - 8.6204px) * ${a}))`;
 }

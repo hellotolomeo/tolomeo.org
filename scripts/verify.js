@@ -88,7 +88,7 @@ import nunjucks from 'nunjucks';
 import sharp from 'sharp';
 import { chromium } from 'playwright';
 import { markdown, markdownText } from '../server/markdown.js';
-import { coversCss, homeText, order, shortYears } from '../server/content.js';
+import { coversCss, coverSizes, homeText, order, shortYears } from '../server/content.js';
 import { createEnvironment } from '../server/zeldman/zeldman.js';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -132,6 +132,22 @@ const HOME_THUMB = { width: 0.88, height: 0.499733 };
 // Below 720px: a thumbnail is as large as fits the page less 124px and 132% of the page's width
 // in height; its title is 16px under it and a cell has 22px above and below, so 44px to the next.
 const HOME_PHONE = { side: 124, height: 1.32, under: 16, pad: 22, name: 0.88 };
+// A grid cell's thumbnail with other proportions than its own, as client/covers.css would give them
+// (--a, set in the page for the test): its box and its cell, and what `sizes` the build writes for a
+// picture of those proportions. For the limits no cover of the content reaches today: a picture wide
+// enough to be limited by its cell's width from 720px, one tall enough to be limited in height below.
+const reshaped = async (page, a) => {
+    const slug = await page.evaluate(() => document.querySelector('project-index .cell:has(.box)').dataset.slug);
+    const style = await page.addStyleTag({ content: `project-index #cell-${slug} { --a: ${a}; }` });
+    const got = await page.evaluate((slug) => {
+        const cell = document.querySelector(`#cell-${slug}`);
+        const c = cell.getBoundingClientRect();
+        const b = cell.querySelector('.box').getBoundingClientRect();
+        return { cell: c.width, width: b.width, height: b.height, off: Math.abs((b.left + b.right) / 2 - (c.left + c.right) / 2), page: document.documentElement.clientWidth, vw: innerWidth, vh: innerHeight };
+    }, slug);
+    await style.evaluate(el => el.remove());
+    return { ...got, a, sizes: sizesPx(coverSizes({ width: Math.round(a * 1000), height: 1000 }), got.vw, got.vh) };
+};
 // The list: a sub-project's title is 20px in; a column fades over its last 1em, 12.5px.
 const HOME_INDENT = 20;
 const HOME_FADE = 12.5;
@@ -1284,6 +1300,18 @@ try {
                 const off = sizesOff(m.sized, m.vw, m.vh);
                 check(`6. every thumbnail's sizes attribute gives the width it is shown at, to the pixel (${m.sized.length} thumbnails)`, m.sized.length > 0 && off.length === 0, off.slice(0, 3).join(' | '));
             }
+            {
+                // The width limit, which no cover of the content reaches (the widest is limited by its height):
+                // a picture of 3 : 1 is 88% of its cell wide, one of 1 : 3 is 49.9733% of the cell's width tall,
+                // and the build's `sizes` for such pictures says those widths.
+                const wide = await reshaped(page, 3);
+                const tall = await reshaped(page, 0.3333);
+                const widest = Math.max(...published.map(p => Number(readFileSync(join(dist, 'client/covers.css'), 'utf8').match(new RegExp(`#cell-${p.data.slug}\\{--a:([\\d.]+)\\}`))?.[1] ?? 0)));
+                check(`6. a thumbnail wider than any the content has (3 : 1; the widest is ${widest} : 1) is limited by its cell's width, 88% of it, and one of 1 : 3 by the height, 49.9733% of the cell's width, each centred, and the build's sizes for such pictures gives those widths to the pixel`,
+                    Math.abs(wide.width - wide.cell * HOME_THUMB.width) <= EXACT && Math.abs(wide.height - wide.width / 3) <= 0.5 && wide.off < 0.5 && Math.abs(wide.sizes - wide.width) <= 1
+                    && Math.abs(tall.height - tall.cell * HOME_THUMB.height) <= EXACT && Math.abs(tall.width - tall.height * 0.3333) <= 0.5 && tall.off < 0.5 && Math.abs(tall.sizes - tall.width) <= 1,
+                    JSON.stringify({ wide, tall }));
+            }
             check('6. the two columns scroll on their own, and the only lines are the two under the columns\' strips (0.67px in the line colour, as the browser draws it): no other element has a border, and only the pictures have a shadow', m.scrolls && m.lines === 0 && m.ruled, JSON.stringify({ scrolls: m.scrolls, lines: m.lines, ruled: m.ruled, rule: m.rule }));
             check('6. the type is 12.5px on a 15.2px line, Light, in the list\'s rows as on the page', m.body === HOME_BODY.wide && m.rows === HOME_BODY.wide, `body ${m.body}; rows ${m.rows}`);
 
@@ -1495,6 +1523,26 @@ try {
                 const right = Math.min(b.right, tag.closest('.clip').getBoundingClientRect().right - FADE);
                 return { tag: tag.dataset.tag, x: (b.left + right) / 2, y: b.top + b.height / 2 };
             }, { slug, n, FADE });
+            // The first project with a title and a type list too long for their columns, by `over` px or a little
+            // more: for the widths at which all the content's own texts fit, so that the cut, the fade and the
+            // slide are checked there too. Through the component's own state; the title grows by words, the
+            // type list by the site's own tags, each once.
+            const lengthen = (over) => page.evaluate(({ over, FADE }) => {
+                const px = (v) => parseFloat(v) || 0;
+                const el = document.querySelector('project-index');
+                const all = el.state.projects;
+                const spare = [...new Set(all.flatMap(p => p.tags))].filter(t => !all[0].tags.includes(t));
+                let { title } = all[0];
+                let tags = [...all[0].tags];
+                const cut = (i) => {
+                    const c = document.querySelectorAll(`#row-${all[0].slug} .clip`)[i];
+                    return c ? px(getComputedStyle(c.querySelector('.line')).width) - (c.getBoundingClientRect().width - px(getComputedStyle(c).paddingLeft) - FADE) : -Infinity;
+                };
+                const set = () => el.setState({ projects: all.map((p, k) => (k === 0 ? { ...p, title, tags } : p)) });
+                for (let n = 0; n < 200 && cut(0) < over; n++) { title += ' and on'; set(); }
+                while (spare.length && cut(1) < over) { tags = [...tags, spare.shift()]; set(); }
+                return { slug: all[0].slug, tags: tags.length, title: cut(0), types: cut(1) };
+            }, { over, FADE });
             const filteredBy = (tag) => page.waitForFunction((t) => new URLSearchParams(location.search).get('filter') === t, tag, { timeout: 5000 }).then(() => true, () => false);
             const travelled = (slug, i) => page.evaluate(({ slug, i }) => parseFloat(getComputedStyle(document.querySelectorAll(`#row-${slug} .clip`)[i].querySelector('.line')).getPropertyValue('--index-slid')) || 0, { slug, i });
             // One column of a row, frame by frame from now on: [the page's animation clock, the column's `start`].
@@ -2031,7 +2079,7 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                 await show(width, height);
                 const first = await page.evaluate(() => window.__mutations());
                 check(`6. zero mutations on first render at ${width}px: /`, first.length === 0, first.slice(0, 5).join('; '));
-                const m = await list();
+                let m = await list();
                 // A row's date starts 12px from the list's left edge.
                 const padding = 12;
                 // The date column: the widest date printed, 5px of air and the 27.2px the hover chevron takes.
@@ -2063,8 +2111,9 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                 // last 1em (12.5px), and at rest its text starts at its left edge.
                 const fade = new RegExp(`^linear-gradient\\(to right, .*rgb\\(0, 0, 0\\) calc\\(100% - ${FADE}px\\), rgba\\(0, 0, 0, 0\\)\\)$`);
                 const loose = m.rows.flatMap(r => r.cells.filter(c => c.cut !== 'clip' || !fade.test(c.mask) || Math.abs(c.start) > 0.01).map(c => `${r.slug}: ${c.cut}, start ${c.start}, ${c.mask}`));
-                const cells = m.rows.flatMap(r => r.cells.map((c, i) => ({ slug: r.slug, i, over: c.text - (c.width - FADE), r, c })));
-                const long = cells.filter(x => !fits(x.c));
+                const cellsOf = (lies) => lies.rows.flatMap(r => r.cells.map((c, i) => ({ slug: r.slug, i, over: c.text - (c.width - FADE), r, c })));
+                let cells = cellsOf(m);
+                let long = cells.filter(x => !fits(x.c));
                 check(`6. at ${width}px every column cuts its text at its right edge, fades it out over the last ${FADE}px and shows it from its start (${long.length} of ${cells.length} texts reach the fade)`, loose.length === 0, loose.slice(0, 3).join('; '));
 
                 // A row whose texts both fit, the one that ends closest to a fade: nothing of it is under the
@@ -2087,7 +2136,20 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                     await page.mouse.move(1, 1);
                 }
 
-                if (!long.length) { check(`6. at ${width}px: ok (every title and every type list fits its column; the checks of a text that is cut were skipped)`, true); continue; }
+                // Where every text fits its column (the content's own all do from about 1270px up), the checks of a
+                // text that is cut are made on a made-up one: the first project is given a title and a type list
+                // 120px too long for their columns, through the component's own state, as a build with such a
+                // project would render it. A page loaded again is given them again.
+                let made = null;
+                if (!long.length) {
+                    made = await lengthen(120);
+                    m = await list();
+                    cells = cellsOf(m);
+                    long = cells.filter(x => !fits(x.c));
+                }
+                const reshow = async () => { await show(width, height); if (made) await lengthen(120); };
+                const madeUp = made ? `; made up for this width, at which every text of the content fits: ${made.slug} with a longer title and ${made.tags} types` : '';
+                if (!long.length) { check(`6. at ${width}px: no text is cut, not even one made too long for its column`, false, JSON.stringify(made)); continue; }
                 // The title that is cut the most and the type list that is cut the most.
                 for (const i of [0, 1]) {
                     const worst = long.filter(x => x.i === i).sort((a, b) => b.over - a.over)[0];
@@ -2099,7 +2161,7 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                     const cell = rest.cells[i];
                     const ink = await inkAt(rest, cell, m.ground);
                     const full = Math.max(...cell.colour.map((v, c) => Math.abs(v - m.ground[c])));
-                    check(`6. at ${width}px a ${what} too long for its column (by ${worst.over.toFixed(1)}px) is cut at the column's edge and faded before it: nothing after the edge, less than half the ink left in the fade's last 5px (${slug})`,
+                    check(`6. at ${width}px a ${what} too long for its column (by ${worst.over.toFixed(1)}px) is cut at the column's edge and faded before it: nothing after the edge, less than half the ink left in the fade's last 5px (${slug}${madeUp})`,
                         ink.text > full * 0.6 && ink.after <= 6 && ink.fade <= full * 0.5, `${JSON.stringify(ink)} of ${full}`);
 
                     // Pointed at: it slides left at 100px a second until its end is at the fade's start, and stays there.
@@ -2200,7 +2262,7 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                     check(`6. at ${width}px the types stand still under the pointer: the mouse on the first tag of the type list that is cut the most, a click once a slide would have carried it away, filters by that tag (${slug}: ${first.tag})`,
                         held.on && Math.abs(held.cells[1].start) < 0.01 && byFirst, `on=${held.on}, the list at ${held.cells[1].start}, ${await page.evaluate(() => decodeURIComponent(location.search))}`);
 
-                    await show(width, height);
+                    await reshow();
                     let slid = follow(slug, 1, 'stopped');
                     await pointAt(slug);
                     await slid;
@@ -2216,7 +2278,7 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                     check(`6. at ${width}px once the row's slide has brought the last tag into the column, the pointer on that tag keeps the list at its end and a click filters by it (${slug}: ${last.tag})`,
                         Math.abs(atEnd.cells[1].start + reach.over) <= 1 && stayed.on && Math.abs(stayed.cells[1].start - atEnd.cells[1].start) < 0.01 && byLast, `the list at ${atEnd.cells[1].start} → ${stayed.cells[1].start}, wanted ${-reach.over}; ${await page.evaluate(() => decodeURIComponent(location.search))}`);
 
-                    await show(width, height);
+                    await reshow();
                     slid = follow(slug, 1, 'stopped');
                     await pointAt(slug);
                     await slid;
@@ -2231,7 +2293,7 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                     const gone = await row(slug);
                     check(`6. at ${width}px leaving the row from a tag sends the list home in 0.2s, and its next slide starts at the start`,
                         Math.abs(took - 0.2) < 0.005 && reset && Math.abs(gone.cells[1].start) < 0.01 && !gone.on, `${took}s, travel reset: ${reset}, the list at ${gone.cells[1].start}`);
-                    await show(width, height);
+                    await reshow();
                 }
 
                 // The keyboard: a tag that is cut at rest is reached with Tab, is then whole inside its column
@@ -2455,6 +2517,16 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                 {
                     const off = sizesOff(m.sized, m.vw, m.vh);
                     check(`7. ${at} every thumbnail's sizes attribute gives the width it is shown at, to the pixel`, m.sized.length > 0 && off.length === 0, off.slice(0, 3).join(' | '));
+                }
+                {
+                    // Both limits, whatever the covers of the content are: a picture of 3 : 1 is the page less 124px
+                    // wide, one of 1 : 3 is 132% of the page's width tall, and the build's `sizes` says those widths.
+                    const wide = await reshaped(page, 3);
+                    const tall = await reshaped(page, 0.3333);
+                    check(`7. ${at} a thumbnail of 3 : 1 is limited by the page's width less 124px and one of 1 : 3 by its height, 132% of the page's width, each centred, and the build's sizes for such pictures gives those widths to the pixel`,
+                        Math.abs(wide.width - (wide.page - HOME_PHONE.side)) <= EXACT && Math.abs(wide.height - wide.width / 3) <= 0.5 && wide.off < 0.5 && Math.abs(wide.sizes - wide.width) <= 1
+                        && Math.abs(tall.height - tall.page * HOME_PHONE.height) <= EXACT && Math.abs(tall.width - tall.height * 0.3333) <= 0.5 && tall.off < 0.5 && Math.abs(tall.sizes - tall.width) <= 1,
+                        JSON.stringify({ wide, tall }));
                 }
                 check(`7. ${at} the list lies 32px under the grid, 16px from either edge of the page, under a thin line (0.67px in the line colour, as the browser draws it) and no other: its first row 20px under the line, every row as wide as the list and at least 28px tall, 48px after the last row; the columns' strips and their two words do not show`,
                     frameOff(m) === '', frameOff(m));
