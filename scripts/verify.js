@@ -13,18 +13,27 @@
  *      every photo in the HTML, one slideshow per set of photos; a set's photos
  *      show one at a time (chevrons, a click on the photo, the arrow keys, which
  *      move the set on screen and no other), and all of them with JavaScript
- *      off; the header stays at the top of the window, the page snaps from set
- *      to set and then to the information, and each set at rest sits under the
- *      header as the design's one slideshow does. The information: type, role,
- *      client and years on the left of the page's centreline and the description
- *      on the right, at the design's measures, the title only in the header;
- *      what is empty leaves no line (the page template is also rendered here
- *      with each field emptied in turn); an arrow to the project before and one
- *      to the project after in the Index's order, none at either end; one
- *      column with the arrows under the text below 760px. Where the information
- *      rests: after a turn of the wheel, after the title link and on a page
- *      opened at #project-info alike; clear of a header whose title wraps; a
- *      project with no photos does not scroll for it.
+ *      off. A double click opens a photo to the full window (client/zoom.js),
+ *      which holds a single click back for a moment, keeps the page behind an
+ *      open photo still and touches nothing until a photo is opened. From 900px
+ *      the sets are the left half of the page, each photo right-aligned to the
+ *      centre with its caption and chevrons in a row under it; the information
+ *      (the description, then type, role, client, years and any details) stays
+ *      in place on the right while the sets pass; nothing snaps; "previous" and
+ *      "next" are fixed in the window's lower corners and lie over no caption,
+ *      no text and no chevron. Below 900px the page opens on the photo and its
+ *      caption, the chevrons at the page's edges; with a mouse or trackpad the
+ *      page snaps from set to set and then to the information, which is one
+ *      column. Every photo of every project is measured in both layouts: as
+ *      large as fits, nothing of it over anything else, its `sizes` right to
+ *      the pixel. What is empty leaves no line (the page template is also
+ *      rendered here with each field emptied in turn); the two words lead to
+ *      the project before and the one after in the Index's order, none at
+ *      either end. Where the information rests below 900px: after a turn of
+ *      the wheel, after the title link and on a page opened at #project-info
+ *      alike; clear of a header whose title wraps. An information taller than
+ *      the window can be read to its end; a project with no photos does not
+ *      scroll for it. The 404 page keeps its layout.
  *   4. 390px: no horizontal scroll on any route; on a touch screen a project
  *      page scrolls freely.
  *   5. CMS: every front-matter key in content/ is a field in .pages.yml, and every
@@ -133,6 +142,82 @@ const sizesOff = (pictures, vw, vh) => pictures.map(({ name, width, sizes: [img,
     return Math.abs(px - width) <= 1 ? '' : `${name}: sizes gives ${Number.isNaN(px) ? 'nothing this check can read' : `${Math.round(px * 100) / 100}px`}, the picture is ${Math.round(width * 100) / 100}px wide (${img})`;
 }).filter(Boolean);
 
+// --- The project pages and the 404 page (the redesign of 26 Nov 2026): their own measures, apart from the
+// constants above, which the home page's checks share. All of them are in client/site.css (the header),
+// client/project.css (the page and the information) and components/project-slides.css (a set of photos).
+// (An import of its own, so that the import above, which the home page's checks share, stays as it is.)
+import { markdownLines } from '../server/markdown.js';
+
+// From this width the sets of photos are the left half of the page and the information stays in place on
+// the right; below it the information comes after the sets.
+const WIDE = 900;
+// What the pages are held to at a window `vw` wide.
+const pageOf = (vw) => (vw >= WIDE ? {
+    wide: true,
+    head: 71, // --head: the header while the title is one line (39px + a 16px line + 16px)
+    cap: 70, // --cap: the room kept under a photo for its caption
+    chevron: 36, // --arrow: a chevron's column at either end of the caption row
+    side: 34, // the page's side padding
+    between: 17, // between the two halves
+    under: 12, // from the photo to its caption
+    title: '12.5px / 16px / 700', // the header's title; `back` is the same size, Light
+    back: '12.5px / 16px / 300',
+    text: '12.5px / 15.2px / 300', // the description
+    facts: '12.5px / 17.75px / 300', // type, role, for, the years, the details: a line of 1.42
+    caption: '11.5px / 13.5px / 300',
+} : {
+    wide: false,
+    head: 95, // 50px + a 20px line + 22px is 92px; `min-height` makes it 95px
+    cap: 76,
+    chevron: 26,
+    side: 24,
+    between: 0,
+    under: 14,
+    title: '16.5px / 20px / 700',
+    back: '16.5px / 20px / 300',
+    text: '16.5px / 20px / 300',
+    facts: '16.5px / 23.43px / 300',
+    caption: '14.5px / 17.5px / 300',
+});
+// The 404 page, which keeps the layout it had: the body's own type.
+const plainType = (vw) => (vw >= 720 ? '12.5px / 15.2px / 300' : '14.5px / 18px / 300');
+// The room a photo has: from 900px the left half of the page (the page less its 34px paddings and the 17px
+// between the halves, halved) and the window's height less the header and the caption's room; below 900px
+// the page less 24px on either side, and the same of the height.
+const roomOf = (vw, vh) => { const d = pageOf(vw); return { width: d.wide ? (vw - 2 * d.side - d.between) / 2 : vw - 2 * d.side, height: Math.max(160, vh - d.head - d.cap) }; };
+// The words "previous" and "next" are fixed in the window's lower corners from 900px. A photo with others in
+// its set may have a chevron at its lower left corner, where "previous" is on every page but the first
+// project's: such a photo (`cornered`) ends at least CLEAR px before the half's left edge or is at least
+// LOWER px less tall than the room, whichever leaves it larger. A photo alone in its set has no chevron,
+// the first project no "previous": those are simply as large as fits.
+const CLEAR = 60;
+const LOWER = 48;
+const photoWidth = (a, vw, vh, cornered) => {
+    const room = roomOf(vw, vh);
+    if (vw >= WIDE && cornered) return Math.min(room.width, Math.max(Math.min(room.height * a, room.width - CLEAR), (room.height - LOWER) * a));
+    return Math.min(room.width, room.height * a);
+};
+// The width a project photo's `sizes` promises (as sizesPx above, which does not read max()).
+const slideSizesPx = (sizes, vw, vh) => {
+    const entries = [];
+    for (let i = 0, depth = 0, from = 0; i <= sizes.length; i++) {
+        if (sizes[i] === '(') depth++;
+        else if (sizes[i] === ')') depth--;
+        if (i === sizes.length || (sizes[i] === ',' && depth === 0)) { entries.push(sizes.slice(from, i).trim()); from = i + 1; }
+    }
+    for (const entry of entries) {
+        const m = entry.match(/^\((max|min)-width:\s*([\d.]+)px\)\s+(.+)$/);
+        if (m && !(m[1] === 'max' ? vw <= Number(m[2]) : vw >= Number(m[2]))) continue;
+        const sum = (m ? m[3] : entry).replace(/([\d.]+)vw/g, (_, n) => `(${n} * ${vw / 100})`).replace(/([\d.]+)vh/g, (_, n) => `(${n} * ${vh / 100})`)
+            .replace(/([\d.]+)px/g, '$1').replace(/calc/g, '');
+        if (!sum.trim() || !/^[\d\s.+\-*/(),]*$/.test(sum.replace(/min|max/g, ''))) return NaN;
+        try { return Number(new Function(`return ${sum.replace(/(min|max)\(/g, 'Math.$1(')};`)()); } catch { return NaN; }
+    }
+    return NaN;
+};
+// How long zoom.js holds a click on a photo back, to see whether a second follows (client/zoom.js, WAIT).
+const ZOOM_WAIT = 260;
+
 // --- what the site should contain, from content/ directly
 
 const projectsDir = join(root, 'content/projects');
@@ -159,18 +244,28 @@ const texts = (v) => (Array.isArray(v) ? v : v === null || v === undefined || v 
 // Text as a browser prints it: white space (two spaces typed for one, a tab, a line break) is one space.
 // The same white space as the build's when it writes the dates into --dates; a no-break space is not part of it.
 const spaced = (t) => String(t).replace(/[\t\n\f\r ]+/g, ' ').trim();
-// The lines of a project's information beside its description, as the page prints them: type, role, for, then the years; an empty one is left out.
+// A project's "More details" as its page prints them, worked out here from the text as typed: blocks of lines (an empty line
+// between two blocks), every line its words (one line of Markdown; the mark of a list line is dropped), nothing for what is empty.
+const detailsOf = (p) => text(p.data.details).split(/\r\n?|\n/).map(line => line.trim()).join('\n').split(/\n{2,}/)
+    .map(block => block.split('\n').map(line => words(line.replace(/^[-*]\s+/, ''))).filter(Boolean)).filter(block => block.length);
+// The lines of a project's information beside its description, as the page prints them: type, role, for, the years, then every
+// line of its details; an empty one is left out.
 // White space is one space, as textOf reads it from the page (a date typed with two spaces is still one line of the same words).
 const factsOf = (p) => [
     texts(p.data.tags).length ? `type: ${texts(p.data.tags).join(', ')}` : '',
     texts(p.data.role).length ? `role: ${texts(p.data.role).join(', ')}` : '',
     text(p.data.client) ? `for: ${text(p.data.client)}` : '',
     shortYears(text(p.data.years)),
+    ...detailsOf(p).flat(),
 ].filter(Boolean).map(line => line.replace(/\s+/g, ' '));
-// The information section of a project page's HTML, the lines of its left column, and one of its two arrows.
+// The information section of a project page's HTML; its facts (everything from `.facts` to the description, the links to the
+// neighbours or the section's end, whichever comes first); the lines of the facts; the blocks of details among them, each a
+// list of lines; and one of the two links to the neighbours.
 const sectionOf = (body) => body.match(/<section class="project-info"[\s\S]*?<\/section>/)?.[0] ?? '';
-const linesOf = (section) => [...(section.match(/<div class="facts">[\s\S]*?<\/div>/)?.[0] ?? '').matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map(m => textOf(m[1]).trim());
-const arrowOf = (section, side) => { const m = section.match(new RegExp(`<a\\s+class="${side}"\\s+href="([^"]*)"\\s+aria-label="([^"]*)"`)); return m ? { href: m[1], name: m[2] } : null; };
+const factsHtml = (section) => { const from = section.indexOf('<div class="facts">'); if (from < 0) return ''; const to = section.slice(from).search(/<div class="about">|<nav class="neighbours"|<\/section>/); return section.slice(from, from + to); };
+const linesOf = (section) => [...factsHtml(section).matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map(m => textOf(m[1]).trim());
+const blocksOf = (section) => [...factsHtml(section).matchAll(/<div class="extra">([\s\S]*?)<\/div>/g)].map(m => [...m[1].matchAll(/<p>([\s\S]*?)<\/p>/g)].map(l => textOf(l[1]).trim()));
+const arrowOf = (section, side) => { const m = section.match(new RegExp(`<a\\s+class="${side}"\\s+href="([^"]*)"\\s+aria-label="([^"]*)"\\s*>([\\s\\S]*?)</a>`)); return m ? { href: m[1], name: m[2], word: m[3] } : null; };
 // A photo's file name without its extension: the built file's name starts with it.
 const stem = (im) => decodeURIComponent(String(im.image)).split('/').pop().replace(/\.[^.]+$/, '');
 // The sub-projects, from the content: a project whose parent is another published project that is
@@ -340,14 +435,28 @@ const rest = async (page) => {
     }
     return last;
 };
-// Every slideshow of a project page has rendered (a page whose sets all hold one photo loads no script).
-const slidesReady = (page) => page.waitForFunction(() => !document.scripts.length || [...document.querySelectorAll('project-slides')].every(el => el.rendered));
-// A project page as it lies in the window: the header, each set with its current photo's box (`.frame`, a name from when it had a border), chevrons and caption, the information.
+// Every slideshow of a project page has rendered (a page whose sets all hold one photo loads no slideshow script: nothing to wait for).
+const slidesReady = (page) => page.waitForFunction(() => !document.querySelector('script[src$="/client/project.js"]') || [...document.querySelectorAll('project-slides')].every(el => el.rendered));
+// A project page as it lies in the window: the header; each set with its current photo's box (`.frame`, a name from when it
+// had a border), the slide that holds it, its chevrons and its caption; the information and its parts; the two words that
+// lead to the neighbours.
 const lie = (page) => page.evaluate(() => {
     const box = (el) => { if (!el) return null; const b = el.getBoundingClientRect(); return { top: b.top, bottom: b.bottom, left: b.left, right: b.right, width: b.width, height: b.height }; };
     const seen = (el) => Boolean(el) && el.getClientRects().length > 0;
+    const part = (el) => (seen(el) ? box(el) : null);
+    const type = (el) => { const s = getComputedStyle(el); return [s.fontSize, s.lineHeight, s.fontWeight].join(' / '); };
     // The element itself is what is at its middle: nothing lies over it.
     const onTop = (el) => { const b = el.getBoundingClientRect(); const at = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return Boolean(at) && (at === el || el.contains(at)); };
+    const chevron = (el) => (seen(el) ? { ...box(el), drawing: box(el.querySelector('svg')), colour: getComputedStyle(el).color } : null);
+    const word = (side) => {
+        const a = document.querySelector(`#project-info .neighbours .${side}`);
+        if (!a) return null;
+        const s = getComputedStyle(a);
+        const span = a.querySelector('span');
+        return { ...box(a), word: box(span), text: a.textContent.trim(), href: a.getAttribute('href'), position: s.position, colour: s.color, underline: s.textDecorationLine, type: type(a), lean: span ? getComputedStyle(span).transform : '', inline: span ? getComputedStyle(span).display : '' };
+    };
+    const info = document.querySelector('#project-info');
+    const all = [...document.querySelectorAll('project-slides')];
     return {
         y: scrollY,
         max: document.documentElement.scrollHeight - innerHeight,
@@ -359,82 +468,137 @@ const lie = (page) => page.evaluate(() => {
         snap: getComputedStyle(document.documentElement).scrollSnapType,
         head: box(document.querySelector('.project-head')),
         headOnTop: onTop(document.querySelector('.back a')) && onTop(document.querySelector('.project-head h1 a')),
-        sets: [...document.querySelectorAll('project-slides')].map((el) => {
+        sets: all.map((el, n) => {
             const slides = [...el.querySelectorAll('.slide')];
             const shown = slides.filter(seen);
             const now = shown[0];
             const img = now?.querySelector('img');
+            const caption = now?.querySelector('.caption');
             return {
                 ...box(el),
                 label: el.querySelector('.slides')?.getAttribute('aria-label') ?? '',
                 count: slides.length,
+                // The last of several sets: it has more room under it (client/project.css).
+                last: all.length > 1 && n === all.length - 1,
                 shown: shown.length,
                 current: slides.indexOf(now),
                 index: el.state?.index ?? 0,
                 files: slides.map(sl => decodeURIComponent(sl.querySelector('img').getAttribute('src')).split('/').pop()),
                 a: img ? Math.round((img.getAttribute('width') / img.getAttribute('height')) * 10000) / 10000 : null,
+                slide: box(now),
                 frame: box(now?.querySelector('.frame')),
                 image: box(img),
                 fit: img ? getComputedStyle(img).objectFit : '',
                 sizes: [img?.getAttribute('sizes') ?? null, now?.querySelector('source')?.getAttribute('sizes') ?? null],
                 border: now ? ['Top', 'Right', 'Bottom', 'Left'].map(k => getComputedStyle(now.querySelector('.frame'))[`border${k}Width`]).join(' ') : '',
                 shadow: now ? getComputedStyle(now.querySelector('.frame')).boxShadow : '',
-                prev: seen(now?.querySelector('.prev')) ? box(now.querySelector('.prev')) : null,
-                next: seen(now?.querySelector('.next')) ? box(now.querySelector('.next')) : null,
-                caption: seen(now?.querySelector('.caption')) ? box(now.querySelector('.caption')) : null,
+                prev: chevron(now?.querySelector('.prev')),
+                next: chevron(now?.querySelector('.next')),
+                caption: seen(caption) ? { ...box(caption), type: type(caption), colour: getComputedStyle(caption).color } : null,
             };
         }),
-        info: box(document.querySelector('#project-info')),
-        desc: box(document.querySelector('#project-info .description')),
+        info: box(info),
+        position: info ? getComputedStyle(info).position : '',
+        facts: part(info?.querySelector('.facts')),
+        about: part(info?.querySelector('.about')),
+        desc: part(info?.querySelector('.description')),
+        first: part(info?.querySelector('.description p')),
+        line: part(info?.querySelector('.facts p')),
+        prev: word('prev'),
+        next: word('next'),
     };
 });
-// The information at rest (CLAUDE.md, "The project page's scroll"). In two columns (from 760px): the
-// section's top 72px from the top of the window, 7px above the header's lower edge, which puts the
-// first line box of the description at 74px. In one column (below 760px): 16px lower, at 88px, clear
-// of a header whose title has wrapped onto a second line. Returns what is off, or ''.
-const restAt = (at) => (at.vw >= 760 ? 72 : 88);
+// The information at rest (client/project.css). From 900px it does not move: it stays under the header
+// (its top at the header's 71px, its first lines 4px lower) while the sets scroll by on the left.
+// Below 900px it comes to rest after the sets, 9px under a header of one line (95px), so that its first
+// line is clear of a header whose title has wrapped onto a second line. Returns what is off, or ''.
+const restAt = (at) => (at.vw >= WIDE ? 71 : 104);
 const infoOff = (at) => {
     const off = [];
     if (Math.abs(at.info.top - restAt(at)) > 0.5) off.push(`the information's top at ${at.info.top}, not ${restAt(at)}`);
-    if (at.desc && at.vw >= 760 && Math.abs(at.desc.top - 74) > 0.5) off.push(`the description's first line at ${at.desc.top}, not 74`);
+    if (at.vw >= WIDE && at.first && Math.abs(at.first.top - 75) > 0.5) off.push(`the description's first line at ${at.first.top}, not 75`);
+    if (at.vw >= WIDE && at.line && Math.abs(at.line.top - 75) > 0.5) off.push(`the facts' first line at ${at.line.top}, not 75`);
     return off.join('; ');
 };
-// What the design gives the current photo of a set (CLAUDE.md, "Slideshow"): the set is the window
-// less the 79px header; the photo is the largest that fits the page less, on each side, a 44px
-// chevron target, a 14.25px gap and a 16px edge (below 600px: the chevron targets only), and the
-// set's height less the 63px caption room: its limiting side reaches that limit exactly. It has no
-// border, the picture fills its box (stretched over it, `object-fit: fill`, so no pixel of the box is left
-// to the ground colour), the shadow lies directly around it, and its `sizes` says that width. It is centred in the
-// page, the caption room under it, a chevron 14.25px from either side (0 below 600px). For a photo
-// of 1.4995 at 1366 × 710 that is 851.7 × 567.98 at 257.14, 79: the outer edge of the 845.72 ×
-// 567.98 frame the slideshow had while photos had a 6px border, and 3px more on either side.
+// What the design gives the current photo of a set, and the row under it (components/project-slides.css).
+// The photo is as large as fits its room (roomOf, photoWidth): the side that limits it is exactly on its
+// limit. It has no border, its picture fills its box (stretched over it, `object-fit: fill`), the shadow
+// lies directly around it, and its `sizes` says its width. It stands at the top of its set: from 900px
+// with its right edge at the page's centre less half the 17px between the halves, below 900px in the
+// middle of the page. Under it one row: the caption (12px under the photo from 900px, 14px below), and
+// at either end of the row a chevron in a column of its own (36px from 900px, 26px below): from 900px the
+// row is as wide as the photo, below 900px as the page less 24px on either side, so there the chevrons are
+// at the page's edges whatever the photo. The chevron's drawing is 12.4 × 14.3 at the row's very end.
+// A chevron is 44px tall, in the middle of the row's height, so its drawing is beside the middle of the
+// caption. From 900px on a page that has "previous" in its corner it starts 8px under the photo and is as
+// tall as the row (its drawing still beside the caption's middle), and beside a photo that reaches into
+// that corner (within 59px of the half's left edge) it is 52.5px at most: its drawing is then no lower
+// than beside a caption of three lines, however long the caption.
+// A set is as tall as its photo and that row, and at least the window less the header below 900px; from
+// 900px it ends 20px under the row (the last of several sets 52px more, on a page with "previous").
 // Returns what is off, or ''.
 const offDesign = (set, at) => {
-    const near = (a, b) => Math.abs(a - b) <= 0.5;
+    const d = pageOf(at.vw);
+    const near = (a, b, by = 0.5) => Math.abs(a - b) <= by;
     const off = [];
     if (!set.frame) return 'no photo shown';
-    const room = Math.max(63, set.caption ? set.caption.height + 23.4 : 0);
-    const gap = at.vw <= 600 ? 0 : 14.25;
-    const limit = { width: at.vw - 2 * (44 + gap + (at.vw <= 600 ? 0 : 16)), height: Math.max(160, at.vh - 79 - 63) };
-    const width = Math.min(limit.width, limit.height * set.a);
+    const room = roomOf(at.vw, at.vh);
+    const cornered = set.count > 1 && Boolean(at.prev);
+    const width = photoWidth(set.a, at.vw, at.vh, cornered);
     const frame = { width, height: width / set.a };
-    if (!near(set.width, at.vw) || !near(set.height, Math.max(at.vh - 79, frame.height + room))) off.push(`set ${set.width}×${set.height}`);
     if (!near(set.frame.width, frame.width) || !near(set.frame.height, frame.height)) off.push(`photo ${set.frame.width}×${set.frame.height}, not ${frame.width}×${frame.height}`);
-    if (Math.abs(set.frame.width - limit.width) > EXACT && Math.abs(set.frame.height - limit.height) > EXACT) off.push(`photo ${set.frame.width}×${set.frame.height} reaches neither limit of ${limit.width}×${limit.height}`);
-    if (set.frame.width > limit.width + EXACT || set.frame.height > limit.height + EXACT) off.push(`photo ${set.frame.width}×${set.frame.height} larger than ${limit.width}×${limit.height}`);
+    const limits = [[set.frame.width, room.width], [set.frame.height, room.height], ...(d.wide && cornered ? [[set.frame.width, room.width - CLEAR], [set.frame.height, room.height - LOWER]] : [])];
+    if (!limits.some(([side, limit]) => Math.abs(side - limit) <= EXACT)) off.push(`photo ${set.frame.width}×${set.frame.height} reaches none of its limits in ${room.width}×${room.height}`);
+    if (set.frame.width > room.width + EXACT || set.frame.height > room.height + EXACT) off.push(`photo ${set.frame.width}×${set.frame.height} larger than ${room.width}×${room.height}`);
     if (set.border !== '0px 0px 0px 0px') off.push(`a border (${set.border})`);
     if (set.shadow !== SHADOW) off.push(`shadow ${set.shadow}`);
     if (!['left', 'top', 'width', 'height'].every(k => near(set.image[k], set.frame[k]))) off.push(`the picture (${set.image.width}×${set.image.height}) does not fill its box`);
     if (set.fit !== 'fill') off.push(`the picture is object-fit: ${set.fit}, which can leave a line of the ground between it and its shadow`);
-    off.push(...sizesOff([{ name: 'photo', width: set.frame.width, sizes: set.sizes }], at.iw, at.vh));
-    if (!near(set.frame.left, (at.vw - frame.width) / 2)) off.push(`photo left ${set.frame.left}`);
-    if (!near(set.frame.top - set.top, (set.height - frame.height - room) / 2)) off.push(`photo ${set.frame.top - set.top} under the set's top`);
-    if (set.caption && !near(set.caption.top - set.frame.bottom, 16)) off.push(`caption ${set.caption.top - set.frame.bottom} under the photo, not 16`);
+    const [img, source] = set.sizes;
+    if (img !== null || source !== null) {
+        const px = slideSizesPx(img ?? '', at.iw, at.vh);
+        if (source !== null && source !== img) off.push(`<source> says ${source}, <img> ${img}`);
+        else if (!(Math.abs(px - set.frame.width) <= 1)) off.push(`sizes gives ${Number.isNaN(px) ? 'nothing this check can read' : `${Math.round(px * 100) / 100}px`}, the photo is ${Math.round(set.frame.width * 100) / 100}px wide (${img})`);
+    }
+    if (d.wide ? !near(set.frame.right, at.vw / 2 - d.between / 2) : !near(set.frame.left, (at.vw - frame.width) / 2)) off.push(`photo from ${set.frame.left} to ${set.frame.right} in a page ${at.vw} wide`);
+    if (!near(set.frame.top, set.top)) off.push(`photo ${set.frame.top - set.top} under the set's top`);
+    const row = d.wide ? { left: set.frame.left, right: set.frame.right } : { left: d.side, right: at.vw - d.side };
+    if (!near(set.slide.left, row.left) || !near(set.slide.right, row.right)) off.push(`the row under the photo from ${set.slide.left} to ${set.slide.right}, not ${row.left} to ${row.right}`);
+    if (!near(set.left, d.wide ? d.side : 0) || !near(set.width, d.wide ? room.width : at.vw)) off.push(`set from ${set.left}, ${set.width} wide`);
+    const tall = Math.max(set.prev || set.next ? 52 : 0, set.caption ? set.caption.height + d.under + 8 : 0);
+    if (set.caption) {
+        if (!near(set.caption.top - set.frame.bottom, d.under)) off.push(`caption ${set.caption.top - set.frame.bottom} under the photo, not ${d.under}`);
+        if (!near(set.caption.left, row.left + d.chevron) || !near(set.caption.right, row.right - d.chevron)) off.push(`caption from ${set.caption.left} to ${set.caption.right}, not between the chevrons' columns (${row.left + d.chevron} to ${row.right - d.chevron})`);
+        if (set.caption.type !== d.caption) off.push(`caption ${set.caption.type}`);
+    }
     if (set.count > 1 && !set.prev && !set.next) off.push('no chevron');
     for (const arrow of [set.prev, set.next]) {
         if (!arrow) continue;
-        const space = arrow === set.prev ? set.frame.left - arrow.right : arrow.left - set.frame.right;
-        if (!near(space, gap) || !near(arrow.width, 44) || !near(arrow.height, 44) || !near(arrow.top + 22, set.frame.top + set.frame.height / 2)) off.push(`chevron ${space} from the photo`);
+        const name = arrow === set.prev ? 'left' : 'right';
+        if (!near(arrow.width, d.chevron) || (arrow === set.prev ? !near(arrow.left, row.left) : !near(arrow.right, row.right))) off.push(`${name} chevron from ${arrow.left} to ${arrow.right}, not at the row's end`);
+        // A chevron is 44px tall in the middle of the row's height. From 900px on a page with "previous" it is as tall as the row
+        // instead (its drawing in the same place), and beside a photo that comes within 59px of the half's left edge 52.5px at most.
+        const most = room.width - set.frame.width < 59 ? 52.5 : Infinity;
+        const want = d.wide && at.prev ? { top: set.frame.bottom + 8, height: Math.min(most, Math.max(44, tall - 8)) } : { top: set.frame.bottom + (tall - 52) / 2 + 8, height: 44 };
+        if (!near(arrow.top, want.top) || !near(arrow.height, want.height)) off.push(`${name} chevron ${arrow.top - set.frame.bottom} under the photo and ${arrow.height} tall, not ${want.top - set.frame.bottom} and ${want.height}`);
+        const g = arrow.drawing;
+        if (!near(g.width, 12.4, 0.05) || !near(g.height, 14.3, 0.05) || (arrow === set.prev ? !near(g.left, arrow.left, 0.05) : !near(g.right, arrow.right, 0.05)) || !near(g.top + g.height / 2, arrow.top + arrow.height / 2, 0.05)) off.push(`${name} chevron's drawing ${g.width}×${g.height} at ${g.left - arrow.left}, ${g.top - arrow.top} in its column`);
+        if (arrow.colour !== 'rgb(153, 86, 122)') off.push(`${name} chevron ${arrow.colour}`);
+    }
+    const height = d.wide ? frame.height + tall + 20 + (set.last && at.prev ? 52 : 0) : Math.max(at.vh - d.head, frame.height + tall);
+    if (!near(set.height, height)) off.push(`set ${set.height} tall, not ${height}`);
+    return off.join('; ');
+};
+// Nothing of a set's current photo, its caption and its chevrons lies over another of them or outside the page,
+// and the row under the photo ends before whatever follows the set. Returns what is off, or ''.
+const overlapping = (set, at) => {
+    const off = [];
+    const over = (a, b) => a && b && a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
+    const parts = [['photo', set.frame], ['caption', set.caption], ['left chevron', set.prev], ['right chevron', set.next]].filter(([, b]) => b);
+    for (let i = 0; i < parts.length; i++) for (let k = i + 1; k < parts.length; k++) if (over(parts[i][1], parts[k][1])) off.push(`the ${parts[i][0]} and the ${parts[k][0]} overlap`);
+    for (const [name, b] of parts) {
+        if (b.left < -0.5 || b.right > at.vw + 0.5) off.push(`the ${name} reaches outside the page (${b.left} to ${b.right})`);
+        if (b.bottom > set.bottom + 0.5 || b.top < set.top - 0.5) off.push(`the ${name} reaches outside its set`);
     }
     return off.join('; ');
 };
@@ -454,30 +618,38 @@ try {
         let pageMisses = [];
         let photoMisses = [];
         const infoMisses = [];
+        const scriptMisses = [];
         const arrowMisses = [];
         const titleOf = Object.fromEntries(published.map(p => [p.data.slug, text(p.data.title)]));
         for (const p of published) {
             const res = await fetch(`${base}/projects/${p.data.slug}/`);
             const firstWords = opening(p.content);
             const body = await res.text();
-            // The information: the lines of the left column are the project's own and no others; the
-            // description is there only if there is one; and the section prints nothing else (no row,
+            // The information: the lines of the facts are the project's own and no others (type, role, for,
+            // the years, then its details, block by block); the description is there only if there is one;
+            // and the section prints nothing else but the two words that lead to its neighbours (no row,
             // no heading: the title is in the page header only). A client, a tag or a photo link may
-            // well hold the title's words, so this looks for text outside the three parts, not for the title.
+            // well hold the title's words, so this looks for text outside the parts, not for the title.
             const section = sectionOf(body);
             const lines = linesOf(section);
             const want = factsOf(p).map(html);
-            const others = section.replace(/<div class="description">[\s\S]*?<\/div>/, '').replace(/<ul class="links">[\s\S]*?<\/ul>/, '').replace(/<div class="facts">[\s\S]*?<\/div>/, '');
+            const others = section.replace(/<div class="description">[\s\S]*?<\/div>/, '').replace(/<ul class="links">[\s\S]*?<\/ul>/, '').replace(factsHtml(section), '').replace(/<nav class="neighbours"[\s\S]*?<\/nav>/, '');
             const wrong = [];
             if (lines.join(' | ') !== want.join(' | ')) wrong.push(`lines "${lines.join(' | ')}", not "${want.join(' | ')}"`);
+            if (JSON.stringify(blocksOf(section)) !== JSON.stringify(detailsOf(p).map(block => block.map(html)))) wrong.push(`details in blocks of ${blocksOf(section).map(b => b.length).join(' + ') || 0} lines, not ${detailsOf(p).map(b => b.length).join(' + ') || 0}`);
             if (/<div class="description">/.test(section) !== Boolean(p.content.trim())) wrong.push('description');
-            if (textOf(others).trim() || /<h\d|class="(row|title)"/.test(others)) wrong.push(`the section prints more than its lines, its description and its photo links: "${textOf(others).trim().slice(0, 40)}"`);
+            if (textOf(others).trim() || /<h\d|class="(row|title)"/.test(others)) wrong.push(`the section prints more than its lines, its description, its photo links and the links to its neighbours: "${textOf(others).trim().slice(0, 40)}"`);
             if (wrong.length) infoMisses.push(`${p.data.slug}: ${wrong.join(', ')}`);
+            // A page with a photo loads client/zoom.js, which opens a photo on a double click; a page
+            // without one loads no script at all. The slideshow's own scripts only where a set has a photo to move to.
+            const loads = [...body.matchAll(/<script[^>]*\ssrc="([^"]*)"/g)].map(m => m[1].split('/').pop());
+            const wantLoads = [...(photos(p).length ? ['zoom.js'] : []), ...(scripted(p) ? ['nunjucks.min.js', 'idiomorph.min.js', 'project.js'] : [])];
+            if (loads.join() !== wantLoads.join()) scriptMisses.push(`${p.data.slug}: ${loads.join(', ') || 'none'}, not ${wantLoads.join(', ') || 'none'}`);
             // The arrows: to the project before and the one after in the home page's list, none at either end.
             const at = listed.indexOf(p.data.slug);
             for (const [side, word, to] of [['prev', 'Previous', listed[at - 1]], ['next', 'Next', listed[at + 1]]]) {
                 const arrow = arrowOf(section, side);
-                const wanted = at >= 0 && to ? { href: `/projects/${to}/`, name: `${word} project: ${html(titleOf[to])}` } : null;
+                const wanted = at >= 0 && to ? { href: `/projects/${to}/`, name: `${word} project: ${html(titleOf[to])}`, word: `<span>${word.toLowerCase()}</span>` } : null;
                 if (JSON.stringify(arrow) !== JSON.stringify(wanted)) arrowMisses.push(`${p.data.slug} ${side}: ${arrow ? `${arrow.href} "${arrow.name}"` : 'none'}, not ${wanted ? `${wanted.href} "${wanted.name}"` : 'none'}`);
             }
             if (res.status !== 200 || !body.includes(`<h1><a href="#project-info">${html(p.data.title)}</a></h1>`) || !body.includes('id="project-info"') || (firstWords && !textOf(body).includes(firstWords))) pageMisses.push(p.data.slug);
@@ -490,22 +662,24 @@ try {
         }
         check('1+3. every project page answers 200 with its title and description in the HTML', pageMisses.length === 0, pageMisses.join(', '));
         check('1+3. every project page has every photo and caption in the HTML, one slideshow per set', photoMisses.length === 0, photoMisses.join(', '));
-        check('3. every project\'s information prints its own type, role, client and years, each on a line and none for what is empty, its description if it has one, and nothing else: not its title', infoMisses.length === 0, infoMisses.slice(0, 4).join('; '));
-        check(`3. every project page's arrows lead to the project before and the one after in the Index's order, by name, with none before the first or after the last (${listed.length} projects)`, listed.length === published.length && arrowMisses.length === 0, arrowMisses.slice(0, 4).join('; '));
+        check(`3. every project's information prints its own type, role, client and years and its details, each on a line and none for what is empty, the details in their blocks, its description if it has one, and nothing else but the links to its neighbours: not its title (${published.filter(p => detailsOf(p).length).length} project${published.filter(p => detailsOf(p).length).length === 1 ? '' : 's'} with details)`, infoMisses.length === 0, infoMisses.slice(0, 4).join('; '));
+        check(`3. every project page's two words lead to the project before and the one after in the Index's order, "previous" and "next" in the HTML and each named after the project it opens, with none before the first or after the last (${listed.length} projects)`, listed.length === published.length && arrowMisses.length === 0, arrowMisses.slice(0, 4).join('; '));
+        check(`3. every project page with a photo loads client/zoom.js, a page whose sets hold a photo to move to the slideshow's scripts as well, and a page without photos no script (${published.filter(p => photos(p).length).length} pages with photos, ${published.filter(scripted).length} with a slideshow to move)`, scriptMisses.length === 0, scriptMisses.slice(0, 4).join('; '));
 
         // The page template with each field emptied in turn (the content need not have such a project).
         {
             const site = createEnvironment(nunjucks, { templates: [root], components: join(root, 'components') });
-            const full = { slug: 'x', title: 'A title', href: '/projects/x/', years: '2020', tags: ['one', 'two'], role: 'maker', client: 'someone', body: '<p>Words.</p>', sets: [], scripted: false, photoLinks: [], prevHref: '/projects/w/', prevTitle: 'Before', nextHref: '/projects/y/', nextTitle: 'After' };
+            const full = { slug: 'x', title: 'A title', href: '/projects/x/', years: '2020', tags: ['one', 'two'], role: 'maker', client: 'someone', details: '', body: '<p>Words.</p>', sets: [], scripted: false, photoLinks: [], prevHref: '/projects/w/', prevTitle: 'Before', nextHref: '/projects/y/', nextTitle: 'After' };
+            const more = '<div class="extra">\n<p>A line</p>\n<p>Another</p>\n</div>';
             const render = (over) => sectionOf(site.render('shared/pages/project.html', { pageTitle: full.title, project: { ...full, ...over } }));
             const all = ['type: one, two', 'role: maker', 'for: someone', '2020'];
             const wrong = [];
             const expect = (name, over, lines, has = {}) => {
                 const section = render(over);
                 const got = linesOf(section);
-                const parts = { facts: lines.length > 0, about: true, description: true, links: false, neighbours: true, prev: true, next: true, ...has };
+                const parts = { facts: lines.length > 0, extra: false, about: true, description: true, links: false, neighbours: true, prev: true, next: true, ...has };
                 if (got.join(' | ') !== lines.join(' | ')) wrong.push(`${name}: lines "${got.join(' | ')}"`);
-                if (/<p[^>]*>\s*<\/p>|<span class="label">[^<]*<\/span>\s*<\/p>/.test(section)) wrong.push(`${name}: an empty line or a label with nothing after it`);
+                if (/<p[^>]*>\s*<\/p>|<span class="label">[^<]*<\/span>\s*<\/p>|<div class="extra">\s*<\/div>/.test(section)) wrong.push(`${name}: an empty line, an empty block or a label with nothing after it`);
                 for (const [part, there] of Object.entries(parts)) if (new RegExp(`class="${part}"`).test(section) !== there) wrong.push(`${name}: ${part} ${there ? 'missing' : 'printed'}`);
             };
             expect('everything filled in', {}, all);
@@ -514,13 +688,53 @@ try {
             expect('no client', { client: '' }, all.filter(l => !l.startsWith('for')));
             expect('no years', { years: '' }, all.slice(0, 3));
             expect('years only', { tags: [], role: '', client: '' }, ['2020']);
+            expect('details', { details: more }, [...all, 'A line', 'Another'], { extra: true });
+            expect('details only', { tags: [], role: '', client: '', years: '', details: more }, ['A line', 'Another'], { extra: true });
             expect('no description', { body: '' }, all, { about: false, description: false });
             expect('nothing at all', { tags: [], role: '', client: '', years: '', body: '' }, [], { about: false, description: false });
             expect('photo links and no description', { body: '', photoLinks: [{ label: 'Photos', url: 'https://example.com/' }] }, all, { description: false, links: true });
             expect('the first project', { prevHref: '', prevTitle: '' }, all, { prev: false });
             expect('the last project', { nextHref: '', nextTitle: '' }, all, { next: false });
             expect('the only project', { prevHref: '', prevTitle: '', nextHref: '', nextTitle: '' }, all, { neighbours: false, prev: false, next: false });
-            check('3. the information leaves out what is empty: no line or label for missing tags, role, client or years, no column for a missing description (the photo links alone if there are any), no arrow where there is no neighbour (the page template, each field emptied in turn)', wrong.length === 0, wrong.slice(0, 4).join('; '));
+            check('3. the information leaves out what is empty: no line or label for missing tags, role, client or years, no block without details, no column for a missing description (the photo links alone if there are any), no word where there is no neighbour (the page template, each field emptied in turn)', wrong.length === 0, wrong.slice(0, 4).join('; '));
+        }
+        // "More details", from the text as typed to what the page prints (server/markdown.js, server/content.js): an empty
+        // line ends a block; every other line is a line of its own; a line is one line of Markdown (a link, bold, slanted
+        // words); the mark of a list line is dropped; raw HTML comes out escaped; nothing typed prints nothing.
+        {
+            const lines = (typed) => markdownLines(typed);
+            const table = [
+                ['one line', 'A line', [['A line']]],
+                ['two lines are two lines, not one paragraph', 'First\nSecond', [['First', 'Second']]],
+                ['an empty line starts a new block', 'First\n\nSecond\nThird', [['First'], ['Second', 'Third']]],
+                ['several empty lines, and lines of spaces, are one break', 'First\n\n  \n\t\nSecond', [['First'], ['Second']]],
+                ['empty lines at either end make no block', '\n\nFirst\n\n', [['First']]],
+                ['Windows line ends', 'First\r\nSecond\r\n\r\nThird', [['First', 'Second'], ['Third']]],
+                ['a link', '[KIOSK](https://kioskrotterdam.com/)', [['<a href="https://kioskrotterdam.com/">KIOSK</a>']]],
+                ['bold', '**stockists:**', [['<strong>stockists:</strong>']]],
+                ['slanted words', 'In *The Title*', [['In <em><span>The</span> <span>Title</span></em>']]],
+                ['the mark of a list line is dropped', '- one\n* two\n  - three', [['one', 'two', 'three']]],
+                ['a line that only looks like a list line is kept', '-5 degrees\n*slanted*', [['-5 degrees', '<em><span>slanted</span></em>']]],
+                ['raw HTML is escaped', 'A <b>bold</b> <script>alert(1)</script> line', [['A &lt;b&gt;bold&lt;/b&gt; &lt;script&gt;alert(1)&lt;/script&gt; line']]],
+                ['an ampersand and a quote are escaped', 'Fish & "chips"', [['Fish &amp; &quot;chips&quot;']]],
+                ['a link that is not a web, mail or site address prints its words only', '[x](javascript:alert(1))', [['x']]],
+                ['nothing typed', '', []],
+                ['only white space', '  \n\n ', []],
+            ];
+            const off = table.filter(([, typed, want]) => JSON.stringify(lines(typed)) !== JSON.stringify(want)).map(([name, typed]) => `${name}: ${JSON.stringify(lines(typed))}`);
+            const none = [undefined, null, 5, {}].filter(v => lines(v).length).length;
+            check(`3. "More details": every line typed is a line, an empty line starts a new block, a line takes a link, bold and slanted words, the mark of a list line is dropped, raw HTML is escaped, and nothing typed gives nothing (${table.length} cases)`, off.length === 0 && none === 0, off.slice(0, 3).join('; ') || `${none} values that are no text gave lines`);
+            // On the page each block is a <div class="extra"> of <p>s, in the facts, after the years.
+            const withDetails = published.filter(p => detailsOf(p).length);
+            const placed = withDetails.filter((p) => {
+                const facts = factsHtml(sectionOf(readFileSync(join(dist, 'projects', p.data.slug, 'index.html'), 'utf8')));
+                const years = facts.indexOf('<p class="years">');
+                const first = facts.indexOf('<div class="extra">');
+                const inside = [...facts.matchAll(/<div class="extra">([\s\S]*?)<\/div>/g)].map(m => m[1]);
+                return !(first > 0 && (years < 0 || years < first) && inside.every(block => !/<(?!\/?(?:p|a|strong|em|span)\b)/.test(block)));
+            }).map(p => p.data.slug);
+            if (!withDetails.length) check('3. a project\'s details on its page: ok (no project in content has details; the check was skipped)', true);
+            else check(`3. a project's details are in its facts, after the years, each block a group of lines and nothing in them but lines, links, bold and slanted words (${withDetails.map(p => p.data.slug).join(', ')})`, placed.length === 0, placed.join(', '));
         }
         const info = await (await fetch(`${base}/info/`)).text();
         const infoWords = opening(matter(readFileSync(join(root, 'content/site/info.md'), 'utf8'), {}).content);
@@ -689,6 +903,7 @@ try {
                     prev: seen(shown[0]?.querySelector('.prev')),
                     next: seen(shown[0]?.querySelector('.next')),
                     focus: document.activeElement?.className ?? '',
+                    open: document.querySelectorAll('.zoom').length,
                 };
             });
             const start = await look();
@@ -700,11 +915,31 @@ try {
             const other = muts.filter(m => !['attributes LI [class]', 'attributes IMG [loading]', 'characterData #text'].includes(m));
             check('3. the "next" chevron shows the second photo, between two chevrons, and keeps focus', second.shown === 1 && second.current === 1 && second.prev && second.next && second.focus.includes('next'), JSON.stringify(second));
             check('3. changing photo touches only the current class, the next photo\'s loading and the status line', other.length === 0, other.slice(0, 5).join('; '));
+            // A click on the photo: client/zoom.js holds it back to see whether a second follows (two open the
+            // photo), then hands it on. Timed in the page, from the click to the change of photo.
+            await page.evaluate(() => {
+                window.__took = new Promise((resolve) => {
+                    const set = document.querySelector('project-slides:first-of-type');
+                    const was = set.state.index;
+                    let clicked = 0;
+                    let seenAt = -1;
+                    document.addEventListener('click', () => {
+                        clicked = performance.now();
+                        // What shows a moment after the click: still the photo that was clicked.
+                        setTimeout(() => { seenAt = set.state.index; }, 60);
+                    }, { capture: true, once: true });
+                    const watch = new MutationObserver(() => { if (set.state.index !== was) { watch.disconnect(); resolve({ ms: performance.now() - clicked, early: seenAt, was }); } });
+                    watch.observe(set, { subtree: true, attributes: true, attributeFilter: ['class'] });
+                    setTimeout(() => { watch.disconnect(); resolve({ ms: -1, early: seenAt, was }); }, 4000);
+                });
+            });
             await page.click(`${top} .current .frame`);
+            const took = await page.evaluate(() => window.__took);
             const third = await look();
             await page.keyboard.press('ArrowLeft');
             const left = await look();
-            check('3. a click on the photo goes on, the left arrow key goes back', third.current === 2 && left.current === 1, `${third.current}, ${left.current}`);
+            check(`3. a click on the photo goes on to the next, once the ${ZOOM_WAIT} ms are over in which a second click would have opened it (${Math.round(took.ms)} ms; until then the photo stays); the left arrow key goes back`,
+                took.early === took.was && took.ms >= ZOOM_WAIT - 5 && took.ms < ZOOM_WAIT + 600 && third.current === 2 && third.open === 0 && left.current === 1, `${JSON.stringify(took)}; then photo ${third.current + 1}, then ${left.current + 1}`);
             await page.focus(`${top} .current .next`);
             await page.keyboard.press('ArrowRight');
             const kept = await page.evaluate(() => document.activeElement?.closest('project-slides:first-of-type .slide.current') !== null && document.activeElement?.classList.contains('arrow'));
@@ -712,13 +947,9 @@ try {
             for (let i = 0; i < count + 1; i++) await page.keyboard.press('ArrowRight');
             const end = await look();
             await page.click(`${top} .current .frame`);
+            await page.waitForTimeout(ZOOM_WAIT + 250);
             const still = await look();
-            check('3. the last photo has no "next", and a click on it stays', end.current === count - 1 && end.prev && !end.next && still.current === count - 1, JSON.stringify(end));
-            await page.click('.project-head h1 a');
-            await page.waitForFunction(() => location.hash === '#project-info');
-            await rest(page);
-            const info = await lie(page);
-            check('3. the title link brings the project information to rest with its top 72px from the top of the window (the description\'s first line at 74px), the header in place', infoOff(info) === '' && info.head.top === 0, infoOff(info) || `header top ${info.head.top}`);
+            check('3. the last photo has no "next", and a click on it stays', end.current === count - 1 && end.prev && !end.next && still.current === count - 1 && still.open === 0, JSON.stringify(end));
         }
         if (captioned) {
             const at = firstSet(captioned).findIndex(im => im.caption);
@@ -728,116 +959,473 @@ try {
             const shown = await page.evaluate(() => [...document.querySelectorAll('project-slides:first-of-type .caption')].filter(c => c.getClientRects().length).map(c => c.textContent.replace(/\s+/g, ' ').trim()));
             check('3. a photo\'s caption shows under it, and only its own', shown.length === 1 && shown[0] === words(firstSet(captioned)[at].caption), shown.join(' | '));
         }
+        // The page as the server sent it, parsed again in the page: is the document still that?
+        const asSent = () => page.evaluate(async () => {
+            const sent = new DOMParser().parseFromString(await (await fetch(location.pathname)).text(), 'text/html');
+            return sent.body.innerHTML === document.body.innerHTML && sent.head.innerHTML === document.head.innerHTML;
+        });
         if (single) {
             await page.goto(`${base}/projects/${single.data.slug}/`);
-            const lone = await page.evaluate(() => ({ arrows: document.querySelectorAll('project-slides .arrow').length, slides: document.querySelectorAll('project-slides .slide').length, scripts: document.scripts.length }));
-            check('3. a project with one photo has no chevrons and no script', lone.arrows === 0 && lone.slides === 1 && lone.scripts === 0, JSON.stringify(lone));
+            await page.waitForTimeout(150);
+            const lone = await page.evaluate(() => ({ arrows: document.querySelectorAll('project-slides .arrow').length, slides: document.querySelectorAll('project-slides .slide').length, scripts: [...document.scripts].map(s => s.src.split('/').pop()).join(), defined: Boolean(customElements.get('project-slides')) }));
+            check('3. a project with one photo has no chevrons, and no script but zoom.js: its photo is the server\'s HTML', lone.arrows === 0 && lone.slides === 1 && lone.scripts === 'zoom.js' && !lone.defined, JSON.stringify(lone));
         }
 
-        // 3. sets: every set is a slideshow of its own, one window tall under a header that stays
-        // put; with a mouse or trackpad the page snaps from set to set, then to the information.
-        {
+        // 3. a double click opens a photo to the full window (client/zoom.js); a click, Escape, Enter or
+        // the space bar closes it; meanwhile the page behind it stays as it is.
+        if (many && firstSet(many).length > 2) {
             await page.setViewportSize({ width: 1366, height: 710 });
-            const open = async (p) => {
-                await page.goto(`${base}/projects/${p.data.slug}/`);
+            await page.goto(`${base}/projects/${many.data.slug}/`);
+            await slidesReady(page);
+            const state = () => page.evaluate(() => {
+                const box = document.querySelector('.zoom');
+                const big = box?.querySelector('img');
+                const r = big?.getBoundingClientRect();
+                const a = document.activeElement;
+                return {
+                    index: document.querySelector('project-slides').state.index,
+                    open: document.querySelectorAll('.zoom').length,
+                    y: scrollY,
+                    focus: a === document.body ? 'body' : a.className || a.localName,
+                    role: box?.getAttribute('role') ?? '',
+                    modal: box?.getAttribute('aria-modal') ?? '',
+                    label: box?.getAttribute('aria-label') ?? '',
+                    alt: big?.alt ?? '',
+                    shown: document.querySelector('project-slides .slide.current img').alt,
+                    fills: Boolean(r) && r.left === 0 && r.top === 0 && r.width === innerWidth && r.height === innerHeight,
+                    fit: big ? getComputedStyle(big).objectFit : '',
+                    loaded: Boolean(big) && big.complete && big.naturalWidth > 0,
+                    onTop: Boolean(box) && document.elementFromPoint(innerWidth / 2, innerHeight / 2)?.closest('.zoom') === box && document.elementFromPoint(20, 20)?.closest('.zoom') === box,
+                    selected: String(getSelection()),
+                };
+            });
+            const dbl = async () => {
+                await page.dblclick(`${top} .current .frame`);
+                await page.waitForFunction(() => { const img = document.querySelector('.zoom img'); return Boolean(img) && img.complete && img.naturalWidth > 0; }, null, { timeout: 5000 }).catch(() => {});
+            };
+            await dbl();
+            await page.waitForTimeout(ZOOM_WAIT + 150);
+            const opened = await state();
+            check('3. a double click on a photo opens it to the full window: whole, over everything, the photo that was clicked; the set does not move on and nothing is selected',
+                opened.open === 1 && opened.index === 0 && opened.fills && opened.fit === 'contain' && opened.loaded && opened.onTop && opened.selected === '', JSON.stringify(opened));
+            check('3. the open photo is a dialog named after the photo, and has keyboard focus', opened.role === 'dialog' && opened.modal === 'true' && opened.label !== '' && opened.label === opened.shown && opened.alt === opened.shown && opened.focus === 'zoom', JSON.stringify(opened));
+            await page.keyboard.press('ArrowRight');
+            await page.keyboard.press('PageDown');
+            await page.keyboard.press('Tab');
+            await page.mouse.wheel(0, 500);
+            await rest(page);
+            const behind = await state();
+            check('3. while a photo is open the arrow keys, Page Down, Tab and the wheel leave the page behind it as it is: the same photo, the same place, focus on the open photo', behind.open === 1 && behind.index === opened.index && behind.y === opened.y && behind.focus === 'zoom', JSON.stringify(behind));
+            const closes = [];
+            for (const how of ['Escape', 'Enter', ' ', 'click']) {
+                if (!(await state()).open) await dbl();
+                if (how === 'click') await page.mouse.click(683, 355);
+                else await page.keyboard.press(how);
+                await page.waitForTimeout(ZOOM_WAIT + 150);
+                const after = await state();
+                if (after.open !== 0 || after.index !== opened.index || after.y !== opened.y) closes.push(`${how === ' ' ? 'the space bar' : how}: ${JSON.stringify({ open: after.open, index: after.index, y: after.y })}`);
+            }
+            check('3. Escape, Enter, the space bar and a click each close the open photo, and the page behind is as it was: the same photo, the same place', closes.length === 0, closes.join('; '));
+            await page.keyboard.press('ArrowRight');
+            const moved = await state();
+            await page.keyboard.press('Tab');
+            const tabbed = await page.evaluate(() => (document.activeElement?.closest('project-slides:first-of-type .slide.current') !== null && document.activeElement.classList.contains('arrow') ? 'a chevron of that set' : document.activeElement?.closest('.project-head') ? 'the header' : document.activeElement?.className || document.activeElement?.localName));
+            check('3. after a photo was open the arrow keys move the photos again, and Tab goes on from the photo that was open, not from the top of the page', moved.index === opened.index + 1 && moved.open === 0 && tabbed === 'a chevron of that set', `photo ${moved.index + 1}; Tab reaches ${tabbed}`);
+            // Opened by two clicks from a script: a press of the mouse would itself take focus from the chevron.
+            await page.focus(`${top} .current .next`);
+            await page.evaluate(() => { const frame = document.querySelector('project-slides:first-of-type .current .frame'); frame.click(); frame.click(); });
+            await page.waitForSelector('.zoom', { timeout: 5000 }).catch(() => {});
+            const taken = await state();
+            await page.keyboard.press('Escape');
+            const given = await page.evaluate(() => document.activeElement?.matches('project-slides:first-of-type .slide.current .next') ?? false);
+            const after = await state();
+            check('3. what had keyboard focus when a photo was opened has it again when the photo closes', taken.open === 1 && taken.focus === 'zoom' && given && after.open === 0 && after.index === taken.index, `${taken.focus}, then ${given ? 'the chevron again' : after.focus}`);
+            // A click on a photo of one set and at once on a photo of another: both were single clicks.
+            if (multi && setsOf(multi).filter(set => set.length > 1).length > 1) {
+                await page.goto(`${base}/projects/${multi.data.slug}/`);
                 await slidesReady(page);
-                await page.mouse.move(683, 400);
+                const pair = setsOf(multi).map((set, i) => (set.length > 1 ? i : -1)).filter(i => i >= 0).slice(0, 2);
+                await page.evaluate(([a, b]) => { const sets = document.querySelectorAll('project-slides'); sets[a].querySelector('.current .frame').click(); sets[b].querySelector('.current .frame').click(); }, pair);
+                await page.waitForTimeout(ZOOM_WAIT + 250);
+                const both = await page.evaluate(() => ({ at: [...document.querySelectorAll('project-slides')].map(el => el.state.index).join(), open: document.querySelectorAll('.zoom').length }));
+                check('3. a click on a photo of one set and at once on a photo of another moves both sets on, and opens nothing', both.at === setsOf(multi).map((_, i) => (pair.includes(i) ? 1 : 0)).join() && both.open === 0, JSON.stringify(both));
+            }
+        }
+        if (single) {
+            await page.setViewportSize({ width: 1366, height: 710 });
+            await page.goto(`${base}/projects/${single.data.slug}/`);
+            await page.waitForTimeout(250);
+            const loaded = await asSent();
+            await page.click('project-slides .frame');
+            await page.waitForTimeout(ZOOM_WAIT + 250);
+            const clicked = await asSent();
+            await page.dblclick('project-slides .frame');
+            await page.waitForSelector('.zoom', { timeout: 5000 }).catch(() => {});
+            const opened = await page.evaluate(() => ({ open: document.querySelectorAll('.zoom').length, label: document.querySelector('.zoom')?.getAttribute('aria-label') ?? '', alt: document.querySelector('project-slides img').alt }));
+            await page.mouse.click(683, 355);
+            await page.waitForTimeout(150);
+            const closed = await asSent();
+            check('3. zoom.js touches nothing until a photo is opened, and leaves nothing behind: on a page with one photo the document is the server\'s HTML after loading, after a click on the photo, and again after the photo was opened by a double click and closed by a click',
+                loaded && clicked && opened.open === 1 && opened.label === opened.alt && closed, JSON.stringify({ loaded, clicked, opened, closed }));
+        }
+
+        // 3. the page's two layouts. Helpers for both.
+        {
+            const near = (a, b, by = 0.5) => Math.abs(a - b) <= by;
+            const open = async (p, hash = '') => {
+                await page.goto(`${base}/projects/${p.data.slug}/${hash}`);
+                await slidesReady(page);
+                await page.mouse.move(Math.round(page.viewportSize().width / 2), 400);
                 return lie(page);
             };
-            // One turn of the wheel, more than half a set: the page goes on to the next stop.
+            const scrollTo = async (y) => {
+                await page.evaluate(to => window.scrollTo({ top: to === 'end' ? document.documentElement.scrollHeight : to, behavior: 'instant' }), y);
+                return lie(page);
+            };
+            // One turn of the wheel, more than half a set: where the page snaps, it goes on to the next stop.
             const wheel = async (down = true) => {
-                await page.mouse.wheel(0, (down ? 1 : -1) * Math.round((await page.evaluate(() => innerHeight) - 79) * 0.6));
+                await page.mouse.wheel(0, (down ? 1 : -1) * Math.round((await page.evaluate(() => innerHeight) - pageOf(page.viewportSize().width).head) * 0.6));
+                await rest(page);
+                return lie(page);
+            };
+            // Do the two words that are fixed in the window's lower corners lie over anything? The word itself
+            // over a line of a caption or of the information (2px of air), or the link's box within 8px of a
+            // chevron's drawing. (Over a photo of a later set they may be: the sets pass under them.)
+            const covered = () => page.evaluate(() => {
+                const hit = (a, b, air) => a.left < b.right + air && b.left < a.right + air && a.top < b.bottom + air && b.top < a.bottom + air;
+                const textRects = (el) => {
+                    const out = [];
+                    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+                    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+                        if (!n.data.trim()) continue;
+                        const range = document.createRange();
+                        range.selectNodeContents(n);
+                        out.push(...[...range.getClientRects()].filter(r => r.width > 0 && r.height > 0));
+                    }
+                    return out;
+                };
+                const found = [];
+                for (const a of document.querySelectorAll('#project-info .neighbours a')) {
+                    if (getComputedStyle(a).position !== 'fixed') continue;
+                    const name = a.textContent.trim();
+                    const word = a.querySelector('span').getBoundingClientRect();
+                    const box = a.getBoundingClientRect();
+                    for (const slide of document.querySelectorAll('project-slides .slide')) {
+                        if (!slide.getClientRects().length) continue;
+                        const caption = slide.querySelector('.caption');
+                        if (caption && textRects(caption).some(r => hit(word, r, 2))) found.push(`"${name}" over a caption`);
+                        for (const svg of slide.querySelectorAll('.arrow svg')) if (svg.getClientRects().length && hit(box, svg.getBoundingClientRect(), 8)) found.push(`"${name}" on a chevron`);
+                    }
+                    for (const part of document.querySelectorAll('#project-info .facts, #project-info .about')) if (textRects(part).some(r => hit(word, r, 2))) found.push(`"${name}" over the ${part.className === 'facts' ? 'facts' : 'description'}`);
+                }
+                return [...new Set(found)];
+            });
+            // Every photo of every project in a window of width × height: each as the design has it
+            // (offDesign), nothing of it over anything else (overlapping), and, where the two words are
+            // fixed in the corners, neither over a caption, a line of text or a chevron while a set is
+            // directly under the header (as the first is when the page opens) or the page is at its end.
+            const sweep = async (width, height) => {
+                await page.setViewportSize({ width, height });
+                const d = pageOf(width);
+                const wrong = [];
+                const corners = [];
+                const tally = { photos: 0, upright: 0, lying: 0, alone: 0, bare: 0, long: 0, cleared: 0, widest: null, narrowest: null };
+                for (const p of published) {
+                    const counts = setsOf(p).map(set => set.length);
+                    if (!counts.length) continue;
+                    await page.goto(`${base}/projects/${p.data.slug}/`);
+                    await slidesReady(page);
+                    const show = (n, i) => page.evaluate(([k, j]) => document.querySelectorAll('project-slides')[k].setState?.({ index: j }), [n, i]);
+                    for (let n = 0; n < counts.length; n++) {
+                        if (d.wide && n > 0) await page.evaluate(([k, head]) => window.scrollTo({ top: document.querySelectorAll('project-slides')[k].getBoundingClientRect().top + scrollY - head, behavior: 'instant' }), [n, d.head]);
+                        for (let i = 0; i < counts[n]; i++) {
+                            if (i > 0) await show(n, i);
+                            const at = await lie(page);
+                            const set = at.sets[n];
+                            const off = [set.current === i ? '' : `photo ${set.current + 1} shows`, offDesign(set, at), overlapping(set, at)].filter(Boolean).join('; ');
+                            if (off) wrong.push(`${p.data.slug}, set ${n + 1}, photo ${i + 1}: ${off}`);
+                            if (d.wide) for (const what of await covered()) corners.push(`${p.data.slug}, set ${n + 1} under the header, photo ${i + 1}: ${what}`);
+                            tally.photos++;
+                            if (set.a < 1) tally.upright++; else tally.lying++;
+                            if (set.count === 1) tally.alone++;
+                            if (!set.caption) tally.bare++;
+                            else if (set.caption.height / parseFloat(set.caption.type.split(' / ')[1]) > 3.5) tally.long++;
+                            const room = roomOf(at.vw, at.vh);
+                            if (Math.abs(photoWidth(set.a, at.vw, at.vh, set.count > 1 && Boolean(at.prev)) - Math.min(room.width, room.height * set.a)) > 0.01) tally.cleared++;
+                            if (!tally.widest || set.a > tally.widest.a) tally.widest = { a: set.a, by: Math.abs(set.frame.width - room.width) <= EXACT ? 'width' : 'height' };
+                            if (!tally.narrowest || set.a < tally.narrowest.a) tally.narrowest = { a: set.a, by: Math.abs(set.frame.width - room.width) <= EXACT ? 'width' : 'height' };
+                        }
+                        if (counts[n] > 1) await show(n, 0);
+                    }
+                    if (d.wide) {
+                        await scrollTo('end');
+                        const last = counts.length - 1;
+                        for (let i = 0; i < counts[last]; i++) {
+                            if (i > 0) { await show(last, i); await scrollTo('end'); }
+                            for (const what of await covered()) corners.push(`${p.data.slug}, at the end of the page, photo ${i + 1} of the last set: ${what}`);
+                        }
+                    }
+                }
+                return { wrong, corners, tally };
+            };
+            const told = (t) => `${t.photos} photos: ${t.upright} taller than wide, ${t.lying} wider, ${t.alone} alone in their set, ${t.bare} without a caption, ${t.long} with a caption of four lines or more; the widest, ${t.widest.a} : 1, limited by its ${t.widest.by}, the narrowest, ${t.narrowest.a} : 1, by its ${t.narrowest.by}`;
+
+            // A project that has every part of the information and a neighbour on both sides: the one with the most to read.
+            const whole = [...published]
+                .filter(p => photos(p).length && factsOf(p).length >= 4 && texts(p.data.tags).length && texts(p.data.role).length && text(p.data.client) && text(p.data.years) && p.content.trim() && listed.indexOf(p.data.slug) > 0 && listed.indexOf(p.data.slug) < listed.length - 1)
+                .sort((a, b) => b.content.length - a.content.length)[0];
+            // One with details, if the content has one.
+            const detailed = published.filter(p => photos(p).length && detailsOf(p).length).sort((a, b) => detailsOf(b).flat().length - detailsOf(a).flat().length)[0];
+            // The information, measured: its parts, its lines, its type.
+            const measure = () => page.evaluate(() => {
+                const box = (el) => { if (!el || !el.getClientRects().length) return null; const b = el.getBoundingClientRect(); return { top: b.top, bottom: b.bottom, left: b.left, right: b.right, width: b.width, height: b.height }; };
+                const info = document.querySelector('#project-info');
+                const q = (sel) => info.querySelector(sel);
+                const all = (sel) => [...info.querySelectorAll(sel)];
+                const type = (el) => { if (!el) return ''; const s = getComputedStyle(el); return [s.fontSize, s.lineHeight, s.fontWeight].join(' / '); };
+                const lines = all('.facts > p, .facts > .extra > p');
+                return {
+                    y: scrollY,
+                    vw: document.documentElement.clientWidth,
+                    vh: innerHeight,
+                    wide: document.documentElement.scrollWidth,
+                    centre: document.documentElement.clientWidth / 2,
+                    info: box(info),
+                    position: getComputedStyle(info).position,
+                    least: getComputedStyle(info).minHeight,
+                    facts: box(q('.facts')),
+                    about: box(q('.about')),
+                    desc: box(q('.description')),
+                    paras: all('.description p').map(box),
+                    lines: lines.map(p => ({ ...box(p), text: p.textContent.replace(/\s+/g, ' ').trim(), spaced: p.classList.contains('years') ? Boolean(p.previousElementSibling) : Boolean(p.parentElement.classList.contains('extra') && !p.previousElementSibling && p.parentElement.previousElementSibling) })),
+                    types: { facts: type(lines[0]), text: type(q('.description p')) },
+                    labels: all('.label').map(l => `${l.textContent} ${getComputedStyle(l).fontWeight}`).join(', '),
+                    heavy: all('.facts > p, .description p').filter(p => getComputedStyle(p).fontWeight !== '300').length,
+                    colours: [...new Set(all('.facts, .facts *, .about, .about *').map(el => getComputedStyle(el).color))].join(' / '),
+                    ink: getComputedStyle(document.body).color,
+                    slanted: all('.facts > p, .facts > p *').filter(el => getComputedStyle(el).transform !== 'none').length,
+                    titles: all('h1, h2, h3, .row, .title').length,
+                    nav: box(q('.neighbours')),
+                };
+            });
+            // The facts' lines: each entry takes whole lines of `step` (one, or more where it wraps), and
+            // nothing is between two entries but one empty line before the years and before each block of details.
+            const linesOff = (m, step, wanted) => {
+                const off = [];
+                if (m.lines.map(l => l.text).join(' | ') !== wanted.join(' | ')) off.push(`lines "${m.lines.map(l => l.text).join(' | ')}"`);
+                m.lines.forEach((l, i) => {
+                    const takes = l.height / step;
+                    if (takes < 0.99 || !near(takes, Math.round(takes), 0.02)) off.push(`"${l.text}" takes ${takes.toFixed(3)} lines`);
+                    if (i > 0 && !near((l.top - m.lines[i - 1].bottom) / step, l.spaced ? 1 : 0, 0.02)) off.push(`${((l.top - m.lines[i - 1].bottom) / step).toFixed(3)} empty lines before "${l.text}", not ${l.spaced ? 1 : 0}`);
+                });
+                return off;
+            };
+            // The header, as both layouts have it: `back` at the left, the title in the middle of the page.
+            const headOff = async (at) => {
+                const d = pageOf(at.vw);
+                const h = await page.evaluate(() => {
+                    const type = (el) => { const s = getComputedStyle(el); return [s.fontSize, s.lineHeight, s.fontWeight].join(' / '); };
+                    const head = document.querySelector('.project-head');
+                    const title = head.querySelector('h1');
+                    const back = head.querySelector('.back');
+                    const link = back.querySelector('a');
+                    const range = document.createRange();
+                    range.selectNodeContents(title);
+                    const text = range.getBoundingClientRect();
+                    return {
+                        position: getComputedStyle(head).position, ground: getComputedStyle(head).backgroundColor, image: getComputedStyle(head).backgroundImage, page: getComputedStyle(document.body).backgroundColor,
+                        title: type(title), back: type(link), href: title.querySelector('a')?.getAttribute('href') ?? '', home: link.getAttribute('href'), word: link.textContent,
+                        middle: (text.left + text.right) / 2, titleTop: title.getBoundingClientRect().top, lines: Math.round(title.getBoundingClientRect().height / parseFloat(getComputedStyle(title).lineHeight)),
+                        backLeft: back.getBoundingClientRect().left, backTop: back.getBoundingClientRect().top, lean: getComputedStyle(link).transform, colour: getComputedStyle(link).color,
+                    };
+                });
+                const off = [];
+                const padding = d.wide ? { top: 39, side: 34 } : { top: 50, side: 24 };
+                if (h.position !== 'sticky' || !near(at.head.top, 0) || !at.headOnTop) off.push(`header ${h.position} at ${at.head.top}, its links ${at.headOnTop ? 'on top' : 'covered'}`);
+                if (h.lines === 1 && !near(at.head.height, d.head)) off.push(`header ${at.head.height} tall, not ${d.head}`);
+                if (h.ground !== h.page || h.image !== 'none') off.push(`header ground ${h.ground} ${h.image}`);
+                if (h.title !== d.title || h.back !== d.back) off.push(`title ${h.title}, back ${h.back}`);
+                if (h.href !== '#project-info' || h.home !== '/' || h.word !== 'back') off.push(`title to "${h.href}", "${h.word}" to "${h.home}"`);
+                if (!near(h.middle, at.vw / 2, 0.75)) off.push(`title's middle at ${h.middle} in a page ${at.vw} wide`);
+                if (!near(h.titleTop, padding.top) || !near(h.backTop, padding.top) || !near(h.backLeft, padding.side)) off.push(`title ${h.titleTop} down, back at ${h.backLeft}, ${h.backTop}, not ${padding.side}, ${padding.top}`);
+                if (h.colour !== 'rgb(128, 114, 121)' || !/^matrix\(1, 0, 0\.105\d*, 1, 0, 0\)$/.test(h.lean)) off.push(`back ${h.colour} ${h.lean}`);
+                return off.join('; ');
+            };
+            // A stand-in for a project without photos, if the content has none: one with its sets taken out of the page.
+            const bare = published.find(p => !photos(p).length && (factsOf(p).length || p.content.trim()));
+            const openBare = async () => {
+                const stand = bare ?? longest;
+                await page.goto('about:blank');
+                await page.goto(`${base}/projects/${stand.data.slug}/`);
+                if (!bare) {
+                    await slidesReady(page);
+                    await page.evaluate(() => { document.querySelector('.sets')?.remove(); window.scrollTo({ top: 0, behavior: 'instant' }); });
+                }
+                await page.mouse.move(Math.round(page.viewportSize().width / 2), 400);
                 await rest(page);
                 return lie(page);
             };
 
-            // A one-set project is the design's one slideshow: its photo is where the slideshow's was before there were sets.
+            // --- From 900px wide: the sets of photos are the left half of the page, each photo right-aligned to
+            // the page's centre; the information stays in place on the right, under the header, while the sets
+            // scroll by; nothing snaps; "previous" and "next" are fixed in the window's lower corners.
+            await page.setViewportSize({ width: 1366, height: 710 });
             if (oneSet) {
                 const at = await open(oneSet);
-                const off = offDesign(at.sets[0], at);
-                check(`3. a one-set project opens as the design's one slideshow: the set fills the window under the header, the photo as large as fits (its limiting side on the limit), without a border, the shadow around it (${oneSet.data.slug})`, at.sets.length === 1 && off === '' && Math.abs(at.sets[0].top - 79) <= 0.5 && at.y === 0, off || `${at.sets.length} set, its top at ${at.sets[0].top}, the page at ${at.y}`);
+                const off = [offDesign(at.sets[0], at), await headOff(at)].filter(Boolean).join('; ');
+                check(`3. at 1366 × 710 a project page opens with its photo directly under the 71px header, in the left half of the page and right-aligned to its centre, as large as fits, its caption and chevrons in one row under it; back at the left of the header, the title in the middle of the page (${oneSet.data.slug})`,
+                    at.sets.length === 1 && off === '' && near(at.sets[0].top, 71) && at.y === 0, off || `${at.sets.length} set, its top at ${at.sets[0].top}, the page at ${at.y}`);
             }
+            for (const [width, height] of [[1366, 710], [900, 600]]) {
+                const { wrong, corners, tally } = await sweep(width, height);
+                check(`3. at ${width} × ${height} every photo of every project is as large as fits its half of the page and the window under the header, the side that limits it exactly on its limit, right-aligned to the centre, without a border, the shadow around it, its picture over the whole box, its caption and its chevrons in the row under it and nothing over anything else; its sizes attribute gives its width to the pixel (${told(tally)}; ${tally.cleared} kept clear of "previous": ${CLEAR}px from the half's left edge or ${LOWER}px less tall)`,
+                    wrong.length === 0 && tally.photos === published.reduce((n, p) => n + photos(p).length, 0), wrong.slice(0, 3).join(' | '));
+                check(`3. at ${width} × ${height} "previous" and "next", fixed in the window's lower corners, lie over no caption, no line of the information and no chevron: with each set directly under the header, for every photo of it, and at the end of the page, on every project page`, corners.length === 0, corners.slice(0, 4).join(' | '));
+            }
+            await page.setViewportSize({ width: 1366, height: 710 });
 
-            // The widest photo of any first set (its proportions are in the generated client/slides.css): where
-            // the room is wider than it needs, the height limits it; where it is not, the width does, and
-            // then it is the photo's sides that are on the limit, exactly. On a desk and on a phone.
-            {
-                const widest = [...readFileSync(join(dist, 'client/slides.css'), 'utf8').matchAll(/#slides-(.+)-1 \.slide:nth-child\((\d+)\)\{--a:([\d.]+)\}/g)]
-                    .map(m => ({ slug: m[1], n: Number(m[2]), a: Number(m[3]) })).sort((x, y) => y.a - x.a)[0];
-                const told = [];
+            if (!whole) check('3. the information\'s layout: ok (no project in content has tags, a role, a client, years, a description and a neighbour on both sides; its checks were skipped)', true);
+            else {
+                const slug = whole.data.slug;
+                const at = await open(whole);
+                const m = await measure();
+                const d = pageOf(1366);
+                check(`3. at 1366 × 710 the information is the right half of the page, from 8.5px right of the centre: the description, 245px wide, then 20px on the facts, 232px wide; both start 4px under the header, at 75px (${slug})`,
+                    near(m.info.left, m.centre + 8.5) && near(m.about.left, m.centre + 8.5) && near(m.about.width, 245) && near(m.facts.left, m.about.right + 20) && near(m.facts.width, 232) && near(m.info.top, 71) && near(m.paras[0].top, 75) && near(m.lines[0].top, 75),
+                    `the description from ${m.about.left - m.centre}px right of the centre, ${m.about.width}px wide; the facts ${m.facts.left - m.about.right}px on, ${m.facts.width}px wide; first lines at ${m.paras[0].top} and ${m.lines[0].top}`);
+                const lines = linesOff(m, 17.75, factsOf(whole));
+                check('3. the facts: "type:", "role:" and "for:" in Bold, colon and all, everything else Light, all of it and the description in the text colour, nothing slanted; 12.5px on a line of 17.75px (1.42), an entry that wraps taking whole lines, the years one empty line under the rest; the description 12.5px / 15.2px, its paragraphs 0.55em apart',
+                    m.labels === 'type: 700, role: 700, for: 700' && m.heavy === 0 && m.colours === m.ink && m.slanted === 0 && lines.length === 0 && m.types.facts === d.facts && m.types.text === d.text
+                    && m.paras.slice(1).every((para, i) => near(para.top - m.paras[i].bottom, 0.55 * 12.5, 0.05)),
+                    `labels ${m.labels}; ${m.heavy} lines not Light; colours ${m.colours} (text ${m.ink}); ${m.slanted} slanted; ${lines.join('; ')}; facts ${m.types.facts}, description ${m.types.text}; paragraphs ${m.paras.slice(1).map((para, i) => (para.top - m.paras[i].bottom).toFixed(2)).join(', ')} apart`);
+                check('3. the project\'s title is in the page header only: the information has no heading and no title row', m.titles === 0 && await page.evaluate(() => document.querySelectorAll('h1').length) === 1, `${m.titles} in the information`);
+
+                // The two words in the window's lower corners.
+                const placed = (a, side, to) => {
+                    const off = [];
+                    if (!a) return [`no "${side}"`];
+                    if (a.text !== side || a.href !== `/projects/${to}/`) off.push(`"${a.text}" to ${a.href}`);
+                    if (a.position !== 'fixed') off.push(`"${side}" is ${a.position}`);
+                    if (side === 'previous' ? !near(a.left, 34) : !near(a.right, at.vw - 40)) off.push(`"${side}" from ${a.left} to ${a.right}`);
+                    if (!near(a.bottom, at.vh - 26) || !near(a.height, 12 + 15.2 + 12, 0.1)) off.push(`"${side}" ends ${at.vh - a.bottom}px above the window's lower edge and is ${a.height} tall`);
+                    if (a.colour !== 'rgb(128, 114, 121)' || a.underline !== 'none' || a.type !== d.text) off.push(`"${side}" ${a.colour}, ${a.underline}, ${a.type}`);
+                    if (a.inline !== 'inline-block' || !new RegExp(`^matrix\\(1, 0, ${side === 'previous' ? '' : '-'}0\\.105\\d*, 1, 0, 0\\)$`).test(a.lean)) off.push(`"${side}" leans ${a.lean} (${a.inline})`);
+                    return off;
+                };
+                const index = listed.indexOf(slug);
+                const cornerOff = [...placed(at.prev, 'previous', listed[index - 1]), ...placed(at.next, 'next', listed[index + 1])];
+                await page.hover('#project-info .neighbours .next');
+                const hovered = await page.evaluate(() => getComputedStyle(document.querySelector('#project-info .neighbours .next')).color);
+                await page.mouse.move(683, 400);
+                check('3. at 1366 × 710 the words "previous" and "next" are fixed in the window\'s lower corners, 34px from its left edge and 40px from its right, 26px above its lower edge with 12px of link above and below the word; in the tag colour, not underlined, "previous" leaning backwards and "next" forwards; the link colour when pointed at',
+                    cornerOff.length === 0 && hovered === 'rgb(153, 86, 122)', cornerOff.join('; ') || `pointed at: ${hovered}`);
+
+                // By keyboard: the word shows its focus; Enter follows it; the page it opens points back.
+                let tabs = 0;
+                while (tabs++ < 60 && !await page.evaluate(() => document.activeElement?.matches('.neighbours .next'))) await page.keyboard.press('Tab');
+                const focus = await page.evaluate(() => { const a = document.activeElement; const s = getComputedStyle(a); return { on: a.matches('.neighbours .next:focus-visible'), outline: `${s.outlineStyle} ${s.outlineWidth} ${s.outlineColor} ${s.outlineOffset}`, shown: a.getBoundingClientRect().top >= 0 && a.getBoundingClientRect().bottom <= innerHeight, y: scrollY }; });
+                await page.keyboard.press('Enter');
+                await page.waitForURL(`**/projects/${listed[index + 1]}/`).catch(() => {});
+                const went = new URL(page.url()).pathname;
+                const backTo = await page.evaluate(() => document.querySelector('#project-info .neighbours .prev')?.getAttribute('href') ?? '');
+                await page.click('#project-info .neighbours .prev');
+                await page.waitForURL(`**/projects/${slug}/`).catch(() => {});
+                const home = new URL(page.url()).pathname;
+                check('3. "next" takes keyboard focus where it stands, with the site\'s outline, Enter opens the next project in the Index\'s order, and that page\'s "previous" leads back',
+                    focus.on && focus.shown && focus.outline === 'solid 2px rgb(153, 86, 122) 2px' && went === `/projects/${listed[index + 1]}/` && backTo === `/projects/${slug}/` && home === `/projects/${slug}/`,
+                    `${JSON.stringify(focus)}; opened ${went}; its "previous" to ${backTo}; then ${home}`);
+            }
+            if (!detailed) check('3. a project\'s details on its page: ok (no project with photos has details; the layout checks were skipped)', true);
+            else {
+                const sizesTold = [];
                 const wrong = [];
-                for (const [width, height] of [[1366, 710], [390, 844]]) {
-                    if (!widest) break;
+                for (const [width, height, step] of [[1366, 710, 17.75], [390, 844, 23.43]]) {
                     await page.setViewportSize({ width, height });
-                    await page.goto(`${base}/projects/${widest.slug}/`);
-                    await slidesReady(page);
-                    for (let i = 1; i < widest.n; i++) await page.keyboard.press('ArrowRight');
-                    const at = await lie(page);
-                    const set = at.sets[0];
-                    const room = { width: width - 2 * (44 + (width <= 600 ? 0 : 30.25)), height: height - 79 - 63 };
-                    const by = Math.abs(set.frame.width - room.width) <= EXACT ? 'width' : Math.abs(set.frame.height - room.height) <= EXACT ? 'height' : 'neither side';
-                    told.push(`${width} × ${height}: ${set.frame.width.toFixed(2)} × ${set.frame.height.toFixed(2)} in ${room.width} × ${room.height}, limited by its ${by}`);
-                    const off = set.current !== widest.n - 1 ? `photo ${set.current + 1} shows, not ${widest.n}` : Math.abs(set.a - widest.a) > 0.0001 ? `a photo of ${set.a}` : offDesign(set, at);
-                    if (off || by !== (widest.a > room.width / room.height ? 'width' : 'height')) wrong.push(`${width} × ${height}: ${off || `limited by its ${by}`}`);
+                    await open(detailed);
+                    const m = await measure();
+                    wrong.push(...linesOff(m, step, factsOf(detailed)).map(o => `${width} × ${height}: ${o}`));
+                    if (m.lines.some(l => l.left < m.facts.left - 0.5 || l.right > m.facts.right + 0.5)) wrong.push(`${width} × ${height}: a line reaches outside the facts`);
+                    sizesTold.push(`${m.lines.length} lines on ${Math.round(m.facts.height / step)} of ${step}px at ${width} × ${height}`);
                 }
-                if (!widest) check('3. the widest photo: ok (client/slides.css names no photo; the check was skipped)', true);
-                else check(`3. the widest photo is as large as fits, the side that limits it exactly on the limit, centred, without a border, the shadow around it, the chevrons beside it (${widest.slug}, ${widest.a} : 1; ${told.join('; ')})`, wrong.length === 0, wrong.join('; '));
+                check(`3. a project's details follow its years in the facts, in the facts' type: every line typed a line of its own, the lines of a block one under the other, one empty line before each block (${detailed.data.slug}: ${detailsOf(detailed).map(b => b.length).join(' + ')} lines; ${sizesTold.join(', ')})`, wrong.length === 0, wrong.slice(0, 4).join('; '));
                 await page.setViewportSize({ width: 1366, height: 710 });
             }
 
-            // Set by set, then the information: where the page rests, and what the header does meanwhile.
-            const walked = multi ?? oneSet;
-            if (walked) {
+            // Nothing snaps, and the information stays where it is while the sets pass.
+            {
+                const walked = multi ?? many;
                 const start = await open(walked);
-                const stops = [];
-                const header = [];
-                const frames = [];
-                const early = [];
-                const note = (at, i) => {
-                    if (at.head.top !== 0 || !at.headOnTop) header.push(`at ${at.y}: header top ${at.head.top}, Back and title ${at.headOnTop ? 'on top' : 'covered'}`);
-                    if (i < at.sets.length) {
-                        if (Math.abs(at.sets[i].top - at.head.bottom) > 1) stops.push(`set ${i + 1} rests at ${at.sets[i].top}, header to ${at.head.bottom}`);
-                        const off = offDesign(at.sets[i], at);
-                        if (off) frames.push(`set ${i + 1}: ${off}`);
-                        if (at.info.top < at.vh - 0.5) early.push(`set ${i + 1} at rest: the information starts at ${at.info.top} in a window ${at.vh} tall`);
-                    } else if (infoOff(at)) stops.push(infoOff(at));
-                };
-                note(start, 0);
-                for (let i = 1; i <= start.sets.length; i++) note(await wheel(), i);
-                const end = await lie(page);
-                const back = await wheel(false);
-                if (Math.abs(back.sets.at(-1).top - back.head.bottom) > 1) stops.push(`back up: the last set rests at ${back.sets.at(-1).top}`);
-                check(`3. after a turn of the wheel the page rests with the next set directly under the header, and after the last set with the information: its top at 72px, the description's first line at 74px (${walked.data.slug}, ${start.sets.length} set${start.sets.length > 1 ? 's' : ''})`, start.mouse && start.snap.includes('mandatory') && stops.length === 0, start.mouse ? stops.join('; ') : 'this browser has no fine pointer: the page does not snap');
-                check('3. nothing of the information is in the window while a set of photos is at rest', early.length === 0, early.join('; '));
-                check('3. the header stays at the top of the window while the page scrolls, Back and the title on top', header.length === 0 && end.y > 0, header.join('; '));
-                check('3. each set at rest fills the window under the header as the one slideshow does: the photo as large as fits, in the same place, without a border, the shadow around it, chevrons 28px either side, the caption 16px under it', frames.length === 0, frames.join('; '));
-                // The header's own links are always in the window: reaching them with the keyboard must not move the
-                // page (they lie in the band that html's scroll-padding calls out of view), and the browser's Back
-                // after the title link returns to the set the visitor was on.
-                await open(walked);
-                await page.keyboard.press('End');
+                const seen = [];
+                const moved = [];
+                for (const turn of [240, 310, 180]) {
+                    const before = await lie(page);
+                    await page.mouse.wheel(0, turn);
+                    await rest(page);
+                    const at = await lie(page);
+                    seen.push(at);
+                    if (Math.abs(at.y - Math.min(before.y + turn, at.max)) > 1) moved.push(`a turn of ${turn}px from ${before.y} rests at ${at.y}`);
+                }
+                const end = await scrollTo('end');
+                const fits = start.info.height <= start.vh - 71 + 0.5;
+                const stays = [...seen, ...(fits ? [end] : [])].filter(at => infoOff(at) || at.head.top !== 0 || !at.headOnTop || !near(at.prev?.left ?? 34, 34) || !near(at.prev?.bottom ?? at.vh - 26, at.vh - 26) || !near(at.next?.right ?? at.vw - 40, at.vw - 40) || !near(at.next?.bottom ?? at.vh - 26, at.vh - 26));
+                check(`3. from 900px nothing snaps: a turn of the wheel leaves the page where it stops, and while the sets pass on the left the header, the information under it (its first lines at 75px) and the two words in the corners stay where they are (${walked.data.slug}, ${start.sets.length} set${start.sets.length > 1 ? 's' : ''}, scrolled to ${seen.map(at => Math.round(at.y)).join(', ')} and to the end at ${Math.round(end.y)})`,
+                    start.snap === 'none' && start.position === 'sticky' && moved.length === 0 && stays.length === 0 && seen.every(at => near(at.sets[0].top, 71 - at.y, 1)) && (seen.at(-1).y > 100 || !multi),
+                    start.snap !== 'none' ? `the page snaps (${start.snap})` : moved.join('; ') || stays.map(at => `at ${at.y}: ${infoOff(at) || `header ${at.head.top}, previous ${at.prev?.left}, ${at.prev?.bottom}, next ${at.next?.right}, ${at.next?.bottom}`}`).join('; ') || `the first set at ${seen.map(at => at.sets[0].top).join(', ')}`);
+                // A page opened at #project-info, and the title link: the information is where it always is, so the page does not move.
+                await page.goto('about:blank');
+                await open(walked, '#project-info');
                 await rest(page);
-                const stood = await page.evaluate(() => scrollY);
-                const tabbed = [];
-                for (let i = 0; i < 2; i++) {
-                    await page.keyboard.press('Tab');
-                    await rest(page);
-                    tabbed.push(await page.evaluate(() => `${document.activeElement?.closest('.project-head') ? 'a header link' : 'elsewhere'} at ${scrollY}`));
-                }
-                check('3. the keyboard reaching Back and the title in the header does not move the page', stood > 0 && tabbed.every(t => t === `a header link at ${stood}`), `at ${stood}; then ${tabbed.join(', ')}`);
-                if (start.sets.length > 1) {
-                    await open(walked);
-                    const second = await wheel();
-                    await page.click('.project-head h1 a');
-                    await rest(page);
-                    const there = await page.evaluate(() => scrollY);
-                    await page.goBack();
-                    await rest(page);
-                    const returned = await page.evaluate(() => scrollY);
-                    check('3. the browser\'s Back after the title link returns to the set the visitor was on', there > second.y && Math.abs(returned - second.y) <= 1, `on set 2 at ${second.y}, the title link to ${there}, Back to ${returned}`);
-                }
+                const landed = await lie(page);
+                await scrollTo(Math.min(300, landed.max));
+                const from = await lie(page);
+                await page.click('.project-head h1 a');
+                await rest(page);
+                const clicked = await lie(page);
+                check('3. from 900px a page opened at #project-info stays at its top, and the title link leaves the page where it is: the information is in place already', landed.y === 0 && infoOff(landed) === '' && clicked.y === from.y && infoOff(clicked) === '' && new URL(page.url()).hash === '#project-info', `opened at ${landed.y}; the link at ${from.y} leaves it at ${clicked.y}; ${infoOff(landed) || infoOff(clicked)}`);
             }
 
+            // An information taller than the window: every line of it can be reached.
+            // Alone beside one short set it is what makes the page tall, and scrolls with it like any text;
+            // beside sets taller than itself it stays under the header until the end of the sets takes it
+            // along, and its last lines are in the window at the end of the page.
+            if (longest) {
+                const reach = [];
+                const cases = [];
+                const tallest = async (p, width, height) => {
+                    await page.setViewportSize({ width, height });
+                    const startAt = await open(p);
+                    const m = await measure();
+                    const over = Math.round(startAt.info.height - (height - 71));
+                    const endAt = await scrollTo('end');
+                    const last = await measure();
+                    const text = Math.max(last.facts?.bottom ?? 0, last.about?.bottom ?? 0);
+                    const off = [];
+                    if (!near(m.paras[0].top, 75) || !near(m.lines[0].top, 75)) off.push(`its first lines at ${m.paras[0].top} and ${m.lines[0].top} when the page opens`);
+                    if (endAt.y < endAt.max - 1) off.push(`the page stops at ${endAt.y} of ${endAt.max}`);
+                    if (text > height - 72 + 0.5 || endAt.info.bottom > height + 0.5) off.push(`at the end of the page its text ends at ${text} and its box at ${endAt.info.bottom} in a window ${height} tall`);
+                    if (over > 0 && endAt.max < over - 1) off.push(`it is ${over}px taller than the window allows and the page scrolls only ${endAt.max}px`);
+                    cases.push(`${p.data.slug} at ${width} × ${height}: ${over > 0 ? `${over}px taller than its room` : 'not taller than its room'}, beside ${startAt.sets.length} set${startAt.sets.length > 1 ? 's' : ''} ${Math.round(startAt.sets.at(-1).bottom - startAt.sets[0].top)}px tall`);
+                    if (off.length) reach.push(`${p.data.slug} at ${width} × ${height}: ${off.join('; ')}`);
+                    return over;
+                };
+                const alone = await tallest(longest, 900, 600);
+                let beside = 0;
+                if (multi) {
+                    // A window in which the information of the project with several sets is some 40px taller than its room.
+                    await page.setViewportSize({ width: 900, height: 600 });
+                    const tall = (await open(multi)).info.height;
+                    const height = Math.max(260, Math.round(tall + 71 - 40));
+                    beside = await tallest(multi, 900, height);
+                    // Half way down the sets it is still under the header: that is the price, its end shows only at the end of the page.
+                    const mid = await scrollTo(200);
+                    if (beside > 0 && !near(mid.info.top, 71)) reach.push(`${multi.data.slug}: 200px down, the information's top is at ${mid.info.top}`);
+                }
+                check(`3. from 900px an information taller than the window can be read to its end: its first lines are at 75px when the page opens, and at the end of the page its last line is in the window, 72px above its lower edge or more (${cases.join('; ')})`,
+                    reach.length === 0 && (alone > 0 || beside > 0), reach.join(' | ') || (alone > 0 || beside > 0 ? '' : 'no information was taller than its room: nothing was tested'));
+                await page.setViewportSize({ width: 1366, height: 710 });
+            }
+
+            // The arrow keys: the set on screen, and no other. Sets are short here, so several are in the window at once.
             if (!multi) check('3. sets: ok (no multi-set project in content; the checks that need two sets were skipped)', true);
             else {
                 const want = setsOf(multi);
@@ -850,9 +1438,9 @@ try {
                     if (set.count !== files.length || set.files.some((f, n) => !f.startsWith(`${stem(files[n] ?? { image: '?' })}.`))) wrong.push(`set ${i + 1} holds ${set.files.join(', ')}`);
                     if (set.shown !== 1 || set.current !== 0) wrong.push(`set ${i + 1} shows ${set.shown} photos, the current one number ${set.current + 1}`);
                     if (set.label !== `Photos of ${title}, set ${i + 1} of ${want.length}`) wrong.push(`set ${i + 1} is named "${set.label}"`);
-                    if (i > 0 && set.top < start.sets[i - 1].bottom - 0.5) wrong.push(`set ${i + 1} overlaps the one before`);
+                    if (i > 0 && !near(set.top, start.sets[i - 1].bottom)) wrong.push(`set ${i + 1} starts ${set.top - start.sets[i - 1].bottom}px after the one before`);
                 });
-                check(`3. one slideshow per set, in set order, each with its own photos and showing its first (${multi.data.slug}: ${want.map(set => set.length).join(' + ')})`, wrong.length === 0, wrong.slice(0, 4).join('; '));
+                check(`3. one slideshow per set, in set order, one directly under the other, each with its own photos and showing its first (${multi.data.slug}: ${want.map(set => set.length).join(' + ')})`, wrong.length === 0, wrong.slice(0, 4).join('; '));
 
                 const indexes = async () => (await lie(page)).sets.map(set => set.current);
                 const only = (i, n) => want.map((_, k) => (k === i ? n : 0)).join();
@@ -867,8 +1455,6 @@ try {
                     const focus = await page.evaluate(i => document.activeElement?.closest('project-slides') === document.querySelectorAll('project-slides')[i] && document.activeElement.classList.contains('arrow'), later);
                     check(`3. the "next" chevron of set ${later + 1} moves set ${later + 1} only, and keeps focus on a chevron of that set`, moved === only(later, 1) && focus, moved);
                 }
-
-                // The arrow keys: the set in the middle of the window, and no other.
                 const keyed = later > 0 ? later : 1;
                 await open(multi);
                 await page.evaluate(i => document.querySelectorAll('project-slides')[i].scrollIntoView({ behavior: 'instant' }), keyed);
@@ -877,8 +1463,162 @@ try {
                 const right = (await indexes()).join();
                 await page.keyboard.press('ArrowLeft');
                 const left = (await indexes()).join();
-                check(`3. with set ${keyed + 1} in the window the arrow keys move that set and no other`, right === only(keyed, Math.min(1, want[keyed].length - 1)) && left === only(-1, 0), `${right} then ${left}`);
-                await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
+                await scrollTo(0);
+                await page.keyboard.press('ArrowRight');
+                const first = (await indexes()).join();
+                await page.keyboard.press('ArrowLeft');
+                await scrollTo('end');
+                await page.keyboard.press('ArrowRight');
+                const last = (await indexes()).join();
+                check(`3. at 1366 × 710, where several sets are in the window at once, the arrow keys move the set that has the most of the window and no other: set ${keyed + 1} when it is under the header, the first at the top of the page, the last at its end`,
+                    right === only(keyed, Math.min(1, want[keyed].length - 1)) && left === only(-1, 0) && first === only(0, Math.min(1, want[0].length - 1)) && last === only(want.length - 1, Math.min(1, want.at(-1).length - 1)), `${right} then ${left}; at the top ${first}; at the end ${last}`);
+            }
+            // A set that ends above the middle of the window (a very wide photo) still has the keys.
+            {
+                const flat = [...readFileSync(join(dist, 'client/slides.css'), 'utf8').matchAll(/#slides-(.+)-1 \.slide:nth-child\((\d+)\)\{--a:([\d.]+)\}/g)]
+                    .map(m => ({ slug: m[1], n: Number(m[2]), a: Number(m[3]) })).filter(f => published.some(p => p.data.slug === f.slug && setsOf(p).length === 1 && firstSet(p).length > 1)).sort((x, y) => y.a - x.a)[0];
+                if (!flat || flat.a < 2.5) check('3. the keys on a short set: ok (no one-set project has a photo two and a half times as wide as tall; the check was skipped)', true);
+                else {
+                    await page.goto(`${base}/projects/${flat.slug}/`);
+                    await slidesReady(page);
+                    await page.evaluate(i => document.querySelector('project-slides').setState({ index: i }), flat.n - 1);
+                    const at = await lie(page);
+                    const to = flat.n > 1 ? 'ArrowLeft' : 'ArrowRight';
+                    await page.keyboard.press(to);
+                    const after = (await lie(page)).sets[0].current;
+                    check(`3. a set that ends above the middle of the window still answers the arrow keys (${flat.slug}, photo ${flat.n}, ${flat.a} : 1: the set ends at ${Math.round(at.sets[0].bottom)}px in a window 710px tall)`, at.sets[0].bottom < (71 + 710) / 2 && after === flat.n - 1 + (to === 'ArrowLeft' ? -1 : 1), `photo ${after + 1} after ${to}`);
+                }
+            }
+
+            // A project with no photos: the information where it would be, in the right half; nothing on the left; the page no taller than the window, or than its text.
+            if (bare ?? longest) {
+                const wrong = [];
+                for (const [width, height] of [[1366, 710], [390, 844]]) {
+                    await page.setViewportSize({ width, height });
+                    const at = await openBare();
+                    const d = pageOf(width);
+                    const tall = at.max + at.vh;
+                    const end = at.y + at.info.bottom;
+                    if (at.y !== 0) wrong.push(`${width} × ${height}: the page comes to rest ${at.y}px down`);
+                    if (Math.abs(tall - Math.max(at.vh, end)) > 1) wrong.push(`${width} × ${height}: the page is ${tall}px tall, the window ${at.vh}px, and the information ends at ${end}`);
+                    if (!near(at.info.top, at.head.bottom)) wrong.push(`${width} × ${height}: the information's top at ${at.info.top}, the header to ${at.head.bottom}`);
+                    if (d.wide ? !near(at.info.left, width / 2 + 8.5) || !near(at.info.right, width - 34) : !near(at.info.left, 0) || !near(at.info.right, width)) wrong.push(`${width} × ${height}: the information from ${at.info.left} to ${at.info.right}`);
+                    if (d.wide && infoOff(at)) wrong.push(`${width} × ${height}: ${infoOff(at)}`);
+                    // In one column it is as tall as its text and no taller: under a header of two lines a
+                    // screen's worth of minimum height would be more than the window has left.
+                    const least = await page.evaluate(() => getComputedStyle(document.querySelector('#project-info')).minHeight);
+                    if (least !== '0px') wrong.push(`${width} × ${height}: the information is at least ${least} tall, whatever its text`);
+                    if (at.wide > width) wrong.push(`${width} × ${height}: the page is ${at.wide}px wide`);
+                }
+                check(`3. a project with no photos: at 1366 × 710 the information is where it always is, the right half of the page under the header, and the left half is empty; at 390 × 844 it follows the header; either way it is as tall as its text and the page no taller than the window or than that (${bare ? bare.data.slug : `${longest.data.slug}, its sets taken out`})`, wrong.length === 0, wrong.join('; '));
+            }
+
+            // --- Below 900px: the page opens on the photo and its caption, which fill the first screen; the
+            // information comes after the sets, in one column; with a mouse or trackpad the page snaps from
+            // set to set and then to the information.
+            await page.setViewportSize({ width: 390, height: 844 });
+            if (oneSet) {
+                const at = await open(oneSet);
+                const off = [offDesign(at.sets[0], at), await headOff(at)].filter(Boolean).join('; ');
+                check(`3. at 390 × 844 a project page opens on its photo and caption, which fill the window under the 95px header: the photo in the middle of the page, 24px from its edges at most, the caption under it between the two chevrons, which are at the page's edges; the information starts below the window (${oneSet.data.slug})`,
+                    at.sets.length === 1 && off === '' && near(at.sets[0].top, 95) && at.sets[0].height >= at.vh - 95 - 0.5 && at.info.top >= at.vh - 0.5 && at.y === 0, off || `${at.sets.length} set from ${at.sets[0].top}, ${at.sets[0].height} tall; the information from ${at.info.top}; the page at ${at.y}`);
+            }
+            for (const [width, height] of [[390, 844], [320, 640], [899, 700]]) {
+                const { wrong, tally } = await sweep(width, height);
+                check(`3. at ${width} × ${height} every photo of every project is as large as fits the page less 24px on either side and the window under the header less the caption's room, the side that limits it exactly on its limit, in the middle of the page, without a border, the shadow around it, its picture over the whole box; its caption is between the two chevrons at the page's edges, and nothing lies over anything else or reaches outside the page; its sizes attribute gives its width to the pixel (${told(tally)})`,
+                    wrong.length === 0 && tally.photos === published.reduce((n, p) => n + photos(p).length, 0), wrong.slice(0, 3).join(' | '));
+            }
+            await page.setViewportSize({ width: 390, height: 844 });
+            // The chevrons are 26px wide, at the page's edges: a finger has 44px, the rest of it in the page's margin.
+            if (many && firstSet(many).length > 2) {
+                await open(many);
+                await page.keyboard.press('ArrowRight');
+                const reach = await page.evaluate(() => [...document.querySelectorAll('project-slides:first-of-type .slide.current .arrow')].map((button) => {
+                    const r = button.getBoundingClientRect();
+                    const left = button.classList.contains('prev');
+                    const zone = getComputedStyle(button, '::before');
+                    const at = (x) => button.contains(document.elementFromPoint(x, r.top + r.height / 2));
+                    return {
+                        side: left ? 'left' : 'right',
+                        column: [r.width, r.height],
+                        // The room it adds: a box 44px wide over the column's whole height, from the column's inner edge outwards.
+                        zone: `${zone.position} ${zone.width} from ${left ? zone.right : zone.left}, ${zone.top} to ${zone.bottom}`,
+                        beside: at(left ? r.left - 12 : r.right + 12),
+                        beyond: at(left ? r.left - 24 : r.right + 24),
+                        inside: at(left ? r.right + 6 : r.left - 6),
+                    };
+                }));
+                check('3. at 390px a chevron can be tapped 44px wide and 44px tall: its 26px column and 18px of the page\'s margin beside it, and no more',
+                    reach.length === 2 && reach.every(c => near(c.column[0], 26) && near(c.column[1], 44) && c.zone === 'absolute 44px from 0px, 0px to 0px' && c.beside && !c.beyond && !c.inside), JSON.stringify(reach));
+            }
+
+            // Set by set, then the information: where the page rests, and what the header does meanwhile.
+            const walked = multi ?? oneSet;
+            if (walked) {
+                const start = await open(walked);
+                const stops = [];
+                const header = [];
+                const frames = [];
+                const early = [];
+                const note = (at, i) => {
+                    if (at.head.top !== 0 || !at.headOnTop) header.push(`at ${at.y}: header top ${at.head.top}, back and title ${at.headOnTop ? 'on top' : 'covered'}`);
+                    if (i < at.sets.length) {
+                        if (Math.abs(at.sets[i].top - at.head.bottom) > 1) stops.push(`set ${i + 1} rests at ${at.sets[i].top}, header to ${at.head.bottom}`);
+                        const off = offDesign(at.sets[i], at);
+                        if (off) frames.push(`set ${i + 1}: ${off}`);
+                        if (at.info.top < at.vh - 0.5) early.push(`set ${i + 1} at rest: the information starts at ${at.info.top} in a window ${at.vh} tall`);
+                    } else if (infoOff(at)) stops.push(infoOff(at));
+                };
+                note(start, 0);
+                for (let i = 1; i <= start.sets.length; i++) note(await wheel(), i);
+                const end = await lie(page);
+                const back = await wheel(false);
+                if (Math.abs(back.sets.at(-1).top - back.head.bottom) > 1) stops.push(`back up: the last set rests at ${back.sets.at(-1).top}`);
+                check(`3. below 900px, after a turn of the wheel the page rests with the next set directly under the header, and after the last set with the information, its top 9px under the header at 104px (390 × 844; ${walked.data.slug}, ${start.sets.length} set${start.sets.length > 1 ? 's' : ''})`, start.mouse && start.snap.includes('mandatory') && stops.length === 0, start.mouse ? stops.join('; ') || start.snap : 'this browser has no fine pointer: the page does not snap');
+                check('3. nothing of the information is in the window while a set of photos is at rest', early.length === 0, early.join('; '));
+                check('3. the header stays at the top of the window while the page scrolls, back and the title on top', header.length === 0 && end.y > 0, header.join('; '));
+                check('3. each set at rest fills the window under the header: the photo directly under it, as large as fits, in the middle of the page, the caption and the chevrons in the row under it', frames.length === 0, frames.join('; '));
+                // The header's own links are always in the window: reaching them with the keyboard must not move the
+                // page (they lie in the band that html's scroll-padding calls out of view), and the browser's Back
+                // after the title link returns to the set the visitor was on.
+                await open(walked);
+                await page.keyboard.press('End');
+                await rest(page);
+                const stood = await page.evaluate(() => scrollY);
+                const tabbed = [];
+                for (let i = 0; i < 2; i++) {
+                    await page.keyboard.press('Tab');
+                    await rest(page);
+                    tabbed.push(await page.evaluate(() => `${document.activeElement?.closest('.project-head') ? 'a header link' : 'elsewhere'} at ${scrollY}`));
+                }
+                check('3. the keyboard reaching back and the title in the header does not move the page', stood > 0 && tabbed.every(t => t === `a header link at ${stood}`), `at ${stood}; then ${tabbed.join(', ')}`);
+                if (start.sets.length > 1) {
+                    await open(walked);
+                    const second = await wheel();
+                    await page.click('.project-head h1 a');
+                    await rest(page);
+                    const there = await page.evaluate(() => scrollY);
+                    await page.goBack();
+                    await rest(page);
+                    const returned = await page.evaluate(() => scrollY);
+                    check('3. the browser\'s Back after the title link returns to the set the visitor was on', there > second.y && Math.abs(returned - second.y) <= 1, `on set 2 at ${second.y}, the title link to ${there}, Back to ${returned}`);
+                }
+            }
+            if (multi) {
+                const want = setsOf(multi);
+                const indexes = async () => (await lie(page)).sets.map(set => set.current);
+                const only = (i, n) => want.map((_, k) => (k === i ? n : 0)).join();
+                const later = want.findIndex((set, i) => i > 0 && set.length > 1);
+                const keyed = later > 0 ? later : 1;
+                await open(multi);
+                await page.evaluate(i => document.querySelectorAll('project-slides')[i].scrollIntoView({ behavior: 'instant' }), keyed);
+                await rest(page);
+                await page.keyboard.press('ArrowRight');
+                const right = (await indexes()).join();
+                await page.keyboard.press('ArrowLeft');
+                const left = (await indexes()).join();
+                check(`3. at 390 × 844, with set ${keyed + 1} in the window the arrow keys move that set and no other`, right === only(keyed, Math.min(1, want[keyed].length - 1)) && left === only(-1, 0), `${right} then ${left}`);
+                await scrollTo(0);
                 await rest(page);
                 await page.keyboard.press('ArrowRight');
                 const first = (await indexes()).join();
@@ -894,6 +1634,48 @@ try {
                 check('3. back at the top the keys move the first set; with the information in the window they move nothing and lead nowhere', first === only(0, Math.min(1, want[0].length - 1)) && infoOff(there) === '' && after === first && page.url() === address, `${first} then ${after}; ${infoOff(there)}; ${page.url()}`);
             }
 
+            // The information in one column.
+            if (whole) {
+                const slug = whole.data.slug;
+                const d = pageOf(390);
+                await open(whole);
+                await page.click('.project-head h1 a');
+                await rest(page);
+                const at = await lie(page);
+                const m = await measure();
+                const lines = linesOff(m, 23.43, factsOf(whole));
+                const index = listed.indexOf(slug);
+                check(`3. at 390 × 844 the information is one column, 24px from the page's edges: the facts, 24px under them the description, 40px under that the words "previous" at the left and "next" at the right, in the flow of the page; 16.5px type, the description on a 20px line, the facts on one of 23.43px (1.42) (${slug})`,
+                    infoOff(at) === '' && near(m.facts.left, 24) && near(m.facts.right, 390 - 24) && near(m.lines[0].top, m.info.top + 8) && near(m.about.left, 24) && m.about.right <= 390 - 24 + 0.5 && near(m.about.top - m.facts.bottom, 24)
+                    && at.prev && at.next && at.prev.position === 'static' && at.next.position === 'static' && near(at.prev.top - m.about.bottom, 40) && near(at.prev.top, at.next.top) && near(at.prev.left, 24) && near(at.next.right, 390 - 24) && near(at.prev.height, 12 + 20 + 12)
+                    && at.prev.text === 'previous' && at.next.text === 'next' && at.prev.href === `/projects/${listed[index - 1]}/` && at.next.href === `/projects/${listed[index + 1]}/` && at.prev.type === d.text && at.prev.colour === 'rgb(128, 114, 121)'
+                    && lines.length === 0 && m.types.facts === d.facts && m.types.text === d.text && m.labels === 'type: 700, role: 700, for: 700' && m.heavy === 0,
+                    JSON.stringify({ rest: infoOff(at), facts: [m.facts.left, m.facts.right, m.lines[0].top - m.info.top], about: [m.about.left, m.about.right, m.about.top - m.facts.bottom], prev: at.prev && [at.prev.left, at.prev.top - m.about.bottom, at.prev.height, at.prev.position, at.prev.type], next: at.next && [at.next.right, at.next.top - m.about.bottom], lines, types: m.types, labels: m.labels }));
+
+                // The two layouts meet at 900px; no width has a horizontal scroll, and the two words are inside the page.
+                const widths = [];
+                const shape = {};
+                for (const width of [320, 360, 390, 600, 719, 720, 899, 900, 1024]) {
+                    await page.setViewportSize({ width, height: 700 });
+                    for (const p of [whole, published.find(q => q.data.slug === listed[0]), published.find(q => q.data.slug === listed.at(-1))]) {
+                        await page.goto(`${base}/projects/${p.data.slug}/#project-info`);
+                        await page.waitForTimeout(30);
+                        const n = { ...await measure(), ...await page.evaluate(() => ({ words: [...document.querySelectorAll('#project-info .neighbours a')].map((a) => { const r = a.getBoundingClientRect(); return [r.left, r.right]; }) })) };
+                        if (n.wide > width) widths.push(`${p.data.slug} at ${width}px: ${n.wide}px wide`);
+                        if (n.words.some(([from, to]) => from < 0 || to > width)) widths.push(`${p.data.slug} at ${width}px: a word outside the page`);
+                        if (p === whole) shape[width] = n;
+                    }
+                }
+                check('3. no horizontal scroll on a project page at 320, 360, 390, 600, 719, 720, 899, 900 or 1024px, "previous" and "next" inside the page (a project with both, the first and the last)', widths.length === 0, widths.slice(0, 4).join('; '));
+                const one = (n) => n.about.top >= n.facts.bottom && near(n.about.left, n.facts.left) && near(n.facts.left, 24) && n.position !== 'sticky';
+                const two = (n) => near(n.about.left, n.centre + 8.5) && n.facts.left > n.about.right && near(n.about.top, n.facts.top) && n.position === 'sticky';
+                check('3. the information is beside the photos from 900px, the description left of the facts, and after them in one column below, where the description is at most 460px wide',
+                    two(shape[900]) && two(shape[1024]) && [899, 720, 719, 390, 320].every(w => one(shape[w])) && near(shape[899].about.width, 460) && near(shape[720].about.width, 460) && shape[390].about.width <= 342.5
+                    && near(shape[900].about.width, (900 - 85) / 2 / 2 - 10) && near(shape[900].facts.width, (900 - 85) / 2 / 2 - 10) && near(shape[1024].about.width, (1024 - 85) / 2 / 2 - 10),
+                    [1024, 900, 899, 720, 390].map(w => `${w}: facts from ${shape[w].facts.left}, description from ${shape[w].about.left}, ${shape[w].about.width} wide, ${shape[w].about.top - shape[w].facts.bottom} under them`).join('; '));
+                await page.setViewportSize({ width: 390, height: 844 });
+            }
+
             // A long information section is taller than a small window: all of it can be reached.
             if (longest) {
                 await page.setViewportSize({ width: 720, height: 500 });
@@ -902,8 +1684,8 @@ try {
                 await page.click('.project-head h1 a');
                 await rest(page);
                 const linked = await lie(page);
-                check('3. the title lands a long information section at rest, in one column with its top 88px from the top of the window (720 × 500)', infoOff(linked) === '' && linked.y > 0, `the information's top at ${linked.info.top}, ${Math.round(linked.max - linked.y)}px left to scroll`);
-                await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
+                check('3. below 900px the title lands a long information section at rest, its top 9px under the header at 104px (720 × 500)', infoOff(linked) === '' && linked.y > 0, `the information's top at ${linked.info.top}, ${Math.round(linked.max - linked.y)}px left to scroll`);
+                await scrollTo(0);
                 await rest(page);
                 let at = await lie(page);
                 for (let i = 0, last = -1; i < 60 && at.y !== last; i++) { last = at.y; at = await wheel(); }
@@ -925,192 +1707,28 @@ try {
                     for (let i = 0; i < 8 && (i === 0 || up.info.top < restAt(up) - 1); i++) { await page.keyboard.press('PageUp'); await rest(page); up = await lie(page); }
                     check('3. Page Up through a long information section stops with its top at rest, not on the photos (720 × 500)', infoOff(up) === '', `the information's top at ${up.info.top}`);
                 }
-                await page.setViewportSize({ width: 1366, height: 710 });
-            }
 
-            // The information's layout (CLAUDE.md, "Project page"), on a project that has every part of it
-            // and a neighbour on both sides: the one with the most to read.
-            const whole = [...published]
-                .filter(p => photos(p).length && factsOf(p).length === 4 && p.content.trim() && listed.indexOf(p.data.slug) > 0 && listed.indexOf(p.data.slug) < listed.length - 1)
-                .sort((a, b) => b.content.length - a.content.length)[0];
-            if (!whole) check('3. the information\'s layout: ok (no project in content has tags, a role, a client, years, a description and a neighbour on both sides; its checks were skipped)', true);
-            else {
-                const measure = () => page.evaluate(() => {
-                    const box = (el) => { if (!el) return null; const b = el.getBoundingClientRect(); return { top: b.top, bottom: b.bottom, left: b.left, right: b.right, width: b.width, height: b.height }; };
-                    const q = (sel) => document.querySelector(`#project-info ${sel}`);
-                    const all = (sel) => [...document.querySelectorAll(sel.split(',').map(one => `#project-info ${one}`).join(','))];
-                    // The baseline of an element's first line: where an empty inline-block at its start sits.
-                    const baseline = (el) => { if (!el) return null; const probe = document.createElement('span'); probe.style.cssText = 'display:inline-block;width:0;height:0'; el.prepend(probe); const y = probe.getBoundingClientRect().bottom; probe.remove(); return y; };
-                    const arrow = (side) => {
-                        const a = q(`.neighbours .${side}`);
-                        return a ? { ...box(a), svg: box(a.querySelector('svg')), href: a.getAttribute('href'), colour: getComputedStyle(a.querySelector('path')).stroke, parent: a.offsetParent?.id ?? '', position: getComputedStyle(a).position } : null;
-                    };
-                    const lines = all('.facts p');
-                    return {
-                        y: scrollY,
-                        vw: document.documentElement.clientWidth,
-                        vh: innerHeight,
-                        wide: document.documentElement.scrollWidth,
-                        centre: document.documentElement.clientWidth / 2,
-                        info: box(document.querySelector('#project-info')),
-                        facts: box(q('.facts')),
-                        about: box(q('.about')),
-                        desc: box(q('.description')),
-                        first: box(q('.description p')),
-                        lines: lines.map(p => ({ top: box(p).top, height: box(p).height })),
-                        bases: [baseline(lines[0]), baseline(q('.description p'))],
-                        labels: all('.label').map(l => `${l.textContent} ${getComputedStyle(l).fontWeight}`).join(', '),
-                        heavy: all('.facts p, .description p').filter(p => getComputedStyle(p).fontWeight !== '300').length,
-                        colours: [...new Set(all('.facts, .facts *, .about, .about *').map(el => getComputedStyle(el).color))].join(' / '),
-                        ink: getComputedStyle(document.body).color,
-                        slanted: all('.facts, .facts *').filter(el => getComputedStyle(el).transform !== 'none').length,
-                        titles: all('h1, h2, h3, .row, .title').length,
-                        prev: arrow('prev'),
-                        next: arrow('next'),
-                    };
-                });
-                const near = (a, b, by = 0.5) => Math.abs(a - b) <= by;
-                const slug = whole.data.slug;
-                const at = listed.indexOf(slug);
-
-                // After the wheel, and after the title link: the same place.
-                const start = await open(whole);
-                for (let i = 0; i < start.sets.length; i++) await wheel();
-                const m = await measure();
-                await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
-                await rest(page);
-                await page.click('.project-head h1 a');
-                await rest(page);
-                const linked = await measure();
-                check(`3. at 1366 × 710 the information is two columns from the page's centreline: the left one from 318px left of it, the description from 8px right of it and at most 312px wide (${slug})`,
-                    near(m.facts.left, m.centre - 318) && m.facts.right <= m.centre + 0.5 && near(m.about.left, m.centre + 8) && near(m.desc.left, m.centre + 8) && m.desc.width <= 312.5 && m.desc.width > 300,
-                    `left column ${m.centre - m.facts.left}px left of the centreline to ${m.facts.right - m.centre}px past it; description ${m.desc.left - m.centre}px right of it, ${m.desc.width}px wide`);
-                check('3. at rest the description\'s first line box is 74px from the top of the window, after a turn of the wheel and after the title link alike, and the two columns\' first lines share a baseline',
-                    near(m.first.top, 74) && near(linked.first.top, 74) && near(m.info.top, 72) && near(linked.info.top, 72) && near(m.bases[0], m.bases[1], 0.25) && m.facts.top >= m.info.top,
-                    `after the wheel ${m.first.top}, after the link ${linked.first.top}; baselines at ${m.bases.join(' and ')}; the left column's top at ${m.facts.top}, the section's at ${m.info.top}`);
-                // In line steps of 18.73px (the step in the owner's image; 1.4 × the 13.38px it was drawn at): how many each entry takes (one, or more where a long role
-                // wraps) and how many are left empty before the next entry (none; one before the years).
-                const step = 18.73;
-                const takes = m.lines.map(l => l.height / step);
-                const gaps = m.lines.slice(1).map((l, i) => (l.top - m.lines[i].top - m.lines[i].height) / step);
-                check('3. the left column: "type:", "role:" and "for:" in Bold, colon and all, everything else Light, all of it and the description in the text colour, nothing slanted; lines 18.73px apart (an entry that wraps takes whole lines), the years one empty line under the rest',
-                    m.labels === 'type: 700, role: 700, for: 700' && m.heavy === 0 && m.colours === m.ink && m.slanted === 0
-                    && takes.length === 4 && takes.every(n => n > 0.99 && near(n, Math.round(n), 0.01)) && near(gaps[0], 0, 0.01) && near(gaps[1], 0, 0.01) && near(gaps[2], 1, 0.01),
-                    `labels ${m.labels}; ${m.heavy} lines not Light; colours ${m.colours} (text ${m.ink}); ${m.slanted} slanted; entries of ${takes.map(n => n.toFixed(3)).join(', ')} lines, ${gaps.map(n => n.toFixed(3)).join(', ')} empty between them`);
-                check('3. the project\'s title is in the page header only: the information has no heading and no title row', m.titles === 0 && await page.evaluate(() => document.querySelectorAll('h1').length) === 1, `${m.titles} in the information`);
-                const placed = (a, side) => {
-                    const off = [];
-                    if (!a) return [`no ${side} arrow`];
-                    if (!near(a.width, 44) || !near(a.height, 44)) off.push(`${side}: target ${a.width}×${a.height}`);
-                    if (!near(a.svg.width, 16.5) || !near(a.svg.height, 19) || !near(a.svg.left - a.left, 13.75) || !near(a.svg.top - a.top, 12.5)) off.push(`${side}: chevron ${a.svg.width}×${a.svg.height}, ${a.svg.left - a.left} and ${a.svg.top - a.top} into its target`);
-                    if (side === 'prev' && !near(m.centre - a.svg.right, 329)) off.push(`prev: its right edge ${m.centre - a.svg.right}px left of the centreline, not 329`);
-                    if (side === 'next' && !near(a.svg.left - m.centre, 337)) off.push(`next: its left edge ${a.svg.left - m.centre}px right of the centreline, not 337`);
-                    if (!near(a.svg.top + a.svg.height / 2, m.vh * 0.745)) off.push(`${side}: its middle at ${a.svg.top + a.svg.height / 2}, not ${m.vh * 0.745} (74.5% of the window)`);
-                    if (a.colour !== 'rgb(153, 86, 122)') off.push(`${side}: colour ${a.colour}`);
-                    if (a.parent !== 'project-info' || a.position !== 'absolute') off.push(`${side}: not placed in the section (${a.position}, in "${a.parent}")`);
-                    return off;
-                };
-                const arrows = [...placed(m.prev, 'prev'), ...placed(m.next, 'next')];
-                check('3. the two arrows: the photos\' 16.5 × 19 chevron in the link colour, centred in a 44 × 44 target, its edge 329px left and 337px right of the centreline, its middle at 74.5% of the window\'s height, scrolling with the section', arrows.length === 0, arrows.join('; '));
-
-                // By keyboard: the arrow shows its focus; Enter follows it; the page it opens points back.
-                let tabs = 0;
-                while (tabs++ < 60 && !await page.evaluate(() => document.activeElement?.matches('.neighbours .next'))) await page.keyboard.press('Tab');
-                const focus = await page.evaluate(() => { const a = document.activeElement; const s = getComputedStyle(a); return { on: a.matches('.neighbours .next:focus-visible'), outline: `${s.outlineStyle} ${s.outlineWidth} ${s.outlineColor} ${s.outlineOffset}`, shown: a.getBoundingClientRect().top >= 0 && a.getBoundingClientRect().bottom <= innerHeight }; });
-                await page.keyboard.press('Enter');
-                await page.waitForURL(`**/projects/${listed[at + 1]}/`).catch(() => {});
-                const went = new URL(page.url()).pathname;
-                const backTo = await page.evaluate(() => document.querySelector('#project-info .neighbours .prev')?.getAttribute('href') ?? '');
-                await page.click('#project-info .neighbours .prev');
-                await page.waitForURL(`**/projects/${slug}/`).catch(() => {});
-                const home = new URL(page.url()).pathname;
-                check('3. the "next" arrow takes keyboard focus inside the window with the chevrons\' outline, Enter opens the next project in the Index\'s order, and that page\'s "previous" arrow leads back',
-                    focus.on && focus.shown && focus.outline === 'solid 2px rgb(153, 86, 122) -6px' && went === `/projects/${listed[at + 1]}/` && backTo === `/projects/${slug}/` && home === `/projects/${slug}/`,
-                    `${JSON.stringify(focus)}; opened ${went}; its previous arrow ${backTo}; then ${home}`);
-
-                // Narrower: two columns from 760px, one below, and never a horizontal scroll.
-                const widths = [];
-                const shape = {};
-                for (const width of [320, 360, 390, 600, 719, 720, 759, 760]) {
-                    await page.setViewportSize({ width, height: 700 });
-                    for (const p of [whole, published.find(q => q.data.slug === listed[0]), published.find(q => q.data.slug === listed.at(-1))]) {
-                        await page.goto(`${base}/projects/${p.data.slug}/#project-info`);
-                        await page.waitForTimeout(30);
-                        const n = await measure();
-                        if (n.wide > width) widths.push(`${p.data.slug} at ${width}px: ${n.wide}px wide`);
-                        for (const a of [n.prev, n.next]) if (a && (a.left < 0 || a.right > width)) widths.push(`${p.data.slug} at ${width}px: an arrow outside the page`);
-                        if (p === whole) shape[width] = n;
-                    }
-                }
-                check('3. no horizontal scroll on a project page at 320, 360, 390, 600, 719, 720, 759 or 760px, the arrows inside the page (a project with both arrows, the first and the last)', widths.length === 0, widths.slice(0, 4).join('; '));
-                const one = (n) => n.about.top >= n.facts.bottom && near(n.about.left, n.facts.left);
-                const two = (n) => near(n.about.left, n.centre + 8) && near(n.facts.left, n.centre - 318) && near(n.about.top - n.facts.top, 1);
-                check('3. the information is two columns from 760px and one column below, its text under Back: 37px from the page\'s edge from 720px, 16px below that',
-                    two(shape[760]) && [759, 720, 719, 390].every(w => one(shape[w])) && near(shape[759].facts.left, 37) && near(shape[720].facts.left, 37) && near(shape[719].facts.left, 16),
-                    [760, 759, 720, 719, 390].map(w => `${w}: left column at ${shape[w].facts.left}, description at ${shape[w].about.left} and ${shape[w].about.top - shape[w].facts.bottom} under it`).join('; '));
-                const n = shape[390];
-                check('3. at 390px the information is one column inside the page\'s 16px padding: type, role, for and years, then the description 24px under them, then the two arrows in a row under the text, previous at the left and next at the right, 44 × 44 each',
-                    near(n.facts.left, 16) && near(n.about.left, 16) && n.about.right <= 390 - 16 + 0.5 && near(n.about.top - n.facts.bottom, 24)
-                    && near(n.prev.top - n.about.bottom, 24) && near(n.prev.top, n.next.top) && near(n.prev.left, 16) && near(n.next.right, 390 - 16) && [n.prev, n.next].every(a => near(a.width, 44) && near(a.height, 44) && a.position !== 'absolute'),
-                    JSON.stringify({ facts: n.facts.left, about: [n.about.left, n.about.right], gap: n.about.top - n.facts.bottom, prev: [n.prev.left, n.prev.top - n.about.bottom], next: [n.next.right, n.next.top - n.about.bottom] }));
-                await page.setViewportSize({ width: 1366, height: 710 });
-            }
-
-            // A page opened at #project-info (a link from elsewhere, an address): the browser sets off
-            // for the information before the sets are defined, the page then gets shorter, and the page's
-            // script lands it again. On the project with the most to read, whose information is taller
-            // than the window: a scroll that only stopped at the end of the page would leave its first
-            // lines under the header.
-            if (longest) {
+                // A page opened at #project-info (a link from elsewhere, an address): the browser sets off
+                // for the information before the sets are defined, the page then gets shorter, and the page's
+                // script lands it again. On the project with the most to read, whose information is taller
+                // than the window: a scroll that only stopped at the end of the page would leave its first
+                // lines under the header.
                 const landed = [];
-                for (const height of [710, 650]) {
-                    await page.setViewportSize({ width: 1366, height });
+                for (const [width, height] of [[720, 500], [390, 844]]) {
+                    await page.setViewportSize({ width, height });
                     await page.goto('about:blank');
                     await page.goto(`${base}/projects/${longest.data.slug}/#project-info`);
                     await slidesReady(page);
                     await rest(page);
-                    const at = await lie(page);
-                    landed.push({ height, off: infoOff(at), over: Math.round(at.info.height - (at.vh - restAt(at))) });
+                    const here = await lie(page);
+                    landed.push({ width, height, off: infoOff(here), over: Math.round(here.info.height - (here.vh - restAt(here))) });
                 }
-                check(`3. a project page opened at #project-info comes to rest as after the title link, the information's top at 72px and the description's first line at 74px (1366 × 710 and 1366 × 650; ${longest.data.slug}, its information ${landed.map(l => `${Math.max(0, l.over)}px`).join(' and ')} taller than the window allows)`,
-                    landed.every(l => l.off === ''), landed.filter(l => l.off).map(l => `at 1366 × ${l.height}: ${l.off}`).join('; '));
+                check(`3. below 900px a project page opened at #project-info comes to rest as after the title link, the information's top at 104px (720 × 500 and 390 × 844; ${longest.data.slug}, its information ${landed.map(l => `${Math.max(0, l.over)}px`).join(' and ')} taller than the window allows)`,
+                    landed.every(l => l.off === ''), landed.filter(l => l.off).map(l => `at ${l.width} × ${l.height}: ${l.off}`).join('; '));
             }
 
-            // A project with no photos: the information is all there is under the header. It lies where
-            // it rests after the photos, and the page is no taller for it than the window: nothing to
-            // scroll. (If every project has photos, one of them with its sets taken out of the page.)
-            {
-                const bare = published.find(p => !photos(p).length && (factsOf(p).length || p.content.trim()));
-                const stand = bare ?? longest;
-                if (stand) {
-                    const wrong = [];
-                    for (const [width, height] of [[1366, 710], [390, 844]]) {
-                        await page.setViewportSize({ width, height });
-                        await page.goto('about:blank');
-                        await page.goto(`${base}/projects/${stand.data.slug}/`);
-                        if (!bare) {
-                            await slidesReady(page);
-                            await page.evaluate(() => { for (const el of document.querySelectorAll('project-slides')) el.remove(); scrollTo({ top: 0, behavior: 'instant' }); });
-                        }
-                        await page.mouse.move(width / 2, 400);
-                        await rest(page);
-                        const at = await lie(page);
-                        const tall = at.max + at.vh;
-                        const end = at.y + at.info.bottom;
-                        if (at.y !== 0) wrong.push(`${width} × ${height}: the page comes to rest ${at.y}px down`);
-                        if (Math.abs(tall - Math.max(at.vh, end)) > 1) wrong.push(`${width} × ${height}: the page is ${tall}px tall, the window ${at.vh}px, and the information ends at ${end}`);
-                        if (width >= 760 ? infoOff(at) : Math.abs(at.info.top - at.head.bottom) > 0.5) wrong.push(`${width} × ${height}: ${width >= 760 ? infoOff(at) : `the information's top at ${at.info.top}, the header to ${at.head.bottom}`}`);
-                        // In one column it is as tall as its text and no taller: under a header of two lines a
-                        // screen's worth of minimum height would be more than the window has left.
-                        const least = await page.evaluate(() => getComputedStyle(document.querySelector('#project-info')).minHeight);
-                        if (width < 760 && least !== '0px') wrong.push(`${width} × ${height}: the information is at least ${least} tall, whatever its text`);
-                    }
-                    check(`3. a project with no photos does not scroll for its information: at 1366 × 710 it lies at rest, its top at 72px, in a page no taller than the window or than its text; at 390 × 844 it follows the header, as tall as its text and no taller, and the page ends with it (${bare ? bare.data.slug : `${stand.data.slug}, its sets taken out`})`, wrong.length === 0, wrong.join('; '));
-                }
-            }
-
-            // Where a title wraps (the longest one, at 320px) the header is a line taller. The information
-            // still rests clear of the header's ground colour, which ends 8px above its lower edge.
+            // Where a title wraps (the longest one, at 320px) the header is a line taller, 112px for 95px.
+            // The information still rests with its first line clear of it: that is what its 9px are for.
             {
                 const wordy = published.filter(p => photos(p).length && factsOf(p).length).sort((a, b) => text(b.data.title).length - text(a.data.title).length)[0];
                 if (wordy) {
@@ -1118,13 +1736,63 @@ try {
                     await page.goto('about:blank');
                     await page.goto(`${base}/projects/${wordy.data.slug}/`);
                     await slidesReady(page);
+                    const opened = await lie(page);
                     await page.click('.project-head h1 a');
                     await rest(page);
                     const at = await lie(page);
                     const first = await page.evaluate(() => document.querySelector('#project-info .facts p').getBoundingClientRect().top);
-                    check(`3. at 320px the title link leaves the information's first line clear of the header, also where the title takes two lines (${wordy.data.slug}: the header is ${at.head.bottom}px tall, its ground colour ends at ${at.head.bottom - 8}px, the first line starts at ${first}px)`,
-                        infoOff(at) === '' && first >= at.head.bottom - 8, infoOff(at));
+                    check(`3. at 320px the title link leaves the information's first line clear of the header, also where the title takes two lines; and when such a page opens, its photo starts under the taller header, not behind it (${wordy.data.slug}: the header is ${at.head.bottom}px tall, the first line starts at ${first}px)`,
+                        infoOff(at) === '' && at.head.bottom > 95 + 1 && first >= at.head.bottom - 0.5 && opened.sets[0].frame.top >= opened.head.bottom - 0.5, `${infoOff(at)}; header to ${at.head.bottom}, first line at ${first}; on opening the photo from ${opened.sets[0].frame.top}, the header to ${opened.head.bottom}`);
                 }
+            }
+
+            // The type, on every project page and on the 404 page, in both layouts: every piece of text that
+            // shows is one of the sizes its place has, and nothing is Bold but the title, the facts' labels and **bold** in content.
+            {
+                const wrong = [];
+                let pieces = 0;
+                let captions = 0;
+                for (const [width, height] of [[390, 844], [1366, 710]]) {
+                    await page.setViewportSize({ width, height });
+                    const d = pageOf(width);
+                    const bare = (t) => t.replace(/ \/ \d+$/, '');
+                    for (const path of ['/404.html', ...published.map(p => `/projects/${p.data.slug}/`)]) {
+                        await page.goto(base + path);
+                        const found = await page.evaluate(() => [...document.querySelectorAll('body *')].filter(el => el.getClientRects().length && [...el.childNodes].some(n => n.nodeType === 3 && n.data.trim()) && !el.closest('.visually-hidden')).map((el) => {
+                            const s = getComputedStyle(el);
+                            const kind = el.closest('.caption') ? 'caption' : el.closest('.project-head h1') ? 'title' : el.closest('.back') ? 'back' : el.closest('.facts') ? 'facts' : 'text';
+                            const weight = el.closest('.label, strong, .project-head h1') ? '700' : '300';
+                            return `${kind} ${s.fontSize} / ${s.lineHeight}${s.fontWeight === weight ? '' : ` in weight ${s.fontWeight}`}`;
+                        }));
+                        const allowed = path === '/404.html' ? [`back ${bare(plainType(width))}`, `text ${bare(plainType(width))}`] : [`title ${bare(d.title)}`, `back ${bare(d.back)}`, `facts ${bare(d.facts)}`, `text ${bare(d.text)}`, `caption ${bare(d.caption)}`];
+                        const off = [...new Set(found)].filter(t => !allowed.includes(t));
+                        pieces += found.length;
+                        captions += found.filter(t => t.startsWith('caption ')).length;
+                        if (off.length) wrong.push(`${path} at ${width}px: ${off.slice(0, 3).join(', ')}`);
+                    }
+                }
+                const [n, w] = [pageOf(390), pageOf(1366)];
+                check(`3. the type on every project page: below 900px the title ${n.title.replace(' / 700', '')} Bold, back the same Light, the description ${n.text.replace(' / 300', '')}, the facts on a line of 1.42 (${n.facts.split(' / ')[1]}), a caption ${n.caption.replace(' / 300', '')}; from 900px ${w.title.replace(' / 700', '')}, ${w.text.replace(' / 300', '')}, ${w.facts.split(' / ')[1]} and ${w.caption.replace(' / 300', '')}; all Light but the title, the facts' labels and bold in content; the 404 page in the body's own type, ${plainType(390).replace(' / 300', '')} below 720px and ${plainType(1366).replace(' / 300', '')} from there (${pieces} pieces of text, ${captions} of them captions)`,
+                    wrong.length === 0 && captions > 0, wrong.slice(0, 4).join(' | '));
+            }
+            // The 404 page keeps its layout: back where the page's padding puts it, the words 55px under it.
+            {
+                const wrong = [];
+                for (const [width, height] of [[390, 844], [1366, 710]]) {
+                    await page.setViewportSize({ width, height });
+                    await page.goto(`${base}/404.html`);
+                    const m = await page.evaluate(() => {
+                        const back = document.querySelector('.back');
+                        const link = back.querySelector('a');
+                        const words = document.querySelector('.not-found h1');
+                        return { left: back.getBoundingClientRect().left, top: back.getBoundingClientRect().top, bottom: back.getBoundingClientRect().bottom, word: link.textContent, href: link.getAttribute('href'), colour: getComputedStyle(link).color, lean: getComputedStyle(link).transform, under: words.getBoundingClientRect().top, at: words.getBoundingClientRect().left, text: words.textContent.trim(), wide: document.documentElement.scrollWidth, tall: document.documentElement.scrollHeight };
+                    });
+                    const side = width >= 720 ? 37 : 16;
+                    if (Math.abs(m.left - side) > 0.5 || Math.abs(m.top - 42) > 0.5 || Math.abs(m.at - side) > 0.5 || Math.abs(m.under - m.bottom - 55) > 0.5) wrong.push(`${width}px: back at ${m.left}, ${m.top}; the words at ${m.at}, ${m.under - m.bottom} under it`);
+                    if (m.word !== 'back' || m.href !== '/' || m.colour !== 'rgb(128, 114, 121)' || !/^matrix\(1, 0, 0\.105\d*, 1, 0, 0\)$/.test(m.lean) || !m.text) wrong.push(`${width}px: "${m.word}" to ${m.href}, ${m.colour}, ${m.lean}; "${m.text}"`);
+                    if (m.wide > width || m.tall > height) wrong.push(`${width}px: the page is ${m.wide} × ${m.tall}`);
+                }
+                check('the 404 page keeps its layout: back 42px down and 16px in (37px from 720px), in the tag colour, Light, leaning backwards, a link to the home page; the page\'s words 55px under it; nothing to scroll', wrong.length === 0, wrong.join('; '));
             }
             await page.setViewportSize({ width: 1366, height: 710 });
         }
@@ -2364,6 +3032,9 @@ try {
             captions += look.captions;
             if (look.wrong.length) boxes.push(`${path}: ${look.wrong.length} of ${look.count}, ${look.wrong[0]}`);
         }
+        // (The project pages and the 404 page have had their own type since 26 Nov 2026, and a check of their own for it with the
+        // project pages' other checks: they are not judged by the one below.)
+        for (let i = type.length - 1; i >= 0; i--) if (/^\/(projects\/[^/]+\/|404\.html):/.test(type[i])) type.splice(i, 1);
         check('4. no horizontal scroll at 390px on any route', wide.length === 0, wide.join(', '));
         check(`the type on every route is 13px on a 16px line, Light (a project's type, role and client on an 18.73px line); a caption is 11px / 13.2px and nothing else (${captions} captions on screen)`, type.length === 0 && captions > 0, type.slice(0, 4).join(' | ') || (captions ? '' : 'no caption on screen on any route'));
         check(`no picture on any route has a border, every one has the shadow and is stretched over its whole box (object-fit: fill): the ${pictures} thumbnails and project photos`, pictures > 0 && boxes.length === 0, boxes.slice(0, 4).join(' | '));
@@ -2410,7 +3081,6 @@ try {
         let photosShown = -1;
         let setsShown = [];
         const snaps = {};
-        const snap = () => page.evaluate(() => getComputedStyle(document.documentElement).scrollSnapType);
         // The photos that show, set by set, and whether each lies under the one before.
         const stacked = () => page.evaluate(() => [...document.querySelectorAll('project-slides')].map((el) => {
             const frames = [...el.querySelectorAll('.slide')].filter(sl => sl.getClientRects().length).map(sl => sl.querySelector('.frame').getBoundingClientRect());
@@ -2419,21 +3089,53 @@ try {
         for (const path of routes) {
             await page.goto(base + path);
             if (path === '/') rowsShown = await page.evaluate(() => document.querySelectorAll('project-index .row').length);
-            if (many && path === `/projects/${many.data.slug}/`) { photosShown = await page.evaluate(() => [...document.querySelectorAll('project-slides .slide')].filter(s => s.getClientRects().length).length); snaps.many = await snap(); }
+            if (many && path === `/projects/${many.data.slug}/`) photosShown = await page.evaluate(() => [...document.querySelectorAll('project-slides .slide')].filter(s => s.getClientRects().length).length);
             if (multi && path === `/projects/${multi.data.slug}/`) setsShown = await stacked();
-            if (single && path === `/projects/${single.data.slug}/`) snaps.single = await snap();
+        }
+        // The project pages' two layouts without a script (the loop above ran in a window 1280px wide): every photo of
+        // every set is on the page, one under the other in set order, each with its caption under it and no chevron;
+        // the first is exactly where the script shows it; the information is beside the photos from 900px and after
+        // them below. Below 900px, photos one under the other are a state the page must not snap in (it scrolls
+        // freely), while a page whose sets hold one photo each is in its final state without a script, and snaps;
+        // from 900px nothing snaps.
+        const plain = [];
+        for (const [width, height] of [[390, 844], [1366, 710]]) {
+            await page.setViewportSize({ width, height });
+            const d = pageOf(width);
+            for (const p of [...new Set([many, multi, single, captioned].filter(Boolean))]) {
+                await page.goto(`${base}/projects/${p.data.slug}/`);
+                const at = await lie(page);
+                const sets = await page.evaluate(() => [...document.querySelectorAll('project-slides')].map(el => [...el.querySelectorAll('.slide')].map((sl) => {
+                    const r = (x) => { if (!x || !x.getClientRects().length) return null; const b = x.getBoundingClientRect(); return { top: b.top, bottom: b.bottom, left: b.left, right: b.right }; };
+                    return { frame: r(sl.querySelector('.frame')), caption: r(sl.querySelector('.caption')), text: sl.querySelector('.caption')?.textContent.replace(/\s+/g, ' ').trim() ?? '', arrows: [...sl.querySelectorAll('.arrow')].filter(a => a.getClientRects().length).length };
+                })));
+                const where = `${p.data.slug} at ${width} × ${height}`;
+                const want = setsOf(p);
+                if (sets.map(set => set.length).join() !== want.map(set => set.length).join() || sets.flat().some(sl => !sl.frame)) plain.push(`${where}: ${sets.map(set => set.filter(sl => sl.frame).length).join(' + ')} photos show, of ${want.map(set => set.length).join(' + ')}`);
+                const flat = sets.flat().filter(sl => sl.frame);
+                if (flat.some((sl, i) => i > 0 && sl.frame.top < (flat[i - 1].caption ?? flat[i - 1].frame).bottom - 0.5)) plain.push(`${where}: a photo is not under the one before and its caption`);
+                if (flat.some(sl => sl.arrows)) plain.push(`${where}: a chevron shows`);
+                want.flat().forEach((im, i) => { if (flat[i] && (flat[i].text !== (im.caption ? words(im.caption) : '') || (flat[i].caption && (flat[i].caption.top < flat[i].frame.bottom - 0.5 || flat[i].caption.left < flat[i].frame.left - 0.5 - (d.wide ? 0 : width) || flat[i].caption.right > flat[i].frame.right + 0.5 + (d.wide ? 0 : width))))) plain.push(`${where}: photo ${i + 1} has the caption "${flat[i].text.slice(0, 30)}" at ${JSON.stringify(flat[i].caption)}`); });
+                const first = at.sets[0];
+                const wide = photoWidth(first.a, at.vw, at.vh, first.count > 1 && Boolean(at.prev));
+                if (Math.abs(first.frame.width - wide) > 0.5 || Math.abs(first.frame.top - d.head) > 0.5 || Math.abs(d.wide ? first.frame.right - (width / 2 - 8.5) : first.frame.left - (width - wide) / 2) > 0.5) plain.push(`${where}: the first photo is ${first.frame.width} wide from ${first.frame.left}, ${first.frame.top}, not where the script shows it (${wide} wide)`);
+                if (d.wide ? Math.abs(at.info.left - (width / 2 + 8.5)) > 0.5 || Math.abs(at.info.top - d.head) > 0.5 : at.info.top < at.sets.at(-1).bottom - 0.5 || Math.abs(at.info.left) > 0.5) plain.push(`${where}: the information at ${at.info.left}, ${at.info.top}`);
+                if (at.wide > width) plain.push(`${where}: the page is ${at.wide}px wide`);
+                snaps[`${p === single ? 'single' : firstSet(p).length > 1 ? 'stacked' : 'other'} ${width}`] = at.snap;
+            }
         }
         check('no console errors with JavaScript off', errs.length === 0, errs.slice(0, 5).join(' | '));
         check('1. with JavaScript off the index shows every row', rowsShown === published.length);
         if (many) check('1. with JavaScript off a project page shows every photo', photosShown === photos(many).length, `${photosShown}/${photos(many).length}`);
-        // Photos one under the other are a state the page must not snap in (it scrolls freely); a page whose sets hold one photo each is in its final state without a script, and snaps.
-        if (many && firstSet(many).length > 1) check('3. with JavaScript off a page whose photos are one under the other does not snap', snaps.many === 'none', snaps.many);
-        if (single) check('3. a page with one photo snaps without a script', String(snaps.single).includes('mandatory'), snaps.single);
+        if (many && firstSet(many).length > 1) check('3. with JavaScript off a page whose photos are one under the other does not snap (390px)', snaps['stacked 390'] === 'none', snaps['stacked 390']);
+        if (single) check('3. below 900px a page with one photo snaps without a script (390px)', String(snaps['single 390']).includes('mandatory'), snaps['single 390']);
+        check('3. from 900px no project page snaps, with or without a script (1366px)', Object.entries(snaps).filter(([k]) => k.endsWith(' 1366')).every(([, v]) => v === 'none') && Object.keys(snaps).some(k => k.endsWith(' 1366')), JSON.stringify(snaps));
         if (multi) {
             const want = setsOf(multi).map(set => set.length);
             const inOrder = setsShown.every((set, i) => set.under && (i === 0 || set.top >= setsShown[i - 1].bottom));
             check('1. with JavaScript off every photo of every set shows, one under the other, in set order', setsShown.map(set => set.shown).join() === want.join() && inOrder, `${setsShown.map(set => set.shown).join(' + ')} of ${want.join(' + ')}`);
         }
+        check(`3. with JavaScript off a project page is whole in both layouts (390 × 844 and 1366 × 710): every photo of every set, one under the other in set order, each with its own caption under it and no chevron, the first where the script shows it; the information beside the photos from 900px, after them below (${[...new Set([many, multi, single, captioned].filter(Boolean))].map(p => p.data.slug).join(', ')})`, plain.length === 0, plain.slice(0, 4).join(' | '));
         await context.close();
     }
 
@@ -2484,7 +3186,7 @@ try {
     }
 
     // 4. a touch screen, 390px wide: a project page scrolls freely (no snapping), its sets one
-    // under the other, and no photo shows through the header it passes under.
+    // under the other, and no photo shows through the header it passes under; a double tap opens a photo.
     {
         const shownOn = multi ?? oneSet ?? many;
         const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
@@ -2495,8 +3197,8 @@ try {
             await page.waitForFunction(() => { const img = document.querySelector('project-slides .slide.current img'); return img.complete && img.naturalWidth > 0; });
             await page.evaluate(() => document.fonts.ready);
             const start = await lie(page);
-            // The header as it is with nothing under it; its last 8px are left clear for the shadow of a photo at rest under it.
-            const clip = { x: 0, y: 0, width: 390, height: Math.round(start.head.bottom) - 8 };
+            // The header as it is with nothing under it: its ground colour covers all of it.
+            const clip = { x: 0, y: 0, width: 390, height: Math.round(start.head.bottom) };
             const pixels = async () => sharp(await page.screenshot({ clip })).raw().toBuffer();
             const clear = await pixels();
             // A place between two stops, with the first photo half under the header.
@@ -2511,6 +3213,22 @@ try {
             const stack = at.sets.every((set, i) => i === 0 || set.top >= at.sets[i - 1].bottom - 0.5);
             check(`4. on a touch screen at 390px a project page scrolls freely, its sets one under the other, with no horizontal scroll (${shownOn.data.slug})`, !at.mouse && at.snap === 'none' && Math.abs(at.y - y) <= 1 && stack && at.wide <= 390, `asked for ${y}, rests at ${at.y}; snap ${at.snap}; ${at.wide}px wide`);
             check('3. the header keeps its place and nothing of a photo passing under it shows through', under && at.head.top === 0 && at.headOnTop && differ === 0, under ? `${differ} of ${clear.length} colour values changed` : 'no photo was under the header');
+            // Two taps on a photo, one after the other, open it; a tap closes it. (Taps that this machine was
+            // too slow to send within the wait are two single taps: the set moves on twice, and it is tried again.)
+            await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
+            await rest(page);
+            let tapped = { open: 0, tries: 0, touch: '' };
+            for (let i = 0; i < 4 && !tapped.open; i++) {
+                await page.evaluate(() => document.querySelector('project-slides').setState?.({ index: 0 }));
+                const box = await page.evaluate(() => { const r = document.querySelector('project-slides .slide.current .frame').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+                await page.touchscreen.tap(box.x, box.y);
+                await page.touchscreen.tap(box.x, box.y);
+                await page.waitForTimeout(ZOOM_WAIT + 250);
+                tapped = await page.evaluate(n => ({ open: document.querySelectorAll('.zoom').length, tries: n, index: document.querySelector('project-slides').state?.index ?? 0, touch: getComputedStyle(document.querySelector('project-slides .slide.current .frame')).touchAction }), i + 1);
+            }
+            if (tapped.open) { await page.touchscreen.tap(195, 420); await page.waitForTimeout(150); }
+            const closed = await page.evaluate(() => document.querySelectorAll('.zoom').length);
+            check('3. on a touch screen a double tap on a photo opens it (the photo takes no double-tap zoom of the browser\'s: touch-action manipulation), and a tap closes it', tapped.open === 1 && tapped.index === 0 && tapped.touch === 'manipulation' && closed === 0, JSON.stringify({ ...tapped, closed }));
         }
         await context.close();
     }
@@ -2531,6 +3249,8 @@ try {
         check('5. every key of a project photo (image, alt, caption, set) is a field in .pages.yml', photoKeys.length === 0, photoKeys.join(', '));
         const set = photoFields.get('set');
         check('5. a photo\'s set is a number field in .pages.yml, whole numbers from 1', set?.type === 'number' && set?.options?.min === 1 && set?.options?.step === 1, JSON.stringify(set ?? null));
+        const details = fields.get('details');
+        check('5. a project\'s "More details" is a field of plain text of several lines in .pages.yml, optional, with words on how to write it', details?.type === 'text' && details?.label === 'More details' && !details?.required && /empty line/.test(details?.description ?? '') && /\]\(/.test(details?.description ?? ''), JSON.stringify(details ?? null));
         const files = (config.content ?? []).filter(c => c.type === 'file').map(c => c.path).sort();
         check('5. the two text pages are editable', JSON.stringify(files) === JSON.stringify(['content/site/index.md', 'content/site/info.md']), files.join(', '));
     }

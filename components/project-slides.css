@@ -55,6 +55,7 @@ project-slides .frame img[width=""] {
 }
 
 project-slides .arrow {
+  position: relative;
   grid-row: 2;
   display: grid;
   place-items: center;
@@ -89,8 +90,29 @@ project-slides .next {
   justify-items: end;
 }
 
+project-slides .arrow::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 44px;
+}
+
+project-slides .prev::before {
+  right: 0;
+}
+
+project-slides .next::before {
+  left: 0;
+}
+
 project-slides .arrow:focus-visible {
-  outline-offset: -6px;
+  outline: none;
+}
+
+project-slides .arrow:focus-visible svg {
+  outline: 2px solid var(--link);
+  outline-offset: 6px;
 }
 
 project-slides .caption {
@@ -143,15 +165,19 @@ project-slides:not(:defined) .slide:not(:first-child) {
     padding-bottom: 20px;
   }
 
-  project-slides .slide:not(:only-child) {
+  .after project-slides .slide:not(:only-child) {
     --fw: min(var(--w), max(min(var(--h) * var(--a, 1.5), var(--w) - 60px), (var(--h) - 48px) * var(--a, 1.5)));
   }
 
-  project-slides .arrow {
+  .after project-slides .arrow {
     align-self: stretch;
     height: auto;
     min-height: 44px;
-    max-height: 52.5px;
+    max-height: calc(52.5px + max(0px, var(--w) - var(--fw) - 59px) * 1000);
+  }
+
+  project-slides .arrow::before {
+    content: none;
   }
 
   project-slides .caption {

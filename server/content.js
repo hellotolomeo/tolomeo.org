@@ -55,6 +55,9 @@ export function loadContent({ root, images, config, log = () => {} }) {
         p.nextSlug = after?.slug ?? '';
         p.nextTitle = after?.title ?? '';
         p.nextHref = after?.href ?? '';
+        // How wide a photo is shown depends on whether the page has a "previous" in its corner
+        // (slideSizes), so every photo's `sizes` is written now that this is known.
+        for (const set of p.sets) for (const s of set.slides) s.sizes = slideSizes(s, set.slides.length > 1 && Boolean(before));
     });
 
     const tags = [...new Set(projects.flatMap(p => p.tags))].sort((a, b) => a.localeCompare(b));
@@ -183,7 +186,7 @@ function shape(p, { images, warn }) {
     const sets = numbers.map((n, i) => ({
         id: `slides-${p.slug}-${i + 1}`,
         label: numbers.length > 1 ? `Photos of ${p.title}, set ${i + 1} of ${numbers.length}` : `Photos of ${p.title}`,
-        slides: photos.filter(s => s.set === n).map((s, _, all) => slide(s.pic, s.caption, all.length > 1)),
+        slides: photos.filter(s => s.set === n).map(s => slide(s.pic, s.caption)),
     }));
     return {
         slug: p.slug,
@@ -236,11 +239,10 @@ function coverSizes(c) {
     return `(max-width: 719px) ${fit(100)}, ${fit(25)}`;
 }
 
-// One photo of a project page, as the project-slides component prints it; `caption` is HTML,
-// `several` says that its set holds more photos than this one.
-function slide(g, caption, several) {
-    const sizes = slideSizes(g, several);
-    return { src: g.src, srcset: g.srcset, webp: g.webp, sizes, width: g.width, height: g.height, alt: g.alt, caption };
+// One photo of a project page, as the project-slides component prints it; `caption` is HTML.
+// Its `sizes` is filled in by loadContent() once the project's place in the Index is known.
+function slide(g, caption) {
+    return { src: g.src, srcset: g.srcset, webp: g.webp, sizes: '', width: g.width, height: g.height, alt: g.alt, caption };
 }
 
 // An image value → { key, src, srcset, webp, small, smallWebp, width, height, alt }, or null.
@@ -290,14 +292,15 @@ const aspect = (pic) => (pic?.width && pic?.height ? Math.round((pic.width / pic
 // height less the 95px header and the 76px kept for the caption. From 900px the photos are the
 // left half of the page: the page less its 34px paddings and the 17px between the halves, halved
 // (50vw - 42.5px), and the height less the 71px header and the caption's 70px. There a photo that
-// has others in its set (`several`: it may have a chevron at its lower left corner) also keeps
-// clear of the word "previous" in the window's corner: it either ends 60px before the half's left
-// edge or is 48px less tall, whichever leaves it larger.
-function slideSizes(g, several) {
+// may have a chevron at its lower left corner (it has others in its set) on a page that has the
+// word "previous" in the window's lower left corner (every project but the first) keeps clear of
+// that word (`cornered`): it either ends 60px before the half's left edge or is 48px less tall,
+// whichever leaves it larger.
+function slideSizes(g, cornered) {
     const a = aspect(g) ?? 1.5;
     const narrow = `min(calc(100vw - 48px), calc((100vh - 171px) * ${a}))`;
     const tall = `calc((100vh - 141px) * ${a})`;
-    const wide = several
+    const wide = cornered
         ? `min(calc(50vw - 42.5px), max(min(${tall}, calc(50vw - 102.5px)), calc((100vh - 189px) * ${a})))`
         : `min(calc(50vw - 42.5px), ${tall})`;
     return `(max-width: 899px) ${narrow}, ${wide}`;
