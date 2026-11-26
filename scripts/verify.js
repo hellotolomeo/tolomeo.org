@@ -2678,31 +2678,39 @@ try {
 
             // The type, on every project page and on the 404 page, in both layouts: every piece of text that
             // shows is one of the sizes its place has, and nothing is Bold but the title, the facts' labels and **bold** in content.
+            // A page is read once its slideshows have rendered, so every run reads the same. A set then shows one photo;
+            // the captions of its other photos, which show when their photo's turn comes, are read as well, by the type
+            // their rules give them. (Read right after goto(), as it first was, a page was caught before its script or
+            // after it as it happened, with every caption showing or one to a set: the check judged between 383 and 609
+            // pieces of caption text in the runs of 26 Nov 2026, a different number in almost every run.)
             {
                 const wrong = [];
                 let pieces = 0;
                 let captions = 0;
+                let waiting = 0;
                 for (const [width, height] of [[390, 844], [800, 700], [1366, 710]]) {
                     await page.setViewportSize({ width, height });
                     const d = pageOf(width);
                     const bare = (t) => t.replace(/ \/ \d+$/, '');
                     for (const path of ['/404.html', ...published.map(p => `/projects/${p.data.slug}/`)]) {
                         await page.goto(base + path);
-                        const found = await page.evaluate(() => [...document.querySelectorAll('body *')].filter(el => el.getClientRects().length && [...el.childNodes].some(n => n.nodeType === 3 && n.data.trim()) && !el.closest('.visually-hidden')).map((el) => {
+                        await slidesReady(page);
+                        const found = await page.evaluate(() => [...document.querySelectorAll('body *')].filter(el => (el.getClientRects().length || el.closest('project-slides .caption')) && [...el.childNodes].some(n => n.nodeType === 3 && n.data.trim()) && !el.closest('.visually-hidden')).map((el) => {
                             const s = getComputedStyle(el);
                             const kind = el.closest('.caption') ? 'caption' : el.closest('.project-head h1') ? 'title' : el.closest('.back') ? 'back' : el.closest('.facts') ? 'facts' : 'text';
                             const weight = el.closest('.label, strong, .project-head h1') ? '700' : '300';
-                            return `${kind} ${s.fontSize} / ${s.lineHeight}${s.fontWeight === weight ? '' : ` in weight ${s.fontWeight}`}`;
+                            return { type: `${kind} ${s.fontSize} / ${s.lineHeight}${s.fontWeight === weight ? '' : ` in weight ${s.fontWeight}`}`, shown: el.getClientRects().length > 0 };
                         }));
                         const allowed = path === '/404.html' ? [`back ${bare(plainType(width))}`, `text ${bare(plainType(width))}`] : [`title ${bare(d.title)}`, `back ${bare(d.back)}`, `facts ${bare(d.facts)}`, `text ${bare(d.text)}`, `caption ${bare(d.caption)}`];
-                        const off = [...new Set(found)].filter(t => !allowed.includes(t));
+                        const off = [...new Set(found.map(f => f.type))].filter(t => !allowed.includes(t));
                         pieces += found.length;
-                        captions += found.filter(t => t.startsWith('caption ')).length;
+                        captions += found.filter(f => f.type.startsWith('caption ')).length;
+                        waiting += found.filter(f => !f.shown).length;
                         if (off.length) wrong.push(`${path} at ${width}px: ${off.slice(0, 3).join(', ')}`);
                     }
                 }
                 const [n, w] = [pageOf(390), pageOf(1366)];
-                check(`3. the type on every project page: below 900px the title ${n.title.replace(' / 700', '')} Bold, back the same Light, the description ${n.text.replace(' / 300', '')}, the facts on a line of 1.42 (${n.facts.split(' / ')[1]}), a caption ${n.caption.replace(' / 300', '')}; from 900px ${w.title.replace(' / 700', '')}, ${w.text.replace(' / 300', '')}, ${w.facts.split(' / ')[1]} and ${w.caption.replace(' / 300', '')}; all Light but the title, the facts' labels and bold in content; the 404 page in the body's own type, ${plainType(390).replace(' / 300', '')} below 720px and ${plainType(1366).replace(' / 300', '')} from there (at 390, 800 and 1366px: ${pieces} pieces of text, ${captions} of them captions)`,
+                check(`3. the type on every project page: below 900px the title ${n.title.replace(' / 700', '')} Bold, back the same Light, the description ${n.text.replace(' / 300', '')}, the facts on a line of 1.42 (${n.facts.split(' / ')[1]}), a caption ${n.caption.replace(' / 300', '')}; from 900px ${w.title.replace(' / 700', '')}, ${w.text.replace(' / 300', '')}, ${w.facts.split(' / ')[1]} and ${w.caption.replace(' / 300', '')}; all Light but the title, the facts' labels and bold in content; the 404 page in the body's own type, ${plainType(390).replace(' / 300', '')} below 720px and ${plainType(1366).replace(' / 300', '')} from there (at 390, 800 and 1366px, each page once its slideshows have rendered: ${pieces} pieces of text, ${captions} of them captions, ${waiting} of those under photos not on show)`,
                     wrong.length === 0 && captions > 0, wrong.slice(0, 4).join(' | '));
             }
             // The 404 page keeps its layout: back where the page's padding puts it, the words 55px under it.
