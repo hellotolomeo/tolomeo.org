@@ -1844,12 +1844,13 @@ try {
                         await page.evaluate(() => document.querySelector('project-index').setState({ projects: window.__projects }));
                     };
                 };
-                // Any filter: the most used tag.
+                // Any other filter: the most used tag, or the next one if that was the filter just tried.
                 {
-                    await page.evaluate((t) => document.querySelector(`project-index .tag[data-tag="${CSS.escape(t)}"]`).click(), tagA);
-                    const applied = await filteredBy(tagA);
+                    const other = hiding === tagA ? tagB : tagA;
+                    await page.evaluate((t) => document.querySelector(`project-index .tag[data-tag="${CSS.escape(t)}"]`).click(), other);
+                    const applied = await filteredBy(other);
                     const some = await dateCells();
-                    heads.push([`with the filter "${tagA}"`, applied && some.rows.length > 0 && some.rows.length < m.rows.length ? headsOff(some) : 'the filter was not applied']);
+                    heads.push([`with the filter "${other}"`, applied && some.rows.length > 0 && some.rows.length < m.rows.length ? headsOff(some) : 'the filter was not applied']);
                     await show(width, height);
                 }
                 const takeBack = await withDate('2019, 2020');
