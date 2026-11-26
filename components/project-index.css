@@ -121,7 +121,7 @@ project-index .row:is(.on, :hover) .what::before {
   content: "";
   position: absolute;
   left: -27.2px;
-  top: calc(50% - 8px);
+  top: 1px;
   width: 14px;
   height: 16px;
   background: var(--link);
@@ -303,6 +303,10 @@ project-index .track {
     grid-template-columns: minmax(0, 11fr) minmax(0, 10fr);
     column-gap: 15px;
     align-items: center;
+  }
+
+  project-index .row:is(.on, :hover) .what::before {
+    top: calc(50% - 8px);
   }
 
   project-index .clip {

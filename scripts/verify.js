@@ -2657,6 +2657,8 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                         // The slanted types' box is wider than their layout by the lean on each side.
                         const lean = tags ? (tb.width - px(ts.width)) / 2 : 0;
                         const beside = tags && tb.top < last.bottom - 1 && tb.bottom > last.top + 1 && tb.left > last.left;
+                        const what = r.querySelector('.what');
+                        const chevron = getComputedStyle(what, '::before');
                         return {
                             slug: r.dataset.slug,
                             on: r.classList.contains('on'),
@@ -2667,6 +2669,8 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                             beside,
                             own: Boolean(tags) && !beside,
                             ragged: Math.max(...titleLines.map(l => Math.abs(l.left - first.left))),
+                            // The chevron of a row pointed at: how far its middle is under the middle of the title's first line, and its left edge from the title column's.
+                            chevron: chevron.content === 'none' ? null : { level: what.getBoundingClientRect().top + px(chevron.top) + px(chevron.height) / 2 - (first.top + first.bottom) / 2, left: px(chevron.left) },
                             tags: tags ? [tb.left, tb.top, tb.width, tb.height].join(' ') : '',
                         };
                     });
@@ -2676,7 +2680,8 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                 const wrapped = rows.filter(r => r.height > 28.5).length;
                 const alone = rows.filter(r => r.own);
                 const aloneKids = alone.filter(r => subs.has(r.slug)).length;
-                const pointed = rows.find(r => r.tags) ?? rows[0];
+                // Rather a row that takes more than one line: its chevron belongs on the first, where its date and its title are.
+                const pointed = rows.find(r => r.tags && r.height > 28.5) ?? rows.find(r => r.tags) ?? rows[0];
                 await page.evaluate((slug) => document.querySelector(`#row-${slug}`).scrollIntoView({ block: 'center', behavior: 'instant' }), pointed.slug);
                 const before = (await flow()).find(r => r.slug === pointed.slug);
                 await page.hover(`#row-${pointed.slug} .years`);
@@ -2684,9 +2689,9 @@ check(`6. at ${width}px every sub-project's row (${kids.length}) has no bullet, 
                 await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
                 const during = (await flow()).find(r => r.slug === pointed.slug);
                 await away();
-                check(`7. at ${width}×${height} the list has no columns: a row's types follow its title in the same flow, 15px after it, or on a line of their own 15px in from where the title starts (${alone.length} rows, ${aloneKids} of them sub-projects', whose title starts 20px in), and every line of a title starts under its first; all wrap as they need (${wrapped} of ${rows.length} rows take more than one line); nothing is cut, and nothing moves when a row is pointed at`,
-                    rows.length === published.length && boxed.length === 0 && during.on && during.tags === before.tags,
-                    `${boxed.slice(0, 3).map(r => `${r.slug}: ${r.boxes} boxes, ${r.lines}, gap ${r.gap.toFixed(2)}${r.own ? ' on a line of their own' : ''}, title lines ${r.ragged.toFixed(2)}px apart`).join('; ')} pointed: ${before.tags} → ${during.tags}`);
+                check(`7. at ${width}×${height} the list has no columns: a row's types follow its title in the same flow, 15px after it, or on a line of their own 15px in from where the title starts (${alone.length} rows, ${aloneKids} of them sub-projects', whose title starts 20px in), and every line of a title starts under its first; all wrap as they need (${wrapped} of ${rows.length} rows take more than one line); nothing is cut, and nothing moves when a row is pointed at, whose chevron is on the first line of its title, 14px left of the title's column (${pointed.slug}, ${Math.round((pointed.height - 10) / 18)} line${pointed.height > 28.5 ? 's' : ''})`,
+                    rows.length === published.length && boxed.length === 0 && during.on && during.tags === before.tags && before.chevron === null && during.chevron !== null && Math.abs(during.chevron.level) <= 1 && Math.abs(during.chevron.left + 27.2) <= 0.01,
+                    `chevron ${JSON.stringify(during.chevron)}; ${boxed.slice(0, 3).map(r => `${r.slug}: ${r.boxes} boxes, ${r.lines}, gap ${r.gap.toFixed(2)}${r.own ? ' on a line of their own' : ''}, title lines ${r.ragged.toFixed(2)}px apart`).join('; ')} pointed: ${before.tags} → ${during.tags}`);
             }
         }
 
