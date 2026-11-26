@@ -18,11 +18,12 @@ export function routes(data, config) {
         { path: '/', ...index },
         // The old address of the index: the same page, pointing search engines at /.
         { path: '/projects/', ...index, context: { ...index.context, canonical: `${config.SITE_URL}/` } },
-        {
-            path: '/info/',
-            page: 'shared/pages/info.html',
-            context: { pageTitle: 'Info', info: data.info, description: data.site.description },
-        },
+        // The pages of text with one picture: About (at /info/) and Collaborations.
+        ...data.sheets.map(sheet => ({
+            path: sheet.href,
+            page: 'shared/pages/sheet.html',
+            context: { pageTitle: sheet.title, sheet, description: data.site.description, canonical: `${config.SITE_URL}${sheet.href}` },
+        })),
         { path: '/404.html', page: 'shared/pages/404.html', context: { pageTitle: 'Nothing here' } },
     ];
     if (config.PROJECT_VIEW === 'page') {

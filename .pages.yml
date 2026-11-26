@@ -247,8 +247,8 @@ content:
         description: "The line at the top of the home page. Your name is written [Tolomeo](/info/): that makes it bold and a link to the Info page. Keep the [square] and (round) brackets as they are; change the other words freely."
 
   - name: info
-    label: Info page
-    description: "The Info page. Guide: https://github.com/hellotolomeo/tolomeo.org/blob/main/EDITING.md"
+    label: About page
+    description: "The About page (tolomeo.org/info/): a text with one picture beside it. Guide: https://github.com/hellotolomeo/tolomeo.org/blob/main/EDITING.md"
     type: file
     path: content/site/info.md
     format: yaml-frontmatter
@@ -269,3 +269,65 @@ content:
           format: markdown
           media: false
         description: "Paragraphs, links, bold and italic (italic shows slanted); other formatting is simplified on the site."
+      - name: image
+        label: Picture
+        type: image
+        options:
+          path: images/info
+          extensions: [jpg, jpeg, png, webp, avif, gif, svg, heic, heif, tif, tiff, JPG, JPEG, PNG, WEBP, HEIC, HEIF, TIF, TIFF]
+        description: "The one picture on the page, shown whole, with a soft shadow around it: to the left of the text on a computer, under the text on a phone. Its folder is images/info. Empty = the page is the text alone."
+      - name: alt
+        label: Description of the picture
+        type: string
+        description: "Describe the picture for people who can't see it."
+      - name: caption
+        label: Caption
+        type: string
+        description: "Optional. Shown under the picture. Put *asterisks* around words to slant them, e.g. a *Book Title*."
+      - name: note
+        label: Footnote
+        type: text
+        description: "Optional. A note to the text: under the text on a computer, after the picture on a phone. Start it with the mark you put in the text, e.g. an asterisk and a space. An empty line starts a second note."
+
+  - name: collaborations
+    label: Collaborations page
+    description: "The Collaborations page (tolomeo.org/collaborations/): a text with one picture beside it. Guide: https://github.com/hellotolomeo/tolomeo.org/blob/main/EDITING.md"
+    type: file
+    path: content/site/collaborations.md
+    format: yaml-frontmatter
+    operations:
+      create: false
+      rename: false
+      delete: false
+    fields:
+      - name: title
+        label: Title
+        type: string
+        readonly: true
+        description: "Fixed by the design."
+      - name: body
+        label: Text
+        type: rich-text
+        options:
+          format: markdown
+          media: false
+        description: "Paragraphs, links, bold and italic (italic shows slanted); other formatting is simplified on the site."
+      - name: image
+        label: Picture
+        type: image
+        options:
+          path: images/collaborations
+          extensions: [jpg, jpeg, png, webp, avif, gif, svg, heic, heif, tif, tiff, JPG, JPEG, PNG, WEBP, HEIC, HEIF, TIF, TIFF]
+        description: "The one picture on the page, shown whole, with a soft shadow around it: to the left of the text on a computer, under the text on a phone. Its folder is images/collaborations. Empty = the page is the text alone."
+      - name: alt
+        label: Description of the picture
+        type: string
+        description: "Describe the picture for people who can't see it."
+      - name: caption
+        label: Caption
+        type: string
+        description: "Optional. Shown under the picture. Put *asterisks* around words to slant them, e.g. a *Book Title*."
+      - name: note
+        label: Footnote
+        type: text
+        description: "Optional. A note to the text: under the text on a computer, after the picture on a phone. Start it with the mark you put in the text, e.g. an asterisk and a space. An empty line starts a second note."

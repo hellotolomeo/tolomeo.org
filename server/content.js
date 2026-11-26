@@ -10,6 +10,8 @@
  * may be { image, alt, caption, set } objects or bare strings; a caption is one
  * line of Markdown; `set` is the number of the group the photo is shown in (1
  * when it is left out), and a project page shows its sets one under the other.
+ * The pages of text with one picture (About, Collaborations: content/site/) have
+ * `image`, `alt`, `caption` and `note` (a footnote) beside their text.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -27,7 +29,7 @@ import { markdownLines } from './markdown.js';
 export function loadContent({ root, images, config, log = () => {} }) {
     const warn = (msg) => log(`content: ${msg}`);
     const index = readFront(join(root, 'content/site/index.md'));
-    const info = readFront(join(root, 'content/site/info.md'));
+    const sheets = SHEETS.map(page => sheet(page, readFront(join(root, 'content/site', `${page.name}.md`)), { images, warn }));
 
     const seen = new Set();
     const raw = readdirSync(join(root, 'content/projects'))
@@ -66,13 +68,14 @@ export function loadContent({ root, images, config, log = () => {} }) {
             intro: markdownInline(str(index.data.intro)),
             description: markdownText(str(index.data.intro)),
         },
-        info: { title: str(info.data.title) || 'Info', body: markdown(info.content) },
+        sheets,
         projects,
         // What the index component needs, and nothing more (but see lean()): it rides on the page as JSON.
         indexProjects: projects.map(lean),
         tags,
         coversCss: coversCss(projects, config),
         slidesCss: slidesCss(projects),
+        figuresCss: figuresCss(sheets),
     };
 }
 
@@ -313,6 +316,52 @@ function details(text) {
     return markdownLines(text).map(lines => `<div class="extra">\n${lines.map(line => `<p>${line}</p>`).join('\n')}\n</div>`).join('\n');
 }
 
+// --- The pages of text with one picture (shared/pages/sheet.html, client/sheet.css).
+// `name` is the content file (content/site/<name>.md), the page's address (/<name>/) and the
+// folder a bare file name is looked for in (images/<name>/); `title` stands in for a title that
+// is left empty. The first is the About page, at the address it has always had.
+const SHEETS = [{ name: 'info', title: 'About' }, { name: 'collaborations', title: 'Collaborations' }];
+
+// One such page, every field present (the CMS drops what is empty): the text, the picture with its
+// description (`alt`, '' when none is written: the picture is then passed over by a screen
+// reader), the caption (one line of Markdown) and the footnote. A page without a picture has no
+// caption either: a caption is the picture's.
+// (Exported for scripts/verify.js, which checks made-up pages.)
+export function sheet({ name, title }, { data, content }, { images, warn }) {
+    const value = str(data.image);
+    // The CMS writes the full public path; a bare file name is looked for in the page's own folder.
+    const g = picture(value && !/[\\/]/.test(value) ? `${name}/${value}` : value, name, str(data.alt), images, warn, false);
+    return {
+        name,
+        href: `/${name}/`,
+        title: str(data.title) || title,
+        body: markdown(content ?? ''),
+        // What client/figures.css hangs the picture's proportions on.
+        id: `figure-${name}`,
+        picture: g ? { src: g.src, srcset: g.srcset, webp: g.webp, sizes: sheetSizes(g), width: g.width, height: g.height, alt: g.alt } : null,
+        caption: g ? markdownInline(str(data.caption)) : '',
+        note: note(data.note),
+    };
+}
+
+// A footnote → its paragraphs: an empty line starts a new one, and each is one line of Markdown,
+// so the mark it starts with ("* By …") stays a mark: read as a block, that line would be a list
+// item and lose it.
+function note(value) {
+    const typed = Array.isArray(value) ? value.map(str).join('\n\n') : str(value);
+    return typed.split(/(?:\r\n?|\n)[\t ]*(?:\r\n?|\n)\s*/).map(block => markdownInline(block.replace(/\s+/g, ' ').trim())).filter(Boolean).map(html => `<p>${html}</p>`).join('\n');
+}
+
+// The picture of such a page is as large as fits its room (client/sheet.css), and `sizes` says that
+// width before any stylesheet is read. Below 900px: the page less 24px on either side. From 900px
+// the picture is in the left half of the page (the page less its 34px paddings and the 17px
+// between the halves, halved: 50vw - 42.5px) and no taller than what the window has left under the
+// 71px header, less 76px (or than 160px, where less than that is left).
+function sheetSizes(g) {
+    const a = aspect(g) ?? 1.5;
+    return `(max-width: 899px) calc(100vw - 48px), min(calc(50vw - 42.5px), calc(max(160px, 100vh - 147px) * ${a}))`;
+}
+
 // --- Generated stylesheets: proportions never go inline. Each picture's box (`.box` in the grid,
 // `.frame` on a project page: names from when it had a border) takes its image's own proportions
 // (--a), so no photo is ever cropped and the box, with its shadow, is exactly the picture.
@@ -357,4 +406,14 @@ export function slidesCss(projects) {
         }
     }
     return rules.join('\n') + '\n';
+}
+
+/** client/figures.css: one rule per page of text with a picture, by its figure's id (client/sheet.css). */
+export function figuresCss(sheets) {
+    const rules = [];
+    for (const page of sheets) {
+        const a = aspect(page.picture);
+        if (a) rules.push(`#${page.id}{--a:${a}}`);
+    }
+    return rules.join('\n') + (rules.length ? '\n' : '');
 }

@@ -115,8 +115,11 @@ async function freeName(dir, base, ext) {
 }
 
 // Every way content can name the image (as server/content.js resolves them): the public
-// path, the path under images/, and, in its own project's file, the bare file name; each
-// also URL-encoded. Only whole values are replaced (x.tif never matches inside x.tiff).
+// path, the path under images/, and, in its own page's file, the bare file name (a project's
+// photos are in images/projects/<slug>/ and its file is content/projects/<slug>.md; the
+// picture of a page of text, About or Collaborations, is in images/<page>/ and its file is
+// content/site/<page>.md); each also URL-encoded. Only whole values are replaced (x.tif
+// never matches inside x.tiff).
 async function rewriteReferences(contentDir, fromRel, toRel) {
   const forms = (a, b) => {
     const list = [[a, b]];
@@ -124,7 +127,9 @@ async function rewriteReferences(contentDir, fromRel, toRel) {
     return list;
   };
   const everywhere = [...forms(`/images/${fromRel}`, `/images/${toRel}`), ...forms(`images/${fromRel}`, `images/${toRel}`)];
-  const bare = fromRel.match(/^projects\/([^/]+)\/([^/]+)$/);
+  const inProject = fromRel.match(/^projects\/([^/]+)\/([^/]+)$/);
+  const inPage = fromRel.match(/^([^/]+)\/([^/]+)$/);
+  const bare = inProject ? { file: `projects/${inProject[1]}.md`, name: inProject[2] } : inPage ? { file: `site/${inPage[1]}.md`, name: inPage[2] } : null;
   const toName = toRel.split('/').pop();
   const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const whole = (s) => new RegExp(`(?<=^|[\\s"':\\[(])${escape(s)}(?=$|[\\s"',\\])])`, 'gm');
@@ -135,10 +140,10 @@ async function rewriteReferences(contentDir, fromRel, toRel) {
     const text = await readFile(file, 'utf8');
     let next = text;
     for (const [a, b] of everywhere) next = next.replace(whole(a), b);
-    // A bare file name only where it is a whole YAML value in its own project's file
-    // (`cover: x.jpg`, `- image: x.jpg`), never inside a sentence.
-    if (bare && rel === `projects/${bare[1]}.md`) {
-      for (const [a, b] of forms(bare[2], toName)) {
+    // A bare file name only where it is a whole YAML value in its own page's file
+    // (`cover: x.jpg`, `- image: x.jpg`, `image: x.jpg`), never inside a sentence.
+    if (bare && rel === bare.file) {
+      for (const [a, b] of forms(bare.name, toName)) {
         next = next.replace(new RegExp(`(?<=^\\s*(?:-\\s+)?(?:[\\w-]+:\\s*)?["']?)${escape(a)}(?=["']?\\s*$)`, 'gm'), b);
       }
     }

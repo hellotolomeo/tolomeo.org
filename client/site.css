@@ -244,15 +244,6 @@ project-slides .frame {
   padding: 42px 16px 96px;
 }
 
-.page .text {
-  max-width: 420px;
-  margin-top: 55px;
-}
-
-.page .text p {
-  margin: 0 0 7px;
-}
-
 .page h1 {
   margin: 55px 0 0;
   font-size: inherit;

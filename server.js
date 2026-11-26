@@ -70,6 +70,7 @@ const server = createServer(async (req, res) => {
         try { pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname); } catch { pathname = '/404.html#'; }
         if (pathname === '/client/covers.css') return send(res, 200, TYPES['.css'], (await load()).coversCss);
         if (pathname === '/client/slides.css') return send(res, 200, TYPES['.css'], (await load()).slidesCss);
+        if (pathname === '/client/figures.css') return send(res, 200, TYPES['.css'], (await load()).figuresCss);
         for (const [prefix, dir] of STATIC) {
             if (!pathname.startsWith(prefix)) continue;
             if (prefix === '/lib/' && pathname.startsWith('/lib/zeldman/')) break;

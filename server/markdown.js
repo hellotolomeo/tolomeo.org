@@ -94,7 +94,7 @@ function paragraphs(html) {
     return html.trimStart().startsWith('<p>') ? html : wrap(html);
 }
 
-/** Block Markdown (a description, the Info page) → paragraphs and links. */
+/** Block Markdown (a description, the text of the About and Collaborations pages) → paragraphs and links. */
 export function markdown(src) {
     return src && typeof src === 'string' ? tie(md.parse(src)).trim() : '';
 }
