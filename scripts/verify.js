@@ -2662,7 +2662,7 @@ try {
                 }
                 if (!waiting.length) check('3. from 900px until the slideshow\'s script has run: ok (no project in content has a set of several photos; the check was skipped)', true);
                 else check(`3. from 900px, until the slideshow's script has run, nothing of a photo that the script will hide is in the window, and the first photo is where the script shows it: the page opens on one photo and stays on it (1366 × 710 and 900 × 600; the ${waiting.length} pages with a set of several photos; measured before the script in ${held} of ${2 * waiting.length} loads)`,
-                    flashed.length === 0 && held === 2 * waiting.length, flashed.slice(0, 4).join(' | ') || 'the script was there before the page could be measured without it: the check tried nothing in some loads');
+                    flashed.length === 0 && held === 2 * waiting.length, flashed.slice(0, 4).join(' | ') || (held === 2 * waiting.length ? '' : 'the script was there before the page could be measured without it: the check tried nothing in some loads'));
             }
             // 3. The pages of text with one picture, About and Collaborations (client/sheet.css), on a page of their
             // own that watches the document from the moment the parser is done: before the module script runs.
