@@ -848,8 +848,11 @@ const infoOff = (at) => {
 // tall as the row (its drawing still beside the caption's middle), and beside a photo that reaches into
 // that corner (within 59px of the half's left edge) it is 52.5px at most: its drawing is then no lower
 // than beside a caption of three lines, however long the caption.
-// A set is as tall as its photo and that row, and at least the window less the header below 900px; from
-// 900px it ends 20px under the row (the last of several sets 52px more, on a page with "previous").
+// A set is as tall as its photo and that row, and at least the window less the header below 900px. From
+// 900px a set that is alone on its page ends where the row ends, so that nothing under the row makes the
+// page longer than what is on it (the design's 20px under the row made a page scroll by 2px with all of it
+// in the window); one of several sets ends 20px under its row, which is what parts it from the next (the
+// last of them 52px more, on a page with "previous").
 // Returns what is off, or ''.
 const offDesign = (set, at) => {
     const d = pageOf(at.vw);
@@ -899,7 +902,7 @@ const offDesign = (set, at) => {
         if (!near(g.width, 12.4, 0.05) || !near(g.height, 14.3, 0.05) || (arrow === set.prev ? !near(g.left, arrow.left, 0.05) : !near(g.right, arrow.right, 0.05)) || !near(g.top + g.height / 2, arrow.top + arrow.height / 2, 0.05)) off.push(`${name} chevron's drawing ${g.width}×${g.height} at ${g.left - arrow.left}, ${g.top - arrow.top} in its column`);
         if (arrow.colour !== 'rgb(153, 86, 122)') off.push(`${name} chevron ${arrow.colour}`);
     }
-    const height = d.wide ? frame.height + tall + 20 + (set.last && at.prev ? 52 : 0) : Math.max(at.vh - d.head, frame.height + tall);
+    const height = d.wide ? frame.height + tall + (at.sets.length === 1 ? 0 : 20) + (set.last && at.prev ? 52 : 0) : Math.max(at.vh - d.head, frame.height + tall);
     if (!near(set.height, height)) off.push(`set ${set.height} tall, not ${height}`);
     return off.join('; ');
 };
@@ -1701,7 +1704,8 @@ try {
                 const d = pageOf(width);
                 const wrong = [];
                 const corners = [];
-                const tally = { photos: 0, upright: 0, lying: 0, alone: 0, bare: 0, long: 0, cleared: 0, wrapped: 0, widest: null, narrowest: null };
+                const idle = [];
+                const tally = { photos: 0, upright: 0, lying: 0, alone: 0, bare: 0, long: 0, cleared: 0, wrapped: 0, widest: null, narrowest: null, lone: 0, still: 0 };
                 for (const p of published) {
                     const counts = setsOf(p).map(set => set.length);
                     if (!counts.length) continue;
@@ -1725,6 +1729,15 @@ try {
                             const off = [set.current === i ? '' : `photo ${set.current + 1} shows`, offDesign(set, at), overlapping(set, at)].filter(Boolean).join('; ');
                             if (off) wrong.push(`${p.data.slug}, set ${n + 1}, photo ${i + 1}: ${off}`);
                             if (d.wide) for (const what of await covered()) corners.push(`${p.data.slug}, set ${n + 1} under the header, photo ${i + 1}: ${what}`);
+                            // From 900px, a page with one set: it is as long as the row under the photo (the caption with the 8px under it, the
+                            // chevrons) or the information makes it, and no longer. How far it scrolls is read from the page and held to that.
+                            if (d.wide && counts.length === 1) {
+                                const row = Math.max(set.frame.bottom, set.caption ? set.caption.bottom + 8 : 0, set.prev?.bottom ?? 0, set.next?.bottom ?? 0);
+                                const reach = Math.max(0, Math.max(row, at.info.bottom) + at.y - at.vh);
+                                tally.lone++;
+                                if (at.max === 0) tally.still++;
+                                if (Math.abs(at.max - reach) > 1) idle.push(`${p.data.slug}, photo ${i + 1}: the page scrolls by ${at.max}px, where the row under the photo ends at ${Math.round(row * 100) / 100}px and the information at ${Math.round(at.info.bottom * 100) / 100}px in a window ${at.vh}px tall`);
+                            }
                             tally.photos++;
                             if (set.a < 1) tally.upright++; else tally.lying++;
                             if (set.count === 1) tally.alone++;
@@ -1746,7 +1759,7 @@ try {
                         }
                     }
                 }
-                return { wrong, corners, tally };
+                return { wrong, corners, idle, tally };
             };
             const told = (t) => `${t.photos} photos: ${t.upright} taller than wide, ${t.lying} wider, ${t.alone} alone in their set, ${t.bare} without a caption, ${t.long} with a caption of four lines or more; the widest, ${t.widest.a} : 1, limited by its ${t.widest.by}, the narrowest, ${t.narrowest.a} : 1, by its ${t.narrowest.by}`;
 
@@ -1857,10 +1870,12 @@ try {
                     at.sets.length === 1 && off === '' && near(at.sets[0].top, 71) && at.y === 0, off || `${at.sets.length} set, its top at ${at.sets[0].top}, the page at ${at.y}`);
             }
             for (const [width, height] of [[1366, 710], [900, 600]]) {
-                const { wrong, corners, tally } = await sweep(width, height);
+                const { wrong, corners, idle, tally } = await sweep(width, height);
                 check(`3. at ${width} × ${height} every photo of every project is as large as fits its half of the page and the window under the header, the side that limits it exactly on its limit, right-aligned to the centre, without a border, the shadow around it, its picture over the whole box, its caption and its chevrons in the row under it and nothing over anything else; its sizes attribute gives its width to the pixel (${told(tally)}; ${tally.cleared} kept clear of "previous": ${CLEAR}px from the half's left edge or ${LOWER}px less tall)`,
                     wrong.length === 0 && tally.photos === published.reduce((n, p) => n + photos(p).length, 0), wrong.slice(0, 3).join(' | '));
                 check(`3. at ${width} × ${height} "previous" and "next", fixed in the window's lower corners, lie over no caption, no line of the information and no chevron: with each set directly under the header, for every photo of it, and at the end of the page, on every project page`, corners.length === 0, corners.slice(0, 4).join(' | '));
+                check(`3. at ${width} × ${height} a project page with one set of photos is only as long as the row under its photo, or its information, makes it: nothing under that row adds to the page, so a page whose photo, caption, chevrons and information are all in the window has nothing to scroll (how far the page scrolls, read for each of the ${tally.lone} photos on such pages; with ${tally.still} of them it does not scroll at all)`,
+                    idle.length === 0 && tally.lone > 0, idle.slice(0, 4).join(' | '));
             }
             await page.setViewportSize({ width: 1366, height: 710 });
 
